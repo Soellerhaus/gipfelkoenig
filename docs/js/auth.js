@@ -9,6 +9,7 @@ window.GK = window.GK || {};
 // Strava OAuth — Platzhalter-Konfiguration
 // ---------------------------------------------------------------------------
 const STRAVA_CLIENT_ID = '211591';
+const STRAVA_CLIENT_SECRET = '7a7f59b117e1ec641cd49803eb2ea7ee40ff40f0';
 const STRAVA_REDIRECT_URI = window.location.origin + window.location.pathname.replace(/[^/]*$/, '') + 'app.html';
 const STRAVA_AUTH_URL =
   'https://www.strava.com/oauth/authorize' +
@@ -162,10 +163,18 @@ function initLandingPage() {
     });
   }
 
-  // Strava-Verbindung — Weiterleitung zur OAuth-Seite
+  // Strava-Verbindung — Erst prüfen ob eingeloggt, dann weiterleiten
   if (stravaBtn) {
-    stravaBtn.addEventListener('click', function () {
-      window.location.href = STRAVA_AUTH_URL;
+    stravaBtn.addEventListener('click', async function () {
+      // Prüfen ob bereits eingeloggt
+      const { data: session } = await GK.supabase.auth.getSession();
+      if (session.session) {
+        // Bereits eingeloggt — direkt zu Strava
+        window.location.href = STRAVA_AUTH_URL;
+        return;
+      }
+      // Nicht eingeloggt — Hinweis zeigen
+      zeigeAuthFehler('Bitte zuerst registrieren oder anmelden, dann Strava verbinden.');
     });
   }
 }
@@ -200,18 +209,56 @@ async function initAppPage() {
 
   if (stravaCode) {
     try {
-      // Code an die Edge Function senden, um Token zu tauschen
-      const { data, error } = await GK.supabase.functions.invoke('strava-callback', {
-        body: { code: stravaCode },
+      console.log('Strava-Code erhalten, tausche gegen Token...');
+
+      // Token-Austausch direkt über Strava API
+      const tokenResponse = await fetch('https://www.strava.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: STRAVA_CLIENT_ID,
+          client_secret: STRAVA_CLIENT_SECRET,
+          code: stravaCode,
+          grant_type: 'authorization_code'
+        })
       });
 
-      if (error) {
-        console.error('Strava-OAuth-Fehler:', error);
+      const tokenData = await tokenResponse.json();
+
+      if (tokenData.access_token) {
+        console.log('Strava-Token erhalten! Athlete:', tokenData.athlete?.firstname);
+
+        // Strava-Daten im Profil speichern
+        await GK.supabase
+          .from('user_profiles')
+          .update({
+            strava_id: tokenData.athlete?.id?.toString(),
+            strava_token: tokenData.access_token,
+            strava_refresh_token: tokenData.refresh_token,
+            display_name: tokenData.athlete?.firstname + ' ' + tokenData.athlete?.lastname,
+            avatar_url: tokenData.athlete?.profile
+          })
+          .eq('id', benutzer.id);
+
+        // Avatar aktualisieren
+        const avatarEl = document.getElementById('user-avatar');
+        if (avatarEl && tokenData.athlete?.profile) {
+          avatarEl.innerHTML = '<img src="' + tokenData.athlete.profile + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+        }
+
+        // Erfolgs-Toast anzeigen
+        if (typeof GK.showToast === 'function') {
+          GK.showToast('Strava verbunden! Importiere Aktivitäten...', 'success');
+        }
+
+        // Automatischer Import aller Aktivitäten
+        console.log('Starte automatischen Aktivitäten-Import...');
+        await importStravaActivities(benutzer.id, tokenData.access_token);
       } else {
-        console.log('Strava erfolgreich verbunden.');
+        console.error('Strava Token-Fehler:', tokenData);
       }
 
-      // URL bereinigen — Code-Parameter entfernen
+      // URL bereinigen
       window.history.replaceState({}, document.title, 'app.html');
     } catch (err) {
       console.error('Fehler beim Strava-Callback:', err);
@@ -368,6 +415,145 @@ function initNavigation() {
 // ---------------------------------------------------------------------------
 // Initialisierung — erkennt automatisch, welche Seite geladen ist
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Strava Aktivitäten-Import (läuft im Browser nach OAuth)
+// ---------------------------------------------------------------------------
+
+// Haversine-Distanz in Metern
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+async function importStravaActivities(userId, accessToken) {
+  // Alle Gipfel aus der DB laden
+  let allPeaks = [];
+  let from = 0;
+  while (true) {
+    const { data } = await GK.supabase
+      .from('peaks')
+      .select('id, name, lat, lng, elevation, osm_region')
+      .range(from, from + 999);
+    if (!data || data.length === 0) break;
+    allPeaks = allPeaks.concat(data);
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+  console.log('Gipfel geladen:', allPeaks.length);
+
+  // Alle Strava-Aktivitäten abrufen
+  let page = 1;
+  let totalSummits = 0;
+  let totalActivities = 0;
+
+  while (true) {
+    const res = await fetch(
+      'https://www.strava.com/api/v3/athlete/activities?per_page=50&page=' + page,
+      { headers: { 'Authorization': 'Bearer ' + accessToken } }
+    );
+    const activities = await res.json();
+    if (!activities || !Array.isArray(activities) || activities.length === 0) break;
+
+    for (const activity of activities) {
+      if (!['Hike', 'Run', 'Walk', 'TrailRun', 'AlpineSki'].includes(activity.type)) continue;
+      if (!activity.total_elevation_gain || activity.total_elevation_gain < 100) continue;
+
+      totalActivities++;
+
+      // GPS-Streams abrufen
+      try {
+        const streamRes = await fetch(
+          'https://www.strava.com/api/v3/activities/' + activity.id + '/streams?keys=latlng,time&key_type=distance',
+          { headers: { 'Authorization': 'Bearer ' + accessToken } }
+        );
+
+        if (streamRes.status === 429) {
+          console.log('Rate Limit — warte 60 Sekunden...');
+          await new Promise(r => setTimeout(r, 60000));
+          continue;
+        }
+
+        const streams = await streamRes.json();
+        const latlngStream = streams.find(s => s.type === 'latlng');
+        const timeStream = streams.find(s => s.type === 'time');
+        if (!latlngStream) continue;
+
+        // GPS-Punkte gegen Gipfel prüfen (80m Radius)
+        const foundPeaks = new Map();
+        for (let i = 0; i < latlngStream.data.length; i++) {
+          const [lat, lng] = latlngStream.data[i];
+          for (const peak of allPeaks) {
+            if (foundPeaks.has(peak.id)) continue;
+            const dist = haversineDistance(lat, lng, peak.lat, peak.lng);
+            if (dist <= 80) {
+              const timeOffset = timeStream ? timeStream.data[i] : 0;
+              const summitTime = new Date(new Date(activity.start_date).getTime() + timeOffset * 1000);
+              foundPeaks.set(peak.id, { peak, summitTime, dist });
+            }
+          }
+        }
+
+        // Gefundene Gipfel speichern
+        for (const [peakId, info] of foundPeaks) {
+          const season = info.summitTime.getFullYear().toString();
+          const points = Math.round((info.peak.elevation || 1000) * 0.2 + (info.peak.osm_region === 'AT-08' ? 100 : 0));
+
+          await GK.supabase.from('summits').upsert({
+            user_id: userId,
+            peak_id: peakId,
+            summited_at: info.summitTime.toISOString(),
+            season: season,
+            strava_activity_id: activity.id.toString(),
+            checkin_method: 'strava',
+            points: points,
+            safety_ok: true
+          }, { onConflict: 'user_id,peak_id,summited_at', ignoreDuplicates: true });
+
+          totalSummits++;
+          console.log('⛰️ ' + info.peak.name + ' (' + info.peak.elevation + 'm) — ' +
+            info.summitTime.toLocaleDateString('de') + ' — ' + Math.round(info.dist) + 'm');
+        }
+
+        // Rate Limiting: 2 Sekunden zwischen Requests
+        await new Promise(r => setTimeout(r, 2000));
+
+      } catch (err) {
+        console.error('Stream-Fehler für Aktivität ' + activity.id + ':', err);
+      }
+    }
+
+    console.log('Seite ' + page + ' verarbeitet: ' + totalActivities + ' Aktivitäten, ' + totalSummits + ' Gipfel');
+
+    if (typeof GK.showToast === 'function') {
+      GK.showToast('Import: ' + totalSummits + ' Gipfel gefunden...', 'success');
+    }
+
+    page++;
+  }
+
+  // Gesamt-Punkte berechnen und Profil aktualisieren
+  const { data: allSummits } = await GK.supabase
+    .from('summits')
+    .select('points')
+    .eq('user_id', userId);
+
+  const totalPoints = allSummits ? allSummits.reduce((s, r) => s + (r.points || 0), 0) : 0;
+  await GK.supabase.from('user_profiles').update({ total_points: totalPoints }).eq('id', userId);
+
+  console.log('Import abgeschlossen! ' + totalSummits + ' Gipfel, ' + totalPoints + ' Punkte');
+  if (typeof GK.showToast === 'function') {
+    GK.showToast('Import fertig! ' + totalSummits + ' Gipfel erkannt!', 'success');
+  }
+
+  // Seite neu laden um die Daten anzuzeigen
+  setTimeout(() => window.location.reload(), 3000);
+}
 
 document.addEventListener('DOMContentLoaded', function () {
   // Prüfen, ob wir auf der Landing-Page oder App-Seite sind

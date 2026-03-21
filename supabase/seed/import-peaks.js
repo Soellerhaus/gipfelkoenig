@@ -1,47 +1,105 @@
-// Gipfelkönig — OSM Gipfel Import Script
-// Importiert Gipfel aus OpenStreetMap Overpass API in Supabase
-// Aktuell: Nur Kleinwalsertal (erweiterbar auf gesamte Alpen)
+// Gipfelkoenig — OSM Gipfel Import Script
+// Importiert ALLE Gipfel aus den Alpen via OpenStreetMap Overpass API in Supabase
+// Gesamte Alpen: Bounding Box 45.5,5.5 — 48.0,16.0
 
-// Konfiguration — Supabase Credentials aus Umgebungsvariablen oder manuell setzen
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://xxxxx.supabase.co'
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_ROLE_KEY'
+// Konfiguration
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wbrvkweezbeakfphssxp.supabase.co'
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndicnZrd2VlemJlYWtmcGhzc3hwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDA4OTg2MSwiZXhwIjoyMDg5NjY1ODYxfQ.rIP9qn1gsgAYg9BJE7VJFBbYm0-YBXABiHhUkOChSDc'
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
 
-// Region: Kleinwalsertal
-const REGIONS = [
-  {
-    name: 'Kleinwalsertal',
-    osm_region: 'AT-08',
-    bbox: '47.32,10.08,47.42,10.25'
-  }
-  // Weitere Regionen können hier hinzugefügt werden:
-  // { name: 'Vorarlberg', osm_region: 'AT-08', bbox: '46.84,9.52,47.59,10.24' },
-  // { name: 'Tirol', osm_region: 'AT-07', bbox: '46.65,10.09,47.75,12.97' },
-  // { name: 'Bayern', osm_region: 'DE-BY', bbox: '47.27,10.18,47.73,13.84' },
-  // { name: 'Südtirol', osm_region: 'IT-32-BZ', bbox: '46.22,10.38,47.09,12.48' },
-]
+// Minimale Hoehe fuer Import
+const MIN_ELEVATION = 500
 
-async function fetchPeaksFromOSM(bbox) {
-  const query = `[out:json][timeout:60];
+// Gesamte Alpen in Teilregionen aufgeteilt (um Overpass-Timeouts zu vermeiden)
+// Format bbox: "south,west,north,east"
+// Wir teilen die Alpen in ein Raster von ca. 1.25° Laenge x 0.5° Breite
+function generateSubRegions() {
+  const regions = []
+  const south = 45.5
+  const north = 48.0
+  const west = 5.5
+  const east = 16.0
+  const latStep = 0.5
+  const lngStep = 1.5
+
+  for (let lat = south; lat < north; lat += latStep) {
+    for (let lng = west; lng < east; lng += lngStep) {
+      const s = lat
+      const n = Math.min(lat + latStep, north)
+      const w = lng
+      const e = Math.min(lng + lngStep, east)
+      regions.push({
+        name: `Tile ${s.toFixed(1)}-${n.toFixed(1)}N / ${w.toFixed(1)}-${e.toFixed(1)}E`,
+        bbox: `${s},${w},${n},${e}`
+      })
+    }
+  }
+  return regions
+}
+
+// Region-Zuordnung basierend auf Koordinaten
+function assignOsmRegion(lat, lng) {
+  // AT-08 Vorarlberg
+  if (lat >= 46.8 && lat <= 47.5 && lng >= 9.5 && lng <= 10.3) return 'AT-08'
+  // AT-07 Tirol
+  if (lat >= 46.7 && lat <= 47.6 && lng >= 10.3 && lng <= 12.8) return 'AT-07'
+  // DE-BY Bayern
+  if (lat >= 47.2 && lat <= 47.8 && lng >= 10.0 && lng <= 13.2) return 'DE-BY'
+  // IT-32-BZ Suedtirol
+  if (lat >= 46.2 && lat <= 47.1 && lng >= 10.3 && lng <= 12.5) return 'IT-32-BZ'
+  // CH Schweiz
+  if (lat >= 45.8 && lat <= 47.8 && lng >= 5.9 && lng <= 10.5) return 'CH'
+  // Default
+  return 'ALPEN'
+}
+
+async function fetchPeaksFromOSM(bbox, retries = 3) {
+  const query = `[out:json][timeout:120];
 node["natural"="peak"](${bbox});
 out body;`
 
-  const response = await fetch(OVERPASS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'data=' + encodeURIComponent(query)
-  })
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(OVERPASS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(query)
+      })
 
-  if (!response.ok) {
-    throw new Error(`Overpass API Fehler: HTTP ${response.status}`)
+      if (response.status === 429 || response.status === 504) {
+        const waitSec = attempt * 15
+        console.log(`    Overpass busy (HTTP ${response.status}), warte ${waitSec}s... (Versuch ${attempt}/${retries})`)
+        await sleep(waitSec * 1000)
+        continue
+      }
+
+      if (!response.ok) {
+        throw new Error(`Overpass API Fehler: HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      // Nur Peaks mit Namen zurueckgeben
+      return data.elements.filter(el => el.tags && el.tags.name)
+    } catch (err) {
+      if (attempt < retries) {
+        const waitSec = attempt * 10
+        console.log(`    Fehler: ${err.message}, warte ${waitSec}s... (Versuch ${attempt}/${retries})`)
+        await sleep(waitSec * 1000)
+      } else {
+        throw err
+      }
+    }
   }
-
-  const data = await response.json()
-  return data.elements.filter(el => el.tags && el.tags.name)
+  return []
 }
 
-function transformPeak(osmPeak, osmRegion) {
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function transformPeak(osmPeak) {
   const elevation = osmPeak.tags.ele ? parseInt(osmPeak.tags.ele) : null
+  const region = assignOsmRegion(osmPeak.lat, osmPeak.lon)
   return {
     id: osmPeak.id,
     name: osmPeak.tags.name,
@@ -49,19 +107,15 @@ function transformPeak(osmPeak, osmRegion) {
     lat: osmPeak.lat,
     lng: osmPeak.lon,
     elevation,
-    osm_region: osmRegion,
-    is_active: true,
-    // PostGIS Geometry als WKT (Well-Known Text)
-    geom: `SRID=4326;POINT(${osmPeak.lon} ${osmPeak.lat})`
+    osm_region: region,
+    is_active: true
   }
 }
 
-async function upsertToSupabase(peaks) {
-  // Da wir keinen Supabase JS Client als Dependency haben,
-  // nutzen wir die REST API direkt
+async function upsertToSupabase(peaks, label) {
   const imported = []
   const errors = []
-  const batchSize = 50
+  const batchSize = 100
 
   for (let i = 0; i < peaks.length; i += batchSize) {
     const batch = peaks.slice(i, i + batchSize)
@@ -84,14 +138,14 @@ async function upsertToSupabase(peaks) {
 
       if (response.ok) {
         imported.push(...batch)
-        printProgress(progress, batch.length, peaks.length)
+        printProgress(label, progress, i + batch.length, peaks.length)
       } else {
         const errorText = await response.text()
-        console.error(`\n  Batch-Fehler (${i}-${i + batch.length}): ${errorText}`)
+        console.error(`\n    Batch-Fehler (${i}-${i + batch.length}): ${errorText.substring(0, 200)}`)
         errors.push({ batch: i, error: errorText })
       }
     } catch (err) {
-      console.error(`\n  Netzwerk-Fehler: ${err.message}`)
+      console.error(`\n    Netzwerk-Fehler: ${err.message}`)
       errors.push({ batch: i, error: err.message })
     }
   }
@@ -99,65 +153,129 @@ async function upsertToSupabase(peaks) {
   return { imported: imported.length, errors: errors.length }
 }
 
-function printProgress(percent, batchCount, total) {
-  const bar = '█'.repeat(Math.round(percent / 5)) + '░'.repeat(20 - Math.round(percent / 5))
-  process.stdout.write(`\r  [${bar}] ${percent}% (${batchCount}/${total})`)
+function printProgress(label, percent, current, total) {
+  const bar = '#'.repeat(Math.round(percent / 5)) + '-'.repeat(20 - Math.round(percent / 5))
+  process.stdout.write(`\r    [${bar}] ${percent}% (${current}/${total})`)
 }
 
 async function main() {
-  console.log('═══════════════════════════════════════════════')
-  console.log('  Gipfelkönig — OSM Gipfel Import')
-  console.log('═══════════════════════════════════════════════\n')
+  console.log('===================================================')
+  console.log('  Gipfelkoenig — Alpen Gipfel Import (FULL)')
+  console.log('  Bounding Box: 45.5,5.5 — 48.0,16.0')
+  console.log('  Mindesthoehe: ' + MIN_ELEVATION + 'm')
+  console.log('===================================================\n')
 
+  const subRegions = generateSubRegions()
+  console.log(`Aufgeteilt in ${subRegions.length} Teilregionen\n`)
+
+  let totalFetched = 0
   let totalImported = 0
+  let totalFiltered = 0
   let totalErrors = 0
+  const allPeaks = new Map() // Deduplizierung ueber OSM ID
+  const regionStats = {}
 
-  for (const region of REGIONS) {
-    console.log(`→ Region: ${region.name} (${region.osm_region})`)
-    console.log(`  Bounding Box: ${region.bbox}`)
+  // Schritt 1: Alle Gipfel von OSM laden
+  console.log('=== PHASE 1: Gipfel von OpenStreetMap laden ===\n')
 
-    // Schritt 1: Gipfel von OSM laden
-    console.log('  Lade Gipfel von OpenStreetMap...')
-    const osmPeaks = await fetchPeaksFromOSM(region.bbox)
-    console.log(`  ✓ ${osmPeaks.length} Gipfel gefunden\n`)
+  for (let i = 0; i < subRegions.length; i++) {
+    const region = subRegions[i]
+    process.stdout.write(`  [${i + 1}/${subRegions.length}] ${region.name}...`)
 
-    // Schritt 2: Transformieren
-    const peaks = osmPeaks.map(p => transformPeak(p, region.osm_region))
-
-    // Höhenstatistik
-    const withElevation = peaks.filter(p => p.elevation !== null)
-    const maxEle = withElevation.length > 0 ? Math.max(...withElevation.map(p => p.elevation)) : 0
-    const minEle = withElevation.length > 0 ? Math.min(...withElevation.map(p => p.elevation)) : 0
-    console.log(`  Höhenbereich: ${minEle}m — ${maxEle}m`)
-    console.log(`  Mit Höhenangabe: ${withElevation.length}/${peaks.length}\n`)
-
-    // Schritt 3: In Supabase importieren (Dry-Run wenn keine Credentials)
-    if (SUPABASE_URL.includes('xxxxx')) {
-      console.log('  ⚠ SUPABASE_URL nicht konfiguriert — Dry-Run Modus')
-      console.log('  Setze SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY als Umgebungsvariablen.')
-      console.log(`\n  Würde ${peaks.length} Gipfel importieren. Beispiele:`)
-      peaks.slice(0, 5).forEach(p => {
-        console.log(`    • ${p.name} (${p.elevation || '?'}m) [${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}]`)
-      })
-      totalImported += peaks.length
-    } else {
-      console.log('  Importiere in Supabase...')
-      const result = await upsertToSupabase(peaks)
-      console.log(`\n  ✓ ${result.imported} importiert, ${result.errors} Fehler`)
-      totalImported += result.imported
-      totalErrors += result.errors
+    try {
+      const osmPeaks = await fetchPeaksFromOSM(region.bbox)
+      let added = 0
+      for (const peak of osmPeaks) {
+        if (!allPeaks.has(peak.id)) {
+          allPeaks.set(peak.id, peak)
+          added++
+        }
+      }
+      console.log(` ${osmPeaks.length} gefunden, ${added} neu (gesamt: ${allPeaks.size})`)
+    } catch (err) {
+      console.log(` FEHLER: ${err.message}`)
     }
 
-    console.log('')
+    // Kleine Pause zwischen Anfragen um Overpass nicht zu ueberlasten
+    if (i < subRegions.length - 1) {
+      await sleep(2000)
+    }
+  }
+
+  totalFetched = allPeaks.size
+  console.log(`\nInsgesamt ${totalFetched} eindeutige Gipfel geladen\n`)
+
+  // Schritt 2: Transformieren und filtern
+  console.log('=== PHASE 2: Transformieren und filtern ===\n')
+
+  const peaks = []
+  let noElevation = 0
+
+  for (const [id, osmPeak] of allPeaks) {
+    const peak = transformPeak(osmPeak)
+
+    // Filtern: nur Gipfel > MIN_ELEVATION
+    if (peak.elevation === null) {
+      noElevation++
+      continue
+    }
+    if (peak.elevation < MIN_ELEVATION) {
+      totalFiltered++
+      continue
+    }
+
+    peaks.push(peak)
+
+    // Statistik pro Region
+    if (!regionStats[peak.osm_region]) {
+      regionStats[peak.osm_region] = 0
+    }
+    regionStats[peak.osm_region]++
+  }
+
+  console.log(`  Gipfel mit Hoehe > ${MIN_ELEVATION}m: ${peaks.length}`)
+  console.log(`  Gefiltert (< ${MIN_ELEVATION}m): ${totalFiltered}`)
+  console.log(`  Ohne Hoehenangabe (uebersprungen): ${noElevation}`)
+  console.log(`\n  Verteilung nach Region:`)
+  for (const [region, count] of Object.entries(regionStats).sort((a, b) => b[1] - a[1])) {
+    console.log(`    ${region}: ${count} Gipfel`)
+  }
+
+  // Hoehenstatistik
+  const elevations = peaks.map(p => p.elevation).filter(e => e !== null)
+  if (elevations.length > 0) {
+    console.log(`\n  Hoehenbereich: ${Math.min(...elevations)}m — ${Math.max(...elevations)}m`)
+    const avgEle = Math.round(elevations.reduce((a, b) => a + b, 0) / elevations.length)
+    console.log(`  Durchschnitt: ${avgEle}m`)
+  }
+
+  // Schritt 3: In Supabase importieren
+  console.log('\n=== PHASE 3: Import in Supabase ===\n')
+
+  if (SUPABASE_URL.includes('xxxxx')) {
+    console.log('  SUPABASE_URL nicht konfiguriert — Dry-Run Modus')
+    totalImported = peaks.length
+  } else {
+    console.log(`  Importiere ${peaks.length} Gipfel in Batches...\n`)
+    const result = await upsertToSupabase(peaks, 'Import')
+    totalImported = result.imported
+    totalErrors = result.errors
+    console.log(`\n\n  Ergebnis: ${result.imported} importiert, ${result.errors} Fehler`)
   }
 
   // Zusammenfassung
-  console.log('═══════════════════════════════════════════════')
+  console.log('\n===================================================')
   console.log('  Import abgeschlossen')
-  console.log('═══════════════════════════════════════════════')
-  console.log(`  Regionen:    ${REGIONS.length}`)
-  console.log(`  Importiert:  ${totalImported} Gipfel`)
-  if (totalErrors > 0) console.log(`  Fehler:      ${totalErrors}`)
+  console.log('===================================================')
+  console.log(`  OSM Gipfel geladen:  ${totalFetched}`)
+  console.log(`  Gefiltert (< ${MIN_ELEVATION}m): ${totalFiltered}`)
+  console.log(`  Ohne Hoehe:          ${noElevation}`)
+  console.log(`  Importiert:          ${totalImported} Gipfel`)
+  if (totalErrors > 0) console.log(`  Fehler:              ${totalErrors}`)
+  console.log(`\n  Regionen:`)
+  for (const [region, count] of Object.entries(regionStats).sort((a, b) => b[1] - a[1])) {
+    console.log(`    ${region}: ${count}`)
+  }
   console.log('')
 }
 
