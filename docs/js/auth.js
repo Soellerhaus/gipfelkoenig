@@ -218,6 +218,32 @@ async function initAppPage() {
     }
   }
 
+  // Profil-Avatar mit Initialen füllen
+  const profilAvatar = document.getElementById('profile-avatar');
+  const profilName = document.getElementById('profile-name');
+  const profilUsername = document.getElementById('profile-username');
+  if (profil && profilName) {
+    profilName.textContent = profil.display_name || profil.username || 'Bergfreund';
+    if (profilUsername) profilUsername.textContent = '@' + (profil.username || '');
+    if (profilAvatar) {
+      if (profil.avatar_url) {
+        profilAvatar.style.backgroundImage = 'url(' + profil.avatar_url + ')';
+        profilAvatar.style.backgroundSize = 'cover';
+        profilAvatar.textContent = '';
+      } else {
+        profilAvatar.textContent = (profil.username || 'B').charAt(0).toUpperCase();
+      }
+    }
+  }
+
+  // Strava-Button im Profil
+  const stravaProfileBtn = document.getElementById('strava-profile-btn');
+  if (stravaProfileBtn) {
+    stravaProfileBtn.addEventListener('click', function () {
+      window.location.href = STRAVA_AUTH_URL;
+    });
+  }
+
   // Abmelde-Button
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
