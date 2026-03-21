@@ -238,10 +238,11 @@ async function initAppPage() {
 function initNavigation() {
   const navItems = document.querySelectorAll('.nav-item');
   const sections = document.querySelectorAll('.content-section');
+  const mapContainer = document.getElementById('map-section');
 
   navItems.forEach(function (item) {
     item.addEventListener('click', function () {
-      const zielId = item.getAttribute('data-section');
+      const zielId = 'section-' + item.getAttribute('data-section');
 
       // Alle Abschnitte ausblenden
       sections.forEach(function (section) {
@@ -253,10 +254,20 @@ function initNavigation() {
         nav.classList.remove('active');
       });
 
+      // Karte nur bei Karte-Tab anzeigen
+      if (mapContainer) {
+        mapContainer.style.display = (zielId === 'section-map') ? 'block' : 'none';
+      }
+
       // Zielabschnitt einblenden und Nav-Element hervorheben
       const zielSection = document.getElementById(zielId);
       if (zielSection) zielSection.style.display = 'block';
       item.classList.add('active');
+
+      // Karte neu berechnen wenn sichtbar (Leaflet Bug)
+      if (zielId === 'section-map' && GK.map && GK.map.leaflet) {
+        setTimeout(function () { GK.map.leaflet.invalidateSize(); }, 100);
+      }
     });
   });
 }

@@ -99,14 +99,51 @@
 
         <div class="divider"></div>
 
-        <!-- Strava Verbindung -->
-        <div class="card" id="strava-card" style="margin-bottom: 1rem;">
-          <h4 style="margin-bottom: 0.5rem;">Strava Verbindung</h4>
-          <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.75rem;" id="strava-status">Nicht verbunden</p>
+        <!-- Daten importieren -->
+        <h4 style="margin-bottom: 0.75rem;">Daten importieren</h4>
+        <p class="text-muted" style="font-size: 0.82rem; margin-bottom: 1rem;">
+          Importiere deine bisherigen Touren, damit Gipfel automatisch erkannt werden.
+        </p>
+
+        <!-- Option 1: Strava -->
+        <div class="card" style="margin-bottom: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#FC4C02"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+            <strong>Strava verbinden</strong>
+          </div>
+          <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;" id="strava-status">
+            Automatischer Import aller Aktivitäten. Neue Touren werden sofort erkannt.
+          </p>
           <button class="btn btn-strava btn-sm" id="strava-profile-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
             Mit Strava verbinden
           </button>
+        </div>
+
+        <!-- Option 2: GPX Upload -->
+        <div class="card" style="margin-bottom: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 1.1rem;">📂</span>
+            <strong>GPX-Datei hochladen</strong>
+          </div>
+          <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;">
+            Exportiere eine Tour als GPX (Garmin, Suunto, Polar, Coros, Apple Watch) und lade sie hier hoch.
+          </p>
+          <label class="btn btn-secondary btn-sm" for="gpx-upload" style="cursor: pointer; display: inline-block;">
+            GPX-Datei wählen
+          </label>
+          <input type="file" id="gpx-upload" accept=".gpx" style="display: none;">
+          <div id="gpx-result" style="margin-top: 0.5rem; font-size: 0.82rem; display: none;"></div>
+        </div>
+
+        <!-- Option 3: Manueller Check-in -->
+        <div class="card" style="margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 1.1rem;">📍</span>
+            <strong>Manueller Check-in</strong>
+          </div>
+          <p class="text-muted" style="font-size: 0.8rem;">
+            Stehst du gerade auf einem Gipfel? Nutze den Check-in Button auf der Karte — dein GPS wird geprüft.
+          </p>
         </div>
 
         <!-- Badges -->
@@ -188,5 +225,6 @@
   <script src="./js/summits.js"></script>
   <script src="./js/game.js"></script>
   <script src="./js/notifications.js"></script>
+  <script src="./js/gpx-upload.js"></script>
 </body>
 </html>
