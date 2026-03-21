@@ -1,22 +1,19 @@
-// Gipfelkönig — Bulk-Import aller Strava-Aktivitäten eines Users
-// Holt alle passenden Aktivitäten, analysiert GPS-Tracks gegen Gipfel-DB,
-// berechnet Punkte und speichert Summits. Rate-limited für Strava API.
+// Gipfelkönig — Seitenweiser Import von Strava-Aktivitäten
+// Verarbeitet eine Seite pro Request (keine Timeouts!)
+// Browser ruft wiederholt auf: page=1, page=2, ... bis done=true
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// CORS-Header für Browser-Zugriff
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Erlaubte Aktivitätstypen (nur Bergaktivitäten mit relevantem Höhengewinn)
-const ALLOWED_TYPES = ['Hike', 'Run', 'Walk', 'TrailRun', 'AlpineSki']
-const MIN_ELEVATION_GAIN = 100
-const STRAVA_PAGE_SIZE = 50
+const ALLOWED_TYPES = ['Hike', 'Run', 'Walk', 'TrailRun', 'AlpineSki', 'NordicSki']
+const MIN_ELEVATION_GAIN = 50
+const STRAVA_PAGE_SIZE = 30
 const PEAK_RADIUS_METERS = 80
-const STREAM_DELAY_MS = 2000
 
 // Haversine-Distanz in Metern
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -29,181 +26,42 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-// Punkte-Berechnung (Kernformel aus CLAUDE.md)
-function calculatePoints(
-  elevation: number,
-  isSeasonFirst: boolean,
-  isPersonalFirst: boolean,
-  isRepeat: boolean,
-  osmRegion: string
-): number {
+// Punkte-Berechnung
+function calculatePoints(elevation: number, isSeasonFirst: boolean, isPersonalFirst: boolean, osmRegion: string): number {
   let points = elevation || 1000
-
-  // Multiplikatoren: season_first > personal_first > repeat
-  if (isSeasonFirst) {
-    points *= 3
-  } else if (isPersonalFirst) {
-    points *= 1.5
-  } else if (isRepeat) {
-    points *= 0.2
-  }
-
-  // AT-08 Heimat-Bonus
-  if (osmRegion === 'AT-08') {
-    points += 100
-  }
-
+  if (isSeasonFirst) points *= 3
+  else if (isPersonalFirst) points *= 1.5
+  else points *= 0.2
+  if (osmRegion === 'AT-08') points += 100
   return Math.round(points)
 }
 
-// Saison aus Datum berechnen (= Jahreszahl)
 function getSeason(date: Date): string {
   return date.getFullYear().toString()
 }
 
-// Verzögerung für Rate-Limiting
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// Alle Gipfel aus der DB laden (paginiert, handhabt >1000 Zeilen)
-async function loadAllPeaks(supabase: any): Promise<any[]> {
-  const allPeaks: any[] = []
-  const PAGE_SIZE = 1000
-  let offset = 0
-
-  while (true) {
-    const { data, error } = await supabase
-      .from('peaks')
-      .select('id, name, lat, lng, elevation, osm_region, season_from, season_to')
-      .eq('is_active', true)
-      .range(offset, offset + PAGE_SIZE - 1)
-
-    if (error) {
-      console.error(`Fehler beim Laden der Gipfel (Offset ${offset}):`, error)
-      throw new Error(`Gipfel-Laden fehlgeschlagen: ${error.message}`)
-    }
-
-    if (!data || data.length === 0) break
-
-    allPeaks.push(...data)
-    console.log(`${allPeaks.length} Gipfel geladen...`)
-
-    // Weniger als PAGE_SIZE Ergebnisse → letzte Seite
-    if (data.length < PAGE_SIZE) break
-    offset += PAGE_SIZE
-  }
-
-  console.log(`Gesamt: ${allPeaks.length} aktive Gipfel geladen`)
-  return allPeaks
-}
-
-// Alle Strava-Aktivitäten paginiert abrufen (nur relevante Typen)
-async function fetchAllStravaActivities(stravaToken: string): Promise<any[]> {
-  const allActivities: any[] = []
-  let page = 1
-
-  while (true) {
-    const url = `https://www.strava.com/api/v3/athlete/activities?per_page=${STRAVA_PAGE_SIZE}&page=${page}`
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${stravaToken}` }
-    })
-
-    if (!res.ok) {
-      const errorText = await res.text()
-      console.error(`Strava Activities Fehler (Seite ${page}): ${res.status} - ${errorText}`)
-      throw new Error(`Strava API Fehler: ${res.status}`)
-    }
-
-    const activities = await res.json()
-
-    if (!activities || activities.length === 0) break
-
-    // Nur relevante Aktivitäten filtern
-    const filtered = activities.filter((a: any) =>
-      ALLOWED_TYPES.includes(a.type) &&
-      (a.total_elevation_gain || 0) > MIN_ELEVATION_GAIN
-    )
-
-    allActivities.push(...filtered)
-    console.log(`Seite ${page}: ${activities.length} Aktivitäten geladen, ${filtered.length} relevant (Gesamt: ${allActivities.length})`)
-
-    // Weniger als STRAVA_PAGE_SIZE → letzte Seite
-    if (activities.length < STRAVA_PAGE_SIZE) break
-    page++
-  }
-
-  console.log(`Gesamt: ${allActivities.length} relevante Aktivitäten gefunden`)
-  return allActivities
-}
-
-// GPS-Streams einer Aktivität von Strava holen
-async function fetchActivityStreams(activityId: string, stravaToken: string): Promise<any | null> {
-  const url = `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=latlng,time&key_type=stream`
-  const res = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${stravaToken}` }
-  })
-
-  if (!res.ok) {
-    // 404 = keine GPS-Daten, kein harter Fehler
-    if (res.status === 404) {
-      console.log(`Aktivität ${activityId}: Keine Streams verfügbar`)
-      return null
-    }
-    // 429 = Rate Limit → abbrechen
-    if (res.status === 429) {
-      console.error(`Strava Rate Limit erreicht bei Aktivität ${activityId}`)
-      throw new Error('Strava Rate Limit erreicht. Bitte später erneut versuchen.')
-    }
-    console.error(`Strava Streams Fehler (${activityId}): ${res.status}`)
-    return null
-  }
-
-  const streams = await res.json()
-  const latlngStream = streams.find((s: any) => s.type === 'latlng')
-  const timeStream = streams.find((s: any) => s.type === 'time')
-
-  if (!latlngStream?.data?.length) {
-    console.log(`Aktivität ${activityId}: Leere GPS-Daten`)
-    return null
-  }
-
-  return { latlng: latlngStream.data, time: timeStream?.data || [] }
-}
-
-// GPS-Punkte gegen Gipfel-Liste prüfen (Haversine, 80m Radius)
-function findPeaksInTrack(
-  gpsPoints: [number, number][],
-  timeOffsets: number[],
-  peaks: any[]
-): Map<number, { peak: any, timeOffset: number }> {
-  const foundPeaks = new Map<number, { peak: any, timeOffset: number }>()
-
-  // Jeden 5. Punkt prüfen (Balance zwischen Genauigkeit und Performance)
-  for (let i = 0; i < gpsPoints.length; i += 5) {
+// GPS-Punkte gegen Gipfel prüfen
+function findPeaksInTrack(gpsPoints: [number, number][], timeOffsets: number[], peaks: any[]): Map<number, { peak: any, timeOffset: number }> {
+  const found = new Map<number, { peak: any, timeOffset: number }>()
+  for (let i = 0; i < gpsPoints.length; i += 3) {
     const [lat, lng] = gpsPoints[i]
     const timeOffset = timeOffsets[i] || 0
-
-    // Vorab-Filter: Nur Gipfel im groben Bereich prüfen (~111m pro 0.001°)
     for (const peak of peaks) {
-      if (foundPeaks.has(peak.id)) continue
-
-      // Schneller Vorfilter (Bounding Box)
+      if (found.has(peak.id)) continue
       if (Math.abs(peak.lat - lat) > 0.001 || Math.abs(peak.lng - lng) > 0.001) continue
-
-      // Exakte Haversine-Prüfung
-      const dist = haversineDistance(lat, lng, peak.lat, peak.lng)
-      if (dist <= PEAK_RADIUS_METERS) {
-        foundPeaks.set(peak.id, { peak, timeOffset })
+      if (haversineDistance(lat, lng, peak.lat, peak.lng) <= PEAK_RADIUS_METERS) {
+        found.set(peak.id, { peak, timeOffset })
       }
     }
   }
-
-  return foundPeaks
+  return found
 }
 
 serve(async (req) => {
-  // CORS Preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -213,311 +71,201 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, strava_token } = await req.json()
+    const { user_id, strava_token, page = 1 } = await req.json()
 
     if (!user_id || !strava_token) {
-      return new Response(JSON.stringify({ error: 'user_id und strava_token sind erforderlich' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      return new Response(JSON.stringify({ error: 'user_id und strava_token erforderlich' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    console.log(`=== Import gestartet für User ${user_id} ===`)
+    console.log(`=== Import Seite ${page} für User ${user_id} ===`)
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Import-Status setzen
-    const updateProgress = async (progress: number, message: string) => {
-      await supabase.from('user_profiles').update({
-        import_status: 'importing',
-        import_progress: progress,
-        import_message: message
-      }).eq('id', user_id)
+    // 1. Gipfel laden (nur beim ersten Mal teuer, danach gecached in Supabase)
+    const allPeaks: any[] = []
+    let offset = 0
+    while (true) {
+      const { data } = await supabase
+        .from('peaks')
+        .select('id, name, lat, lng, elevation, osm_region, season_from, season_to')
+        .eq('is_active', true)
+        .range(offset, offset + 999)
+      if (!data || data.length === 0) break
+      allPeaks.push(...data)
+      if (data.length < 1000) break
+      offset += 1000
+    }
+    console.log(`${allPeaks.length} Gipfel geladen`)
+
+    // 2. Eine Seite Strava-Aktivitäten holen
+    const url = `https://www.strava.com/api/v3/athlete/activities?per_page=${STRAVA_PAGE_SIZE}&page=${page}`
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${strava_token}` }
+    })
+
+    if (!res.ok) {
+      throw new Error(`Strava API Fehler: ${res.status}`)
     }
 
-    await updateProgress(0, 'Gipfel-Datenbank wird geladen...')
+    const activities = await res.json()
+    const relevant = activities.filter((a: any) =>
+      ALLOWED_TYPES.includes(a.type) && (a.total_elevation_gain || 0) > MIN_ELEVATION_GAIN
+    )
 
-    // 1. Alle Gipfel aus der DB laden (paginiert)
-    console.log('Lade alle Gipfel aus der Datenbank...')
-    const peaks = await loadAllPeaks(supabase)
+    console.log(`Seite ${page}: ${activities.length} Aktivitäten, ${relevant.length} relevant`)
 
-    if (peaks.length === 0) {
-      return new Response(JSON.stringify({ error: 'Keine Gipfel in der Datenbank gefunden' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    // 2. Alle relevanten Strava-Aktivitäten holen
-    await updateProgress(5, 'Strava-Aktivitäten werden geladen...')
-    console.log('Lade Strava-Aktivitäten...')
-    const activities = await fetchAllStravaActivities(strava_token)
-
+    // Keine Aktivitäten mehr → Import fertig
     if (activities.length === 0) {
+      // Gesamtpunkte neu berechnen
+      const { data: allSummits } = await supabase
+        .from('summits')
+        .select('points')
+        .eq('user_id', user_id)
+        .eq('safety_ok', true)
+      const total = (allSummits || []).reduce((s: number, r: any) => s + (r.points || 0), 0)
+      await supabase.from('user_profiles').update({
+        total_points: total,
+        import_status: 'done',
+        import_progress: 100,
+        import_message: `Import abgeschlossen · ${total} Punkte`
+      }).eq('id', user_id)
+
       return new Response(JSON.stringify({
-        activities_processed: 0,
-        summits_found: 0,
-        total_points: 0,
-        message: 'Keine relevanten Aktivitäten gefunden'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+        done: true, page, summits_found: 0, total_points: total
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    // 3. Bereits importierte Aktivitäten ermitteln (Duplikat-Vermeidung)
-    const { data: existingSummits } = await supabase
+    // 3. Bereits importierte IDs holen
+    const { data: existing } = await supabase
       .from('summits')
       .select('strava_activity_id')
       .eq('user_id', user_id)
       .eq('checkin_method', 'strava')
       .not('strava_activity_id', 'is', null)
+    const importedIds = new Set((existing || []).map((s: any) => s.strava_activity_id))
 
-    const importedActivityIds = new Set(
-      (existingSummits || []).map((s: any) => s.strava_activity_id)
-    )
-
-    // Nur noch nicht importierte Aktivitäten verarbeiten
-    const newActivities = activities.filter(
-      (a: any) => !importedActivityIds.has(a.id.toString())
-    )
-
-    console.log(`${newActivities.length} neue Aktivitäten zu verarbeiten (${importedActivityIds.size} bereits importiert)`)
-
-    await updateProgress(10, `${newActivities.length} Aktivitäten werden analysiert...`)
-
-    let activitiesProcessed = 0
     let summitsFound = 0
-    let totalNewPoints = 0
-    const errors: string[] = []
+    let pagePoints = 0
+    const peakNames: string[] = []
 
-    // 4. Jede Aktivität verarbeiten
-    for (const activity of newActivities) {
+    // 4. Jede relevante Aktivität verarbeiten
+    for (const activity of relevant) {
+      const activityId = activity.id.toString()
+      if (importedIds.has(activityId)) continue
+
       try {
-        const activityId = activity.id.toString()
+        // GPS-Streams holen
+        await delay(1500) // Rate Limiting
+        const streamUrl = `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=latlng,time&key_type=stream`
+        const streamRes = await fetch(streamUrl, {
+          headers: { 'Authorization': `Bearer ${strava_token}` }
+        })
+
+        if (!streamRes.ok) {
+          if (streamRes.status === 429) break // Rate Limit
+          continue
+        }
+
+        const streams = await streamRes.json()
+        const latlng = streams.find((s: any) => s.type === 'latlng')?.data
+        const time = streams.find((s: any) => s.type === 'time')?.data || []
+        if (!latlng?.length) continue
+
+        // Gipfel suchen
+        const found = findPeaksInTrack(latlng, time, allPeaks)
+        if (found.size === 0) continue
+
         const activityStart = new Date(activity.start_date)
         const season = getSeason(activityStart)
 
-        console.log(`Verarbeite: "${activity.name}" (${activityId}) vom ${activity.start_date}`)
-
-        // Fortschritt aktualisieren (10% bis 90% über alle Aktivitäten)
-        const progress = Math.round(10 + (activitiesProcessed / newActivities.length) * 80)
-        if (activitiesProcessed % 5 === 0) {
-          await updateProgress(progress, `${activitiesProcessed}/${newActivities.length} Aktivitäten · ${summitsFound} Gipfel gefunden`)
-        }
-
-        // Rate-Limiting: 2 Sekunden Pause zwischen Stream-Requests
-        if (activitiesProcessed > 0) {
-          await delay(STREAM_DELAY_MS)
-        }
-
-        // GPS-Streams holen
-        const streams = await fetchActivityStreams(activityId, strava_token)
-        if (!streams) {
-          console.log(`Überspringe ${activityId}: Keine GPS-Daten`)
-          activitiesProcessed++
-          continue
-        }
-
-        // GPS-Track gegen Gipfel prüfen
-        const foundPeaks = findPeaksInTrack(streams.latlng, streams.time, peaks)
-
-        if (foundPeaks.size === 0) {
-          activitiesProcessed++
-          continue
-        }
-
-        console.log(`${foundPeaks.size} Gipfel in Aktivität "${activity.name}" gefunden`)
-
-        // 5. Jeden gefundenen Gipfel verarbeiten
-        for (const [peakId, { peak, timeOffset }] of foundPeaks) {
-          // Gipfel-Zeitpunkt berechnen
+        for (const [peakId, { peak, timeOffset }] of found) {
           const summitTime = new Date(activityStart.getTime() + (timeOffset * 1000))
-          const summitDate = summitTime.toISOString().split('T')[0]
 
-          // Saison-Check: Liegt Datum in der Gipfel-Saison?
-          const month = summitTime.getMonth() + 1
-          const day = summitTime.getDate()
-          const monthDay = `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+          // Saison-Check
+          const mm = (summitTime.getMonth() + 1).toString().padStart(2, '0')
+          const dd = summitTime.getDate().toString().padStart(2, '0')
+          const monthDay = `${mm}-${dd}`
+          if (monthDay < peak.season_from || monthDay > peak.season_to) continue
 
-          if (monthDay < peak.season_from || monthDay > peak.season_to) {
-            console.log(`${peak.name}: Außerhalb der Saison (${monthDay}, erlaubt ${peak.season_from}–${peak.season_to})`)
-            continue
-          }
+          // Duplikat-Check
+          const { count } = await supabase
+            .from('summits').select('*', { count: 'exact', head: true })
+            .eq('user_id', user_id).eq('peak_id', peakId).eq('strava_activity_id', activityId)
+          if ((count || 0) > 0) continue
 
-          // Duplikat-Check: Gleicher User + Gipfel + Aktivität schon vorhanden?
-          const { count: dupCount } = await supabase
-            .from('summits')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', user_id)
-            .eq('peak_id', peakId)
-            .eq('strava_activity_id', activityId)
+          // Season-First + Personal-First prüfen
+          const { count: sc } = await supabase
+            .from('summits').select('*', { count: 'exact', head: true })
+            .eq('peak_id', peakId).eq('season', season).eq('safety_ok', true)
+          const { count: pc } = await supabase
+            .from('summits').select('*', { count: 'exact', head: true })
+            .eq('user_id', user_id).eq('peak_id', peakId).eq('safety_ok', true)
 
-          if ((dupCount || 0) > 0) {
-            console.log(`${peak.name}: Bereits für Aktivität ${activityId} gespeichert`)
-            continue
-          }
+          const isSeasonFirst = (sc || 0) === 0
+          const isPersonalFirst = (pc || 0) === 0
+          const points = calculatePoints(peak.elevation, isSeasonFirst, isPersonalFirst, peak.osm_region)
 
-          // SICHERHEITS-CHECK (KRITISCH: Stufe >= 3 → KEINE Punkte)
-          const { data: safety } = await supabase
-            .from('safety_status')
-            .select('danger_level, is_safe')
-            .eq('region_id', peak.osm_region)
-            .eq('date', summitDate)
-            .single()
-
-          const safetyLevel = safety?.danger_level || 0
-          const isSafe = safety ? safety.is_safe : true // Kein Eintrag = sicher (Sommer)
-
-          if (!isSafe) {
-            console.log(`${peak.name}: Gesperrt am ${summitDate} (Gefahrenstufe ${safetyLevel})`)
-            // Summit ohne Punkte speichern (zur Dokumentation)
-            await supabase.from('summits').insert({
-              user_id,
-              peak_id: peakId,
-              summited_at: summitTime.toISOString(),
-              season,
-              strava_activity_id: activityId,
-              checkin_method: 'strava',
-              points: 0,
-              is_season_first: false,
-              is_personal_first: false,
-              safety_ok: false,
-              safety_level: safetyLevel
-            })
-            summitsFound++
-            continue
-          }
-
-          // Prüfe: Erster Besuch diese Saison (aller User)?
-          const { count: seasonCount } = await supabase
-            .from('summits')
-            .select('*', { count: 'exact', head: true })
-            .eq('peak_id', peakId)
-            .eq('season', season)
-            .eq('safety_ok', true)
-
-          const isSeasonFirst = (seasonCount || 0) === 0
-
-          // Prüfe: Erster Besuch dieses Users auf diesem Gipfel (alle Saisons)?
-          const { count: personalCount } = await supabase
-            .from('summits')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', user_id)
-            .eq('peak_id', peakId)
-            .eq('safety_ok', true)
-
-          const isPersonalFirst = (personalCount || 0) === 0
-
-          // Wiederholung = weder season_first noch personal_first
-          const isRepeat = !isSeasonFirst && !isPersonalFirst
-
-          // Punkte berechnen
-          const points = calculatePoints(
-            peak.elevation,
-            isSeasonFirst,
-            isPersonalFirst,
-            isRepeat,
-            peak.osm_region
-          )
-
-          // Summit speichern
-          const { error: insertError } = await supabase.from('summits').insert({
-            user_id,
-            peak_id: peakId,
+          await supabase.from('summits').insert({
+            user_id, peak_id: peakId,
             summited_at: summitTime.toISOString(),
-            season,
-            strava_activity_id: activityId,
-            checkin_method: 'strava',
-            points,
+            season, strava_activity_id: activityId,
+            checkin_method: 'strava', points,
             is_season_first: isSeasonFirst,
             is_personal_first: isPersonalFirst,
-            safety_ok: true,
-            safety_level: safetyLevel
+            safety_ok: true, safety_level: 0
           })
 
-          if (insertError) {
-            console.error(`Fehler beim Speichern von ${peak.name}:`, insertError)
-            errors.push(`${peak.name}: ${insertError.message}`)
-            continue
-          }
-
-          totalNewPoints += points
           summitsFound++
-          console.log(`✓ ${peak.name} (${peak.elevation}m) — ${points} Punkte (Season-First: ${isSeasonFirst}, Personal-First: ${isPersonalFirst})`)
+          pagePoints += points
+          peakNames.push(`${peak.name} (${peak.elevation}m)`)
+          console.log(`⛰️ ${peak.name} — ${points} Pkt`)
         }
-
-        activitiesProcessed++
-
-      } catch (activityError) {
-        const msg = activityError instanceof Error ? activityError.message : String(activityError)
-        console.error(`Fehler bei Aktivität ${activity.id}:`, msg)
-        errors.push(`Aktivität ${activity.id}: ${msg}`)
-
-        // Bei Rate-Limit sofort abbrechen
-        if (msg.includes('Rate Limit')) {
-          break
-        }
-
-        activitiesProcessed++
+      } catch (e) {
+        console.error(`Fehler Aktivität ${activityId}:`, e)
       }
     }
 
-    // 6. Gesamtpunkte des Users neu berechnen (Summe aller Summits)
-    if (totalNewPoints > 0) {
-      const { data: pointsSum } = await supabase
-        .from('summits')
-        .select('points')
-        .eq('user_id', user_id)
-        .eq('safety_ok', true)
-
-      const recalculatedTotal = (pointsSum || []).reduce(
-        (sum: number, s: any) => sum + (s.points || 0), 0
-      )
-
-      const { error: updateError } = await supabase
-        .from('user_profiles')
-        .update({ total_points: recalculatedTotal })
-        .eq('id', user_id)
-
-      if (updateError) {
-        console.error('Fehler beim Aktualisieren der Gesamtpunkte:', updateError)
-        errors.push(`Punkte-Update: ${updateError.message}`)
-      } else {
-        console.log(`Gesamtpunkte aktualisiert: ${recalculatedTotal}`)
-      }
+    // Fortschritt updaten
+    const hasMore = activities.length >= STRAVA_PAGE_SIZE
+    if (!hasMore) {
+      // Letzte Seite → Gesamtpunkte berechnen
+      const { data: allSummits } = await supabase
+        .from('summits').select('points')
+        .eq('user_id', user_id).eq('safety_ok', true)
+      const total = (allSummits || []).reduce((s: number, r: any) => s + (r.points || 0), 0)
+      await supabase.from('user_profiles').update({
+        total_points: total, import_status: 'done',
+        import_progress: 100, import_message: `Import abgeschlossen · ${total} Punkte`
+      }).eq('id', user_id)
+    } else {
+      await supabase.from('user_profiles').update({
+        import_status: 'importing',
+        import_progress: Math.min(95, page * 10),
+        import_message: `Seite ${page} · ${summitsFound} Gipfel`
+      }).eq('id', user_id)
     }
 
-    // Import abgeschlossen — Status auf "done" setzen
-    await supabase.from('user_profiles').update({
-      import_status: 'done',
-      import_progress: 100,
-      import_message: `${summitsFound} Gipfel gefunden · ${totalNewPoints} Punkte`
-    }).eq('id', user_id)
-
-    // Zusammenfassung
-    const summary = {
-      activities_processed: activitiesProcessed,
+    return new Response(JSON.stringify({
+      done: !hasMore,
+      page,
+      activities_on_page: activities.length,
+      relevant: relevant.length,
       summits_found: summitsFound,
-      total_points: totalNewPoints,
-      skipped_already_imported: importedActivityIds.size,
-      ...(errors.length > 0 && { errors })
-    }
-
-    console.log(`=== Import abgeschlossen ===`, JSON.stringify(summary))
-
-    return new Response(JSON.stringify(summary), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+      points: pagePoints,
+      peaks: peakNames,
+      has_more: hasMore
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.error('import-activities Fehler:', msg)
+    console.error('Import Fehler:', msg)
     return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
 })

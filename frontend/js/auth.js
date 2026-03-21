@@ -256,21 +256,9 @@ async function initAppPage() {
           GK.showToast('Strava verbunden! Deine Gipfel werden im Hintergrund importiert...', 'success');
         }
 
-        // Import auf dem Server starten (Edge Function, nicht-blockierend)
-        console.log('Starte Server-seitigen Aktivitäten-Import...');
-        GK.supabase.functions.invoke('import-activities', {
-          body: {
-            user_id: benutzer.id,
-            strava_token: tokenData.access_token
-          }
-        }).then(result => {
-          console.log('Import abgeschlossen:', result);
-        }).catch(err => {
-          console.error('Import-Fehler:', err);
-        });
-
-        // Fortschritts-Polling starten
-        startImportPolling(benutzer.id);
+        // Seitenweisen Import starten (kein Timeout-Problem!)
+        console.log('Starte seitenweisen Aktivitäten-Import...');
+        startPagedImport(benutzer.id, tokenData.access_token);
 
         // Nicht warten — User kann sofort die App nutzen
       } else {
@@ -439,7 +427,8 @@ function initNavigation() {
 // Import-Fortschrittsbalken — pollt den Status aus user_profiles
 // ---------------------------------------------------------------------------
 
-function startImportPolling(userId) {
+// Seitenweiser Import — ein Request pro Seite, kein Timeout
+async function startPagedImport(userId, stravaToken) {
   const bar = document.getElementById('import-bar');
   const progressEl = document.getElementById('import-progress');
   const messageEl = document.getElementById('import-message');
@@ -447,43 +436,81 @@ function startImportPolling(userId) {
 
   if (bar) bar.style.display = 'block';
 
-  const pollInterval = setInterval(async () => {
+  let page = 1;
+  let totalSummits = 0;
+  let totalPoints = 0;
+  const allPeaks = [];
+
+  while (true) {
     try {
-      const { data: profil } = await GK.supabase
-        .from('user_profiles')
-        .select('import_status, import_progress, import_message, total_points')
-        .eq('id', userId)
-        .single();
-
-      if (!profil) return;
-
-      const progress = profil.import_progress || 0;
+      // Fortschritt anzeigen
+      const progress = Math.min(95, page * 8);
       if (progressEl) progressEl.style.width = progress + '%';
       if (percentEl) percentEl.textContent = progress + '%';
-      if (messageEl) messageEl.textContent = profil.import_message || 'Importiere...';
+      if (messageEl) messageEl.textContent = `Seite ${page} · ${totalSummits} Gipfel gefunden`;
 
-      // Header-Punkte live aktualisieren
-      const punkteEl = document.getElementById('user-points');
-      if (punkteEl && profil.total_points) {
-        punkteEl.textContent = profil.total_points.toLocaleString('de') + ' Pkt';
+      console.log(`Import Seite ${page}...`);
+
+      const { data, error } = await GK.supabase.functions.invoke('import-activities', {
+        body: { user_id: userId, strava_token: stravaToken, page }
+      });
+
+      if (error) {
+        console.error('Import-Fehler Seite ' + page + ':', error);
+        if (messageEl) messageEl.textContent = 'Fehler bei Seite ' + page + ' — versuche nächste...';
+        page++;
+        if (page > 50) break; // Sicherheits-Limit
+        continue;
       }
 
-      if (profil.import_status === 'done') {
-        clearInterval(pollInterval);
-        if (messageEl) messageEl.textContent = '✅ ' + (profil.import_message || 'Import abgeschlossen!');
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      console.log('Seite ' + page + ' Ergebnis:', result);
+
+      if (result.error) {
+        console.error('Server-Fehler:', result.error);
+        if (messageEl) messageEl.textContent = 'Fehler: ' + result.error;
+        break;
+      }
+
+      totalSummits += result.summits_found || 0;
+      totalPoints += result.points || 0;
+      if (result.peaks) allPeaks.push(...result.peaks);
+
+      // Header-Punkte live aktualisieren
+      if (result.total_points) {
+        const punkteEl = document.getElementById('user-points');
+        if (punkteEl) punkteEl.textContent = result.total_points.toLocaleString('de') + ' Pkt';
+      }
+
+      // Gipfel-Toast bei Fund
+      if (result.peaks && result.peaks.length > 0) {
+        if (typeof GK.showToast === 'function') {
+          GK.showToast('⛰️ ' + result.peaks.join(', '), 'success');
+        }
+      }
+
+      // Fertig?
+      if (result.done || !result.has_more) {
+        console.log('Import abgeschlossen! ' + totalSummits + ' Gipfel, ' + totalPoints + ' Punkte');
         if (progressEl) progressEl.style.width = '100%';
         if (percentEl) percentEl.textContent = '100%';
+        if (messageEl) messageEl.textContent = '✅ ' + totalSummits + ' Gipfel · ' + totalPoints.toLocaleString('de') + ' Punkte';
 
-        // Nach 3 Sekunden Balken ausblenden und Seite neu laden
+        // Nach 3 Sekunden Seite neu laden
         setTimeout(() => {
           if (bar) bar.style.display = 'none';
           window.location.reload();
         }, 3000);
+        break;
       }
+
+      page++;
     } catch (err) {
-      console.error('Polling-Fehler:', err);
+      console.error('Import Seite ' + page + ' Fehler:', err);
+      page++;
+      if (page > 50) break;
     }
-  }, 5000); // Alle 5 Sekunden prüfen
+  }
 }
 
 // ---------------------------------------------------------------------------
