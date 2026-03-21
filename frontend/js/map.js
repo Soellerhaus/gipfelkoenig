@@ -150,19 +150,16 @@ function buildPopupContent(peak, ownership, summitCount, isSafe) {
     ? '<span style="color: #27ae60;">●</span> Sicher'
     : '<span style="color: #e74c3c;">●</span> Gesperrt';
 
-  const kingInfo = ownership && ownership.username
-    ? `${ownership.username} seit ${formatDate(ownership.claimed_at)}`
-    : 'Kein König';
-
+  // Popup mit Lade-Platzhalter für historische Daten
   return `
-    <div class="peak-popup">
-      <h3 style="font-family: 'Playfair Display', serif; margin: 0 0 6px 0;">
+    <div class="peak-popup" style="min-width: 220px;">
+      <h3 style="font-family: 'Playfair Display', serif; margin: 0 0 4px 0; font-size: 1.1rem;">
         ${peak.name}
       </h3>
-      <p style="margin: 2px 0;"><strong>${peak.elevation} m</strong></p>
-      <p style="margin: 2px 0;">👑 ${kingInfo}</p>
-      <p style="margin: 2px 0;">⛰️ ${summitCount} Besteigung${summitCount !== 1 ? 'en' : ''} diese Saison</p>
-      <p style="margin: 2px 0;">${safetyDot}</p>
+      <p style="margin: 2px 0; font-size: 0.9rem;"><strong>${peak.elevation} m</strong> · ${safetyDot}</p>
+      <div id="popup-history-${peak.id}" style="margin: 8px 0; font-size: 0.8rem; color: var(--color-muted);">
+        Lade Historie...
+      </div>
       <button
         class="popup-checkin-btn"
         data-peak-id="${peak.id}"
@@ -172,6 +169,75 @@ function buildPopupContent(peak, ownership, summitCount, isSafe) {
       </button>
     </div>
   `;
+}
+
+/**
+ * Historische Daten für ein Gipfel-Popup nachladen.
+ * Zeigt Besteigungen pro Saison und wer am meisten war.
+ */
+async function loadPopupHistory(peakId) {
+  const container = document.getElementById('popup-history-' + peakId);
+  if (!container) return;
+
+  try {
+    // Alle Besteigungen dieses Gipfels laden
+    const { data: summits, error } = await GK.supabase
+      .from('summits')
+      .select('user_id, season, summited_at, points')
+      .eq('peak_id', peakId)
+      .order('summited_at', { ascending: false });
+
+    if (error || !summits || summits.length === 0) {
+      container.innerHTML = '<p style="margin: 0;">Noch nie bestiegen.</p>';
+      return;
+    }
+
+    // Nach Saison gruppieren
+    const seasons = {};
+    for (const s of summits) {
+      if (!seasons[s.season]) seasons[s.season] = [];
+      seasons[s.season].push(s);
+    }
+
+    // User-Namen laden
+    const userIds = [...new Set(summits.map(s => s.user_id))];
+    const userNames = {};
+    for (const uid of userIds) {
+      const profil = await GK.api.getUserProfile(uid);
+      userNames[uid] = profil ? (profil.username || 'Anonym') : 'Anonym';
+    }
+
+    // HTML für jede Saison
+    let html = '';
+    const sortedSeasons = Object.keys(seasons).sort((a, b) => b - a);
+
+    for (const season of sortedSeasons) {
+      const entries = seasons[season];
+      // Wer war am meisten oben?
+      const countByUser = {};
+      for (const e of entries) {
+        countByUser[e.user_id] = (countByUser[e.user_id] || 0) + 1;
+      }
+      const topUserId = Object.entries(countByUser).sort((a, b) => b[1] - a[1])[0][0];
+      const topCount = countByUser[topUserId];
+      const topName = userNames[topUserId];
+
+      html += `
+        <div style="margin-bottom: 4px; padding: 3px 0; border-bottom: 1px solid var(--color-border);">
+          <div style="display: flex; justify-content: space-between;">
+            <strong style="color: var(--color-gold);">${season}</strong>
+            <span>${entries.length}x bestiegen</span>
+          </div>
+          <div>👑 ${topName} (${topCount}x)</div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Fehler beim Laden der Popup-Historie:', err);
+    container.innerHTML = '<p>Fehler beim Laden.</p>';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -249,7 +315,12 @@ async function loadPeaks() {
     // Marker erstellen und zur Schicht hinzufügen
     const marker = L.marker([peak.lat, peak.lng], { icon });
     marker.bindPopup(buildPopupContent(peak, ownership, summitCount, isSafe), {
-      maxWidth: 260,
+      maxWidth: 280,
+    });
+
+    // Beim Öffnen des Popups historische Daten nachladen
+    marker.on('popupopen', function () {
+      loadPopupHistory(peak.id);
     });
 
     // Gipfel-Daten am Marker speichern für späteren Zugriff
