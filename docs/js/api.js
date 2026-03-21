@@ -34,10 +34,10 @@ GK.api.getPeaks = async function (bounds) {
     const { data, error } = await supabaseClient
       .from('peaks')
       .select('*')
-      .gte('latitude', bounds.south)
-      .lte('latitude', bounds.north)
-      .gte('longitude', bounds.west)
-      .lte('longitude', bounds.east);
+      .gte('lat', bounds.south)
+      .lte('lat', bounds.north)
+      .gte('lng', bounds.west)
+      .lte('lng', bounds.east);
 
     if (error) throw error;
     return data;
@@ -81,7 +81,7 @@ GK.api.getSafetyStatus = async function (regionId, date) {
       .select('*')
       .eq('region_id', regionId)
       .eq('date', date)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data;
@@ -170,7 +170,7 @@ GK.api.getOwnership = async function (peakId, season) {
       .select('*')
       .eq('peak_id', peakId)
       .eq('season', season)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data;

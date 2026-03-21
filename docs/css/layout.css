@@ -411,6 +411,11 @@
   justify-content: center;
   font-weight: 700;
   text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  width: 32px;
+  height: 32px;
+  background: rgba(26,24,20,0.85);
+  border-radius: 50%;
+  border: 2px solid var(--color-gold);
 }
 
 .peak-marker.king {

@@ -26,8 +26,8 @@ const DEBOUNCE_DELAY = 500; // ms
 /** König-Marker: Goldene Krone — Benutzer ist aktueller Besitzer */
 function createKingIcon() {
   return L.divIcon({
-    className: 'peak-marker king',
-    html: '<span>👑</span>',
+    className: '',
+    html: '<div class="peak-marker king"><span>👑</span></div>',
     iconSize: [32, 32],
     iconAnchor: [16, 16],
     popupAnchor: [0, -18],
@@ -37,8 +37,8 @@ function createKingIcon() {
 /** Normal-Marker: Weißes Dreieck — Noch nie bestiegen */
 function createNormalIcon() {
   return L.divIcon({
-    className: 'peak-marker normal',
-    html: '<span>▲</span>',
+    className: '',
+    html: '<div class="peak-marker normal"><span>▲</span></div>',
     iconSize: [32, 32],
     iconAnchor: [16, 16],
     popupAnchor: [0, -18],
@@ -48,8 +48,8 @@ function createNormalIcon() {
 /** Bestiegen-Marker: Graues Dreieck — Bestiegen, aber nicht König */
 function createSummitedIcon() {
   return L.divIcon({
-    className: 'peak-marker summited',
-    html: '<span>▲</span>',
+    className: '',
+    html: '<div class="peak-marker summited"><span>▲</span></div>',
     iconSize: [32, 32],
     iconAnchor: [16, 16],
     popupAnchor: [0, -18],
@@ -59,8 +59,8 @@ function createSummitedIcon() {
 /** Gefahr-Marker: Rotes Kreuz — Heute gesperrt */
 function createDangerIcon() {
   return L.divIcon({
-    className: 'peak-marker danger',
-    html: '<span>✕</span>',
+    className: '',
+    html: '<div class="peak-marker danger"><span>✕</span></div>',
     iconSize: [32, 32],
     iconAnchor: [16, 16],
     popupAnchor: [0, -18],
@@ -217,8 +217,8 @@ async function loadPeaks() {
     const ownership = await GK.api.getOwnership(peak.id, season);
 
     // Sicherheitsstatus laden
-    const safety = peak.region_id
-      ? await GK.api.getSafetyStatus(peak.region_id, today)
+    const safety = peak.osm_region
+      ? await GK.api.getSafetyStatus(peak.osm_region, today)
       : null;
     const isSafe = safety ? safety.danger_level < 3 : true;
 
@@ -249,7 +249,7 @@ async function loadPeaks() {
     const icon = getMarkerIcon(peak, ownership, userSummited, isSafe);
 
     // Marker erstellen und zur Schicht hinzufügen
-    const marker = L.marker([peak.latitude, peak.longitude], { icon });
+    const marker = L.marker([peak.lat, peak.lng], { icon });
     marker.bindPopup(buildPopupContent(peak, ownership, summitCount, isSafe), {
       maxWidth: 260,
     });
