@@ -237,6 +237,41 @@ async function initAppPage() {
       if (statSummits) statSummits.textContent = uniquePeaks;
       if (statCrowns) statCrowns.textContent = '0'; // TODO: aus ownership Tabelle
     }
+
+    // Badges aus DB laden und anzeigen
+    const { data: badges } = await GK.supabase
+      .from('badges')
+      .select('badge_type, peak_id, season')
+      .eq('user_id', benutzer.id);
+
+    const badgesGrid = document.getElementById('badges-grid');
+    if (badgesGrid && badges && badges.length > 0) {
+      const badgeTypes = {
+        pioneer: { emoji: '🌟', label: 'Pionier' },
+        combo: { emoji: '⚔️', label: 'Combo' },
+        king_end: { emoji: '👑', label: 'König' },
+        rare: { emoji: '💎', label: 'Selten' },
+        streak: { emoji: '🔥', label: 'Streak' },
+      };
+
+      // Badges nach Typ zählen
+      const counts = {};
+      for (const b of badges) {
+        counts[b.badge_type] = (counts[b.badge_type] || 0) + 1;
+      }
+
+      let badgeHtml = '';
+      for (const [type, count] of Object.entries(counts)) {
+        const info = badgeTypes[type] || { emoji: '🏅', label: type };
+        badgeHtml += `
+          <div class="profile-badge">
+            <div class="profile-badge-icon">${info.emoji}</div>
+            <span>${info.label}</span>
+            <span style="color: var(--color-gold); font-size: 0.8rem;">${count}x</span>
+          </div>`;
+      }
+      badgesGrid.innerHTML = badgeHtml;
+    }
   }
 
   // Profil-Avatar mit Initialen füllen
