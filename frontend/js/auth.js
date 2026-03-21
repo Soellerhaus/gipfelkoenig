@@ -57,34 +57,33 @@ function versteckeMeldungen() {
 
 function initLandingPage() {
   const formular = document.getElementById('auth-form');
-  const toggleBtn = document.getElementById('auth-toggle');
+  const toggleBtns = document.querySelectorAll('.auth-toggle-btn');
   const submitBtn = document.getElementById('auth-submit');
   const stravaBtn = document.getElementById('strava-connect');
-  const usernameField = document.getElementById('auth-username');
+  const usernameGroup = document.getElementById('username-group');
 
   // Aktueller Modus: 'login' oder 'register'
   let modus = 'login';
 
-  // Benutzername-Feld nur bei Registrierung anzeigen
-  if (usernameField) usernameField.style.display = 'none';
-
   // Zwischen Anmelden und Registrieren umschalten
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', function () {
+  toggleBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
       versteckeMeldungen();
-      if (modus === 'login') {
-        modus = 'register';
+      modus = btn.getAttribute('data-mode');
+
+      // Aktive Klasse umschalten
+      toggleBtns.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+
+      if (modus === 'register') {
         if (submitBtn) submitBtn.textContent = 'Registrieren';
-        toggleBtn.textContent = 'Bereits registriert? Anmelden';
-        if (usernameField) usernameField.style.display = 'block';
+        if (usernameGroup) usernameGroup.style.display = 'block';
       } else {
-        modus = 'login';
         if (submitBtn) submitBtn.textContent = 'Anmelden';
-        toggleBtn.textContent = 'Noch kein Konto? Registrieren';
-        if (usernameField) usernameField.style.display = 'none';
+        if (usernameGroup) usernameGroup.style.display = 'none';
       }
     });
-  }
+  });
 
   // Formular absenden — Anmelden oder Registrieren
   if (formular) {
@@ -92,8 +91,8 @@ function initLandingPage() {
       e.preventDefault();
       versteckeMeldungen();
 
-      const email = document.getElementById('auth-email').value.trim();
-      const passwort = document.getElementById('auth-password').value;
+      const email = document.getElementById('email').value.trim();
+      const passwort = document.getElementById('password').value;
 
       if (!email || !passwort) {
         zeigeAuthFehler('Bitte E-Mail und Passwort eingeben.');
@@ -118,8 +117,8 @@ function initLandingPage() {
         }
       } else {
         // --- Registrieren ---
-        const benutzername = document.getElementById('auth-username-input')
-          ? document.getElementById('auth-username-input').value.trim()
+        const benutzername = document.getElementById('username')
+          ? document.getElementById('username').value.trim()
           : '';
 
         if (!benutzername) {
