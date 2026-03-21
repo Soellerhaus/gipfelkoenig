@@ -186,32 +186,15 @@ async function loadPeakDetails(peakId) {
       .eq('peak_id', peakId)
       .order('summited_at', { ascending: false });
 
-    // Header
-    let html = `
-      <div style="margin-bottom: 0.75rem;">
-        <h2 style="font-family: var(--font-display); margin: 0; font-size: 1.4rem;">${peak.name}</h2>
-        <div style="color: var(--color-muted); font-size: 0.85rem;">${peak.elevation} m · ${peak.osm_region || 'Alpen'}</div>
-      </div>
-    `;
-
     if (error || !summits || summits.length === 0) {
-      html += '<p class="text-muted" style="font-size: 0.85rem;">Noch nie bestiegen. Sei der Erste!</p>';
-      html += '<button class="popup-checkin-btn" onclick="GK.summits.checkin()" style="margin-top: 0.5rem;">⛰️ Jetzt einchecken</button>';
-      container.innerHTML = html;
+      container.innerHTML = `
+        <div style="padding: 0.5rem 0;">
+          <h2 style="font-family: var(--font-display); margin: 0; font-size: 1.3rem;">${peak.name}</h2>
+          <div style="color: var(--color-muted); font-size: 0.85rem;">${peak.elevation} m</div>
+          <p class="text-muted" style="font-size: 0.85rem; margin-top: 0.5rem;">Noch nie bestiegen. Sei der Erste!</p>
+        </div>`;
       return;
     }
-
-    // Gesamt-Punkte auf diesem Gipfel
-    const totalPoints = summits.reduce((sum, s) => sum + (s.points || 0), 0);
-
-    // Letzte Besteigung
-    const lastSummit = summits[0];
-    const lastDate = new Date(lastSummit.summited_at).toLocaleDateString('de-AT', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    });
-    const lastTime = new Date(lastSummit.summited_at).toLocaleTimeString('de-AT', {
-      hour: '2-digit', minute: '2-digit'
-    });
 
     // User-Namen laden
     const userIds = [...new Set(summits.map(s => s.user_id))];
@@ -221,28 +204,23 @@ async function loadPeakDetails(peakId) {
       userNames[uid] = profil ? (profil.username || 'Anonym') : 'Anonym';
     }
 
-    // Statistik-Zeile
-    html += `
-      <div style="display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.85rem;">
-        <div><strong style="color: var(--color-gold);">${summits.length}</strong> Besteigungen</div>
-        <div><strong style="color: var(--color-gold);">${totalPoints.toLocaleString('de')}</strong> Punkte gesamt</div>
-      </div>
-      <div style="font-size: 0.85rem; margin-bottom: 0.75rem; color: var(--color-muted);">
-        Letzte Besteigung: ${lastDate} um ${lastTime} Uhr von <strong style="color: var(--color-text);">${userNames[lastSummit.user_id]}</strong>
-      </div>
-    `;
+    // Gesamt-Punkte und letzte Besteigung
+    const totalPoints = summits.reduce((sum, s) => sum + (s.points || 0), 0);
+    const lastSummit = summits[0];
+    const lastDate = new Date(lastSummit.summited_at).toLocaleDateString('de-AT', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
 
-    // Nach Saison gruppieren
+    // Nach Saison gruppieren — nur letzte 3 Jahre
     const seasons = {};
     for (const s of summits) {
       if (!seasons[s.season]) seasons[s.season] = [];
       seasons[s.season].push(s);
     }
+    const sortedSeasons = Object.keys(seasons).sort((a, b) => b - a).slice(0, 3);
 
-    // Bergkönig pro Saison
-    html += '<div style="margin-bottom: 0.5rem;"><strong style="font-size: 0.9rem;">Bergkönig pro Saison</strong></div>';
-    const sortedSeasons = Object.keys(seasons).sort((a, b) => b - a);
-
+    // Bergkönig-Karten für rechte Seite
+    let kingHtml = '';
     for (const season of sortedSeasons) {
       const entries = seasons[season];
       const countByUser = {};
@@ -252,24 +230,32 @@ async function loadPeakDetails(peakId) {
       const topUserId = Object.entries(countByUser).sort((a, b) => b[1] - a[1])[0][0];
       const topCount = countByUser[topUserId];
       const topName = userNames[topUserId];
-      const seasonPoints = entries.reduce((sum, e) => sum + (e.points || 0), 0);
 
-      html += `
-        <div class="card" style="padding: 0.5rem 0.75rem; margin-bottom: 0.4rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <strong style="color: var(--color-gold);">${season}</strong>
-              <span style="font-size: 0.8rem; color: var(--color-muted);"> · ${entries.length}x bestiegen</span>
-            </div>
-            <span style="font-size: 0.8rem; color: var(--color-gold);">${seasonPoints.toLocaleString('de')} Pkt</span>
-          </div>
-          <div style="font-size: 0.85rem;">👑 ${topName} <span style="color: var(--color-muted);">(${topCount}x)</span></div>
+      kingHtml += `
+        <div style="text-align: center; min-width: 80px;">
+          <div style="font-size: 0.7rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px;">${season}</div>
+          <div style="font-size: 1.1rem;">👑</div>
+          <div style="font-size: 0.8rem; font-weight: 600;">${topName}</div>
+          <div style="font-size: 0.7rem; color: var(--color-muted);">${topCount}x · ${entries.length} ges.</div>
+        </div>`;
+    }
+
+    // Layout: Links Info, Rechts Könige
+    let html = `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 0.5rem 0;">
+        <div style="flex: 1;">
+          <h2 style="font-family: var(--font-display); margin: 0; font-size: 1.3rem;">${peak.name}</h2>
+          <div style="color: var(--color-muted); font-size: 0.82rem; margin-bottom: 0.4rem;">${peak.elevation} m · ${summits.length} Besteigungen · ${totalPoints.toLocaleString('de')} Pkt</div>
+          <div style="font-size: 0.82rem; color: var(--color-muted);">Letzte: ${lastDate} von <strong style="color: var(--color-text);">${userNames[lastSummit.user_id]}</strong></div>
         </div>
+        <div style="display: flex; gap: 0.75rem;">
+          ${kingHtml}
+        </div>
+      </div>
       `;
     }
 
-    // Einchecken Button
-    html += '<button class="popup-checkin-btn" onclick="GK.summits.checkin()" style="margin-top: 0.5rem;">⛰️ Jetzt einchecken</button>';
+    // Kein separater Button — Einchecken über den Floating-Button auf der Karte
 
     container.innerHTML = html;
   } catch (err) {
