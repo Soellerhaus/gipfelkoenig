@@ -164,13 +164,11 @@ function buildPopupContent(peak, ownership, summitCount, isSafe) {
       <p style="margin: 2px 0;">⛰️ ${summitCount} Besteigung${summitCount !== 1 ? 'en' : ''} diese Saison</p>
       <p style="margin: 2px 0;">${safetyDot}</p>
       <button
-        id="checkin-btn"
-        class="checkin-btn"
+        class="popup-checkin-btn"
         data-peak-id="${peak.id}"
         data-peak-name="${peak.name}"
-        style="margin-top: 8px; width: 100%;"
       >
-        Einchecken
+        ⛰️ Einchecken
       </button>
     </div>
   `;

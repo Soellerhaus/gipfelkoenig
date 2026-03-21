@@ -438,6 +438,24 @@
   font-size: 1.1rem;
 }
 
+/* Popup Check-in Button — kompakt */
+.popup-checkin-btn {
+  margin-top: 6px;
+  padding: 4px 12px;
+  background: var(--color-gold);
+  color: var(--color-bg);
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+}
+.popup-checkin-btn:hover {
+  background: var(--color-gold-light);
+}
+
 /* Leaflet Popup — editorial */
 .leaflet-popup-content-wrapper {
   background: var(--color-bg-card) !important;
