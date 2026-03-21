@@ -5,7 +5,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Punkte-Berechnung (Kernformel)
+// Punkte-Berechnung: 1 Punkt pro 100 HM Gipfelhöhe
 function calculatePoints(
   elevation: number,
   isPersonalFirst: boolean,
@@ -13,14 +13,14 @@ function calculatePoints(
   combo: boolean,
   osmRegion: string
 ): number {
-  let points = elevation || 1000
+  let points = Math.round((elevation || 1000) / 100)
 
   if (isSeasonFirst) points *= 3
   else if (isPersonalFirst) points *= 1.5
   else points *= 0.2 // Wiederholung
 
-  if (combo) points += 500
-  if (osmRegion === 'AT-08') points += 100 // Heimat-Bonus
+  if (combo) points += 5
+  if (osmRegion === 'AT-08') points += 1 // Heimat-Bonus
 
   return Math.round(points)
 }

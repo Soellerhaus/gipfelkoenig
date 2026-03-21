@@ -27,12 +27,13 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 // Punkte-Berechnung
+// Punkte: 1 Punkt pro 100 HM Gipfelhöhe
 function calculatePoints(elevation: number, isSeasonFirst: boolean, isPersonalFirst: boolean, osmRegion: string): number {
-  let points = elevation || 1000
+  let points = Math.round((elevation || 1000) / 100)
   if (isSeasonFirst) points *= 3
   else if (isPersonalFirst) points *= 1.5
   else points *= 0.2
-  if (osmRegion === 'AT-08') points += 100
+  if (osmRegion === 'AT-08') points += 1
   return Math.round(points)
 }
 

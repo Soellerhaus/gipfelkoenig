@@ -39,8 +39,9 @@ window.GK.game = (() => {
    * @param {boolean} combo           - Teil einer Mehrfach-Gipfel-Tour
    * @returns {number} Berechnete Punkte (gerundet)
    */
+  // Punkte: 1 Punkt pro 100 HM Gipfelhöhe
   function calculatePoints(peak, isPersonalFirst, isSeasonFirst, combo) {
-    let points = peak.elevation || 1000;
+    let points = Math.round((peak.elevation || 1000) / 100);
 
     // Multiplikator je nach Besuchstyp
     if (isSeasonFirst) {
@@ -53,12 +54,12 @@ window.GK.game = (() => {
 
     // Bonus für Mehrfach-Gipfel-Tour
     if (combo) {
-      points += 500;
+      points += 5;
     }
 
     // Heimat-Bonus Vorarlberg
     if (peak.osm_region === 'AT-08') {
-      points += 100;
+      points += 1;
     }
 
     return Math.round(points);
