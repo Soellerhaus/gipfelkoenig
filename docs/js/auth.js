@@ -248,12 +248,27 @@ async function initAppPage() {
 
         // Erfolgs-Toast anzeigen
         if (typeof GK.showToast === 'function') {
-          GK.showToast('Strava verbunden! Importiere Aktivitäten...', 'success');
+          GK.showToast('Strava verbunden! Deine Gipfel werden im Hintergrund importiert...', 'success');
         }
 
-        // Automatischer Import aller Aktivitäten
-        console.log('Starte automatischen Aktivitäten-Import...');
-        await importStravaActivities(benutzer.id, tokenData.access_token);
+        // Import auf dem Server starten (Edge Function, nicht-blockierend)
+        console.log('Starte Server-seitigen Aktivitäten-Import...');
+        GK.supabase.functions.invoke('import-activities', {
+          body: {
+            user_id: benutzer.id,
+            strava_token: tokenData.access_token
+          }
+        }).then(result => {
+          console.log('Import abgeschlossen:', result);
+          if (typeof GK.showToast === 'function') {
+            GK.showToast('Import fertig! Lade Seite neu...', 'success');
+          }
+          setTimeout(() => window.location.reload(), 2000);
+        }).catch(err => {
+          console.error('Import-Fehler:', err);
+        });
+
+        // Nicht warten — User kann sofort die App nutzen
       } else {
         console.error('Strava Token-Fehler:', tokenData);
       }
