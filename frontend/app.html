@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gipfelkönig</title>
+  <meta name="theme-color" content="#c9a84c">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="app-header-logo">Gipfelkönig</div>
+      <div class="app-header-user">
+        <span class="app-header-points" id="user-points">0 Pkt</span>
+        <div class="app-header-avatar" id="user-avatar">?</div>
+      </div>
+    </header>
+
+    <!-- Karte -->
+    <div class="map-container" id="map-section">
+      <div id="map"></div>
+      <button class="checkin-btn" id="checkin-btn" title="Manueller Gipfel Check-in">&#9968;&#65039;</button>
+    </div>
+
+    <!-- Content Sections -->
+    <div class="app-content">
+
+      <!-- Karte Info (unter der Karte sichtbar wenn Karte-Tab aktiv) -->
+      <section class="content-section active" id="section-map">
+        <div class="section-title">In deiner Nähe</div>
+        <div id="nearby-peaks">
+          <p class="text-muted" style="font-size: 0.9rem;">Lade Gipfel...</p>
+        </div>
+      </section>
+
+      <!-- Meine Gipfel -->
+      <section class="content-section" id="section-summits">
+        <div class="section-title">Meine Gipfel</div>
+        <div class="season-filter" id="season-filter"></div>
+        <div class="peak-grid" id="my-peaks-grid">
+          <p class="text-muted" style="font-size: 0.9rem; grid-column: 1/-1;">Noch keine Gipfel gesammelt. Raus auf den Berg — egal wie!</p>
+        </div>
+      </section>
+
+      <!-- Rangliste -->
+      <section class="content-section" id="section-leaderboard">
+        <div class="section-title">Rangliste</div>
+        <div class="tabs" id="leaderboard-tabs">
+          <button class="tab active" data-region="AT-08">Kleinwalsertal</button>
+          <button class="tab" data-region="all">Alle Alpen</button>
+        </div>
+        <div class="leaderboard-list" id="leaderboard-list" style="margin-top: 1rem;">
+          <p class="text-muted" style="font-size: 0.9rem;">Lade Rangliste...</p>
+        </div>
+      </section>
+
+      <!-- Profil -->
+      <section class="content-section" id="section-profile">
+        <div class="profile-header">
+          <div class="profile-avatar" id="profile-avatar">?</div>
+          <h2 id="profile-name">Laden...</h2>
+          <p class="text-muted" id="profile-username">@...</p>
+          <div class="profile-stats">
+            <div class="stat-box">
+              <div class="stat-value" id="stat-points">0</div>
+              <div class="stat-label">Punkte</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="stat-summits">0</div>
+              <div class="stat-label">Gipfel</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="stat-crowns">0</div>
+              <div class="stat-label">Kronen</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Strava Verbindung -->
+        <div class="card" id="strava-card" style="margin-bottom: 1rem;">
+          <h4 style="margin-bottom: 0.5rem;">Strava Verbindung</h4>
+          <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.75rem;" id="strava-status">Nicht verbunden</p>
+          <button class="btn btn-strava btn-sm" id="strava-profile-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+            Mit Strava verbinden
+          </button>
+        </div>
+
+        <!-- Badges -->
+        <h4 style="margin-bottom: 0.5rem;">Trophäen</h4>
+        <div class="profile-badges" id="badges-grid">
+          <div class="profile-badge">
+            <div class="profile-badge-icon">&#128081;</div>
+            <span>König</span>
+          </div>
+          <div class="profile-badge">
+            <div class="profile-badge-icon">&#127775;</div>
+            <span>Pionier</span>
+          </div>
+          <div class="profile-badge">
+            <div class="profile-badge-icon">&#127749;</div>
+            <span>Frühaufsteher</span>
+          </div>
+          <div class="profile-badge">
+            <div class="profile-badge-icon">&#128293;</div>
+            <span>Streak</span>
+          </div>
+        </div>
+
+        <div class="divider" style="margin-top: 1.5rem;"></div>
+
+        <!-- Powered by Strava (Pflicht laut API-Richtlinien) -->
+        <div style="text-align: center; margin-top: 0.5rem;">
+          <span class="text-muted" style="font-size: 0.75rem;">Powered by Strava</span>
+        </div>
+
+        <button class="btn btn-secondary btn-block" id="logout-btn" style="margin-top: 1.5rem;">Abmelden</button>
+      </section>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="app-nav">
+      <button class="nav-item active" data-section="map">
+        <span class="nav-icon">&#128506;</span>
+        <span>Karte</span>
+      </button>
+      <button class="nav-item" data-section="summits">
+        <span class="nav-icon">&#9968;&#65039;</span>
+        <span>Gipfel</span>
+      </button>
+      <button class="nav-item" data-section="leaderboard">
+        <span class="nav-icon">&#127942;</span>
+        <span>Rangliste</span>
+      </button>
+      <button class="nav-item" data-section="profile">
+        <span class="nav-icon">&#128100;</span>
+        <span>Profil</span>
+      </button>
+    </nav>
+
+    <!-- Check-in Modal -->
+    <div class="modal-overlay" id="checkin-modal">
+      <div class="modal">
+        <div class="modal-title" id="checkin-modal-title">Gipfel Check-in</div>
+        <div id="checkin-modal-content">
+          <p class="text-muted">Deine Position wird ermittelt...</p>
+          <div style="display: flex; justify-content: center; margin-top: 1rem;">
+            <div class="spinner"></div>
+          </div>
+        </div>
+        <div class="modal-actions" id="checkin-modal-actions" style="display: none;">
+          <button class="btn btn-secondary" id="checkin-cancel">Abbrechen</button>
+          <button class="btn btn-primary" id="checkin-confirm">Einchecken</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="notification-toast" id="toast"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/map.js"></script>
+  <script src="/js/summits.js"></script>
+  <script src="/js/game.js"></script>
+  <script src="/js/notifications.js"></script>
+</body>
+</html>

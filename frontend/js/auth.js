@@ -1,0 +1,272 @@
+// =============================================================================
+// Gipfelkönig — Authentifizierungs-Modul (auth.js)
+// Login, Registrierung, Strava-OAuth und Sitzungsverwaltung.
+// =============================================================================
+
+window.GK = window.GK || {};
+
+// ---------------------------------------------------------------------------
+// Strava OAuth — Platzhalter-Konfiguration
+// ---------------------------------------------------------------------------
+const STRAVA_CLIENT_ID = 'DEIN_STRAVA_CLIENT_ID';
+const STRAVA_REDIRECT_URI = window.location.origin + '/app.html';
+const STRAVA_AUTH_URL =
+  'https://www.strava.com/oauth/authorize' +
+  '?client_id=' + STRAVA_CLIENT_ID +
+  '&redirect_uri=' + encodeURIComponent(STRAVA_REDIRECT_URI) +
+  '&response_type=code' +
+  '&scope=read,activity:read';
+
+// ---------------------------------------------------------------------------
+// Hilfsfunktionen für UI-Meldungen
+// ---------------------------------------------------------------------------
+
+/** Fehlermeldung anzeigen */
+function zeigeAuthFehler(nachricht) {
+  const el = document.getElementById('auth-error');
+  if (!el) return;
+  el.textContent = nachricht;
+  el.style.display = 'block';
+  // Erfolgsmeldung ausblenden
+  const ok = document.getElementById('auth-success');
+  if (ok) ok.style.display = 'none';
+}
+
+/** Erfolgsmeldung anzeigen */
+function zeigeAuthErfolg(nachricht) {
+  const el = document.getElementById('auth-success');
+  if (!el) return;
+  el.textContent = nachricht;
+  el.style.display = 'block';
+  // Fehlermeldung ausblenden
+  const err = document.getElementById('auth-error');
+  if (err) err.style.display = 'none';
+}
+
+/** Beide Meldungen ausblenden */
+function versteckeMeldungen() {
+  const err = document.getElementById('auth-error');
+  const ok = document.getElementById('auth-success');
+  if (err) err.style.display = 'none';
+  if (ok) ok.style.display = 'none';
+}
+
+// ---------------------------------------------------------------------------
+// Landing-Page-Logik (index.html)
+// ---------------------------------------------------------------------------
+
+function initLandingPage() {
+  const formular = document.getElementById('auth-form');
+  const toggleBtn = document.getElementById('auth-toggle');
+  const submitBtn = document.getElementById('auth-submit');
+  const stravaBtn = document.getElementById('strava-connect');
+  const usernameField = document.getElementById('auth-username');
+
+  // Aktueller Modus: 'login' oder 'register'
+  let modus = 'login';
+
+  // Benutzername-Feld nur bei Registrierung anzeigen
+  if (usernameField) usernameField.style.display = 'none';
+
+  // Zwischen Anmelden und Registrieren umschalten
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function () {
+      versteckeMeldungen();
+      if (modus === 'login') {
+        modus = 'register';
+        if (submitBtn) submitBtn.textContent = 'Registrieren';
+        toggleBtn.textContent = 'Bereits registriert? Anmelden';
+        if (usernameField) usernameField.style.display = 'block';
+      } else {
+        modus = 'login';
+        if (submitBtn) submitBtn.textContent = 'Anmelden';
+        toggleBtn.textContent = 'Noch kein Konto? Registrieren';
+        if (usernameField) usernameField.style.display = 'none';
+      }
+    });
+  }
+
+  // Formular absenden — Anmelden oder Registrieren
+  if (formular) {
+    formular.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      versteckeMeldungen();
+
+      const email = document.getElementById('auth-email').value.trim();
+      const passwort = document.getElementById('auth-password').value;
+
+      if (!email || !passwort) {
+        zeigeAuthFehler('Bitte E-Mail und Passwort eingeben.');
+        return;
+      }
+
+      if (modus === 'login') {
+        // --- Anmelden ---
+        try {
+          const { data, error } = await GK.supabase.auth.signInWithPassword({
+            email: email,
+            password: passwort,
+          });
+
+          if (error) throw error;
+
+          // Erfolgreich angemeldet — weiterleiten
+          window.location.href = 'app.html';
+        } catch (err) {
+          console.error('Anmeldefehler:', err);
+          zeigeAuthFehler(err.message || 'Anmeldung fehlgeschlagen.');
+        }
+      } else {
+        // --- Registrieren ---
+        const benutzername = document.getElementById('auth-username-input')
+          ? document.getElementById('auth-username-input').value.trim()
+          : '';
+
+        if (!benutzername) {
+          zeigeAuthFehler('Bitte einen Benutzernamen eingeben.');
+          return;
+        }
+
+        try {
+          const { data, error } = await GK.supabase.auth.signUp({
+            email: email,
+            password: passwort,
+          });
+
+          if (error) throw error;
+
+          // Benutzerprofil in der Datenbank anlegen
+          if (data.user) {
+            const { error: profilFehler } = await GK.supabase
+              .from('user_profiles')
+              .insert({
+                id: data.user.id,
+                username: benutzername,
+              });
+
+            if (profilFehler) {
+              console.error('Fehler beim Erstellen des Profils:', profilFehler);
+            }
+          }
+
+          // Bestätigungsmeldung anzeigen
+          zeigeAuthErfolg('Bestätigungs-E-Mail gesendet. Bitte prüfe dein Postfach.');
+        } catch (err) {
+          console.error('Registrierungsfehler:', err);
+          zeigeAuthFehler(err.message || 'Registrierung fehlgeschlagen.');
+        }
+      }
+    });
+  }
+
+  // Strava-Verbindung — Weiterleitung zur OAuth-Seite
+  if (stravaBtn) {
+    stravaBtn.addEventListener('click', function () {
+      window.location.href = STRAVA_AUTH_URL;
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// App-Seiten-Logik (app.html)
+// ---------------------------------------------------------------------------
+
+async function initAppPage() {
+  // Sitzung prüfen — nicht angemeldet? Zurück zur Startseite.
+  const { data: sitzung } = await GK.supabase.auth.getSession();
+
+  if (!sitzung.session) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  const benutzer = sitzung.session.user;
+
+  // Benutzerprofil laden und in der Kopfzeile anzeigen
+  const profil = await GK.api.getUserProfile(benutzer.id);
+  if (profil) {
+    const nameEl = document.getElementById('header-username');
+    const punkteEl = document.getElementById('header-points');
+    if (nameEl) nameEl.textContent = profil.username || '';
+    if (punkteEl) punkteEl.textContent = profil.total_points || 0;
+  }
+
+  // Strava-OAuth-Callback verarbeiten (Code in URL-Parametern)
+  const urlParams = new URLSearchParams(window.location.search);
+  const stravaCode = urlParams.get('code');
+
+  if (stravaCode) {
+    try {
+      // Code an die Edge Function senden, um Token zu tauschen
+      const { data, error } = await GK.supabase.functions.invoke('strava-callback', {
+        body: { code: stravaCode },
+      });
+
+      if (error) {
+        console.error('Strava-OAuth-Fehler:', error);
+      } else {
+        console.log('Strava erfolgreich verbunden.');
+      }
+
+      // URL bereinigen — Code-Parameter entfernen
+      window.history.replaceState({}, document.title, 'app.html');
+    } catch (err) {
+      console.error('Fehler beim Strava-Callback:', err);
+    }
+  }
+
+  // Abmelde-Button
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async function () {
+      await GK.supabase.auth.signOut();
+      window.location.href = 'index.html';
+    });
+  }
+
+  // Navigation — Inhaltsbereiche umschalten
+  initNavigation();
+}
+
+/**
+ * Navigations-Logik: Klick auf Navigations-Elemente blendet
+ * den passenden Inhaltsbereich ein und alle anderen aus.
+ */
+function initNavigation() {
+  const navItems = document.querySelectorAll('.nav-item');
+  const sections = document.querySelectorAll('.content-section');
+
+  navItems.forEach(function (item) {
+    item.addEventListener('click', function () {
+      const zielId = item.getAttribute('data-section');
+
+      // Alle Abschnitte ausblenden
+      sections.forEach(function (section) {
+        section.style.display = 'none';
+      });
+
+      // Aktive Klasse von allen Nav-Elementen entfernen
+      navItems.forEach(function (nav) {
+        nav.classList.remove('active');
+      });
+
+      // Zielabschnitt einblenden und Nav-Element hervorheben
+      const zielSection = document.getElementById(zielId);
+      if (zielSection) zielSection.style.display = 'block';
+      item.classList.add('active');
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Initialisierung — erkennt automatisch, welche Seite geladen ist
+// ---------------------------------------------------------------------------
+
+document.addEventListener('DOMContentLoaded', function () {
+  // Prüfen, ob wir auf der Landing-Page oder App-Seite sind
+  if (document.getElementById('auth-form')) {
+    initLandingPage();
+  } else if (document.getElementById('logout-btn') || document.getElementById('header-username')) {
+    initAppPage();
+  }
+});
