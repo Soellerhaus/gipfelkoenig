@@ -8,7 +8,7 @@ window.GK = window.GK || {};
 // ---------------------------------------------------------------------------
 // Strava OAuth — Platzhalter-Konfiguration
 // ---------------------------------------------------------------------------
-const STRAVA_CLIENT_ID = '211591';
+const STRAVA_CLIENT_ID = '214491';
 const STRAVA_REDIRECT_URI = window.location.origin + window.location.pathname.replace(/[^/]*$/, '') + 'app.html';
 const STRAVA_AUTH_URL =
   'https://www.strava.com/oauth/authorize' +
