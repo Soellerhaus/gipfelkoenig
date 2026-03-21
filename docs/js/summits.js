@@ -300,7 +300,14 @@ async function loadMySummits(season) {
     if (peak) peakMap.set(pid, peak);
   }
 
-  // Combo-Tage erkennen (mehrere Gipfel am gleichen Tag)
+  // Nach Gipfel gruppieren
+  const grouped = new Map();
+  for (const s of summits) {
+    if (!grouped.has(s.peak_id)) grouped.set(s.peak_id, []);
+    grouped.get(s.peak_id).push(s);
+  }
+
+  // Combo-Tage erkennen
   const byDate = {};
   for (const s of summits) {
     const date = s.summited_at.slice(0, 10);
@@ -312,34 +319,58 @@ async function loadMySummits(season) {
     if (peaks.size >= 2) comboDates.add(date);
   }
 
-  // Karten-HTML erzeugen mit Badges
-  const cardsHtml = summits.map((summit) => {
-    const peak = peakMap.get(summit.peak_id);
+  // Sortieren: meiste Besteigungen zuerst, dann nach letztem Datum
+  const sortedGroups = [...grouped.entries()].sort((a, b) => {
+    const lastA = new Date(a[1][0].summited_at).getTime();
+    const lastB = new Date(b[1][0].summited_at).getTime();
+    return lastB - lastA;
+  });
+
+  // Gruppierte Karten erzeugen
+  const cardsHtml = sortedGroups.map(([peakId, entries]) => {
+    const peak = peakMap.get(peakId);
     const peakName = peak ? peak.name : 'Unbekannter Gipfel';
     const elevation = peak ? peak.elevation : '—';
-    const datum = new Date(summit.summited_at).toLocaleDateString('de-AT', {
+    const count = entries.length;
+    const totalPts = entries.reduce((s, e) => s + (e.points || 0), 0);
+    const lastEntry = entries[0];
+    const lastDatum = new Date(lastEntry.summited_at).toLocaleDateString('de-AT', {
       day: '2-digit', month: '2-digit', year: 'numeric'
     });
-    const zeit = new Date(summit.summited_at).toLocaleTimeString('de-AT', {
-      hour: '2-digit', minute: '2-digit'
-    });
 
-    // Badges für diesen Eintrag
+    // Badges sammeln
+    const hasPionier = entries.some(e => e.is_season_first);
+    const hasCombo = entries.some(e => comboDates.has(e.summited_at.slice(0, 10)));
     let badges = '';
-    if (summit.is_season_first) badges += '<span style="background: rgba(201,168,76,0.15); color: var(--color-gold); padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 4px;">🌟 Pionier</span>';
-    const summitDate = summit.summited_at.slice(0, 10);
-    if (comboDates.has(summitDate)) badges += '<span style="background: rgba(201,168,76,0.15); color: var(--color-gold); padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 4px;">⚔️ Combo</span>';
+    if (hasPionier) badges += '<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:1px 6px;border-radius:4px;font-size:0.65rem;margin-left:4px;">🌟 Pionier</span>';
+    if (hasCombo) badges += '<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:1px 6px;border-radius:4px;font-size:0.65rem;margin-left:4px;">⚔️ Combo</span>';
+
+    // Einzelne Besteigungen (aufklappbar)
+    const detailsId = 'details-' + peakId;
+    const detailRows = entries.map(e => {
+      const d = new Date(e.summited_at);
+      const dat = d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const zeit = d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid var(--color-border);font-size:0.75rem;">
+        <span class="text-muted">${dat} · ${zeit} Uhr</span>
+        <span style="color:var(--color-gold);">+${e.points || 0}</span>
+      </div>`;
+    }).join('');
 
     return `
-      <div class="card" style="margin-bottom: 0.5rem; padding: 0.75rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;cursor:pointer;" onclick="document.getElementById('${detailsId}').style.display=document.getElementById('${detailsId}').style.display==='none'?'block':'none'">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
-            <strong style="font-family: var(--font-display);">${peakName}</strong>${badges}
-            <div class="text-muted" style="font-size: 0.8rem;">${elevation} m · ${datum} · ${zeit} Uhr</div>
+            <strong style="font-family:var(--font-display);">${peakName}</strong>${badges}
+            <div class="text-muted" style="font-size:0.8rem;">${elevation} m · ${count}× bestiegen · Letzte: ${lastDatum}</div>
           </div>
-          <div style="color: var(--color-gold); font-weight: 700; font-size: 0.9rem;">
-            +${summit.points}
+          <div style="text-align:right;">
+            <div style="color:var(--color-gold);font-weight:700;font-size:0.9rem;">${totalPts.toLocaleString('de')}</div>
+            <div class="text-muted" style="font-size:0.7rem;">Punkte</div>
           </div>
+        </div>
+        <div id="${detailsId}" style="display:none;margin-top:8px;">
+          ${detailRows}
         </div>
       </div>
     `;

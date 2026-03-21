@@ -86,21 +86,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // 1. Gipfel laden (nur beim ersten Mal teuer, danach gecached in Supabase)
-    const allPeaks: any[] = []
-    let offset = 0
-    while (true) {
-      const { data } = await supabase
-        .from('peaks')
-        .select('id, name, lat, lng, elevation, osm_region, season_from, season_to')
-        .eq('is_active', true)
-        .range(offset, offset + 999)
-      if (!data || data.length === 0) break
-      allPeaks.push(...data)
-      if (data.length < 1000) break
-      offset += 1000
-    }
-    console.log(`${allPeaks.length} Gipfel geladen`)
+    // 1. Gipfel werden pro Aktivität geladen (nur nahe Gipfel, spart Speicher)
+    console.log('Gipfel werden pro Aktivität geladen (Bounding Box)')
 
     // 2. Eine Seite Strava-Aktivitäten holen
     const url = `https://www.strava.com/api/v3/athlete/activities?per_page=${STRAVA_PAGE_SIZE}&page=${page}`
@@ -159,6 +146,23 @@ serve(async (req) => {
       if (importedIds.has(activityId)) continue
 
       try {
+        // Nahe Gipfel laden basierend auf Start-Koordinaten der Aktivität
+        const startLat = activity.start_latlng?.[0]
+        const startLng = activity.start_latlng?.[1]
+        if (!startLat || !startLng) continue
+
+        // Gipfel im Umkreis von ~30km laden (0.3 Grad)
+        const { data: nearbyPeaks } = await supabase
+          .from('peaks')
+          .select('id, name, lat, lng, elevation, osm_region, season_from, season_to')
+          .eq('is_active', true)
+          .gte('lat', startLat - 0.3)
+          .lte('lat', startLat + 0.3)
+          .gte('lng', startLng - 0.3)
+          .lte('lng', startLng + 0.3)
+
+        if (!nearbyPeaks || nearbyPeaks.length === 0) continue
+
         // GPS-Streams holen
         await delay(1500) // Rate Limiting
         const streamUrl = `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=latlng,time&key_type=stream`
@@ -176,8 +180,8 @@ serve(async (req) => {
         const time = streams.find((s: any) => s.type === 'time')?.data || []
         if (!latlng?.length) continue
 
-        // Gipfel suchen
-        const found = findPeaksInTrack(latlng, time, allPeaks)
+        // Gipfel suchen (nur nahe Gipfel, nicht 42k!)
+        const found = findPeaksInTrack(latlng, time, nearbyPeaks)
         if (found.size === 0) continue
 
         const activityStart = new Date(activity.start_date)
