@@ -1,0 +1,549 @@
+/* Gipfelkönig — Layout: Landing, App, Responsive (Editorial Redesign) */
+
+/* === LANDING PAGE === */
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Hero --- */
+.landing-hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 40px 60px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 70% 60%, rgba(212,162,76,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 20% 30%, rgba(126,184,196,0.04) 0%, transparent 50%),
+    linear-gradient(160deg, #0d1117 0%, #1a1814 40%, #2a2318 100%);
+}
+
+/* Berg-SVG-Silhouette */
+.landing-hero .mountain-silhouette {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 60%;
+  max-width: 800px;
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Hero-Inhalt über der Silhouette */
+.landing-hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+}
+
+.landing-hero-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--color-gold);
+  margin-bottom: 24px;
+}
+
+.landing-hero h1 {
+  font-family: var(--font-display);
+  font-size: 5rem;
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+  margin-bottom: 24px;
+}
+
+.landing-hero h1 span {
+  color: var(--color-gold);
+  display: block;
+}
+
+.landing-hero-sub {
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--fog);
+  max-width: 480px;
+  line-height: 1.7;
+  margin-bottom: 32px;
+}
+
+/* Meta-Pillen-Reihe */
+.landing-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 48px;
+}
+
+/* --- Auth Container (im Hero, links) --- */
+.auth-container {
+  max-width: 380px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-toggle {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-toggle-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid transparent;
+  transition: all var(--transition);
+}
+
+.auth-toggle-btn.active {
+  color: var(--color-gold);
+  border-bottom-color: var(--color-gold);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--granite);
+}
+
+/* === FEATURES SECTION === */
+.landing-features {
+  border-top: 1px solid var(--granite);
+  padding: 60px 24px;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.landing-features-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin-top: 0;
+}
+
+.feature-card {
+  border: 1px solid var(--granite);
+  border-radius: 2px;
+  padding: 32px 28px;
+  background: transparent;
+  transition: border-color var(--transition);
+}
+
+.feature-card:hover {
+  border-color: var(--slate);
+}
+
+.feature-icon {
+  font-size: 1.5rem;
+  margin-bottom: 16px;
+}
+
+.feature-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  color: var(--color-text);
+}
+
+.feature-desc {
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: var(--fog);
+  line-height: 1.7;
+}
+
+/* === FOOTER === */
+.landing-footer {
+  border-top: 1px solid var(--granite);
+  padding: 24px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.landing-footer-logo {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-gold);
+}
+
+.landing-footer-copy {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--fog);
+}
+
+/* === APP LAYOUT === */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--granite);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.app-header-logo {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-gold);
+  font-weight: 700;
+}
+
+.app-header-user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-header-points {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-gold);
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.app-header-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 2px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+
+/* === MAP CONTAINER === */
+.map-container {
+  height: 60vh;
+  min-height: 300px;
+  position: relative;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* === BOTTOM NAVIGATION === */
+.app-nav {
+  height: var(--nav-height);
+  display: flex;
+  align-items: center;
+  background: var(--color-bg);
+  border-top: 1px solid var(--granite);
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: color var(--transition);
+}
+
+.nav-item.active {
+  color: var(--color-gold);
+}
+
+.nav-icon {
+  font-size: 1.25rem;
+}
+
+/* === CONTENT SECTIONS === */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.content-section {
+  padding: 1.25rem;
+  display: none;
+}
+
+.content-section.active {
+  display: block;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+/* === PEAK GRID === */
+.peak-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+/* === LEADERBOARD LIST === */
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* === PROFILE === */
+.profile-header {
+  text-align: center;
+  padding: 1.5rem 1rem;
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 2px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 1rem;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.profile-badges {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.profile-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.profile-badge-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 2px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--granite);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+/* === SEASON FILTER === */
+.season-filter {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+/* === LEAFLET OVERRIDES === */
+.peak-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+.peak-marker.king {
+  font-size: 1.5rem;
+  filter: drop-shadow(0 0 6px rgba(212,162,76,0.6));
+}
+
+.peak-marker.normal {
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.peak-marker.summited {
+  color: var(--color-muted);
+  font-size: 1rem;
+}
+
+.peak-marker.danger {
+  color: var(--color-danger);
+  font-size: 1.1rem;
+}
+
+/* Leaflet Popup — editorial */
+.leaflet-popup-content-wrapper {
+  background: var(--color-bg-card) !important;
+  color: var(--color-text) !important;
+  border-radius: 2px !important;
+  border: 1px solid var(--granite) !important;
+  box-shadow: none !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--color-bg-card) !important;
+  border: 1px solid var(--granite) !important;
+}
+
+.leaflet-popup-close-button {
+  color: var(--color-muted) !important;
+}
+
+.peak-popup {
+  min-width: 200px;
+}
+
+.peak-popup-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.peak-popup-ele {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.peak-popup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+/* === RESPONSIVE: MOBILE (default) === */
+@media (max-width: 767px) {
+  .landing-hero {
+    padding: 60px 24px 40px;
+    min-height: 100vh;
+  }
+
+  .landing-hero h1 {
+    font-size: 3rem;
+  }
+
+  .landing-meta-row {
+    gap: 6px;
+  }
+
+  .landing-footer {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+    padding: 20px 24px;
+  }
+}
+
+/* === RESPONSIVE: TABLET + === */
+@media (min-width: 768px) {
+  .landing-features-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .peak-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .map-container {
+    height: 65vh;
+  }
+}
+
+/* === RESPONSIVE: DESKTOP === */
+@media (min-width: 1024px) {
+  .landing-hero {
+    padding: 120px 80px 80px;
+  }
+
+  .landing-hero h1 {
+    font-size: 6rem;
+  }
+
+  .landing-features {
+    padding: 80px 60px;
+  }
+
+  .peak-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .app-content {
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .content-section {
+    padding: 2rem;
+  }
+
+  .profile-badges {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
