@@ -188,10 +188,10 @@ async function initAppPage() {
   // Benutzerprofil laden und in der Kopfzeile anzeigen
   const profil = await GK.api.getUserProfile(benutzer.id);
   if (profil) {
-    const nameEl = document.getElementById('header-username');
-    const punkteEl = document.getElementById('header-points');
-    if (nameEl) nameEl.textContent = profil.username || '';
-    if (punkteEl) punkteEl.textContent = profil.total_points || 0;
+    const nameEl = document.getElementById('user-avatar');
+    const punkteEl = document.getElementById('user-points');
+    if (nameEl) nameEl.textContent = (profil.username || 'B').charAt(0).toUpperCase();
+    if (punkteEl) punkteEl.textContent = (profil.total_points || 0).toLocaleString('de') + ' Pkt';
   }
 
   // Strava-OAuth-Callback verarbeiten (Code in URL-Parametern)
@@ -215,6 +215,27 @@ async function initAppPage() {
       window.history.replaceState({}, document.title, 'app.html');
     } catch (err) {
       console.error('Fehler beim Strava-Callback:', err);
+    }
+  }
+
+  // Profil-Stats aus Summits berechnen
+  if (profil) {
+    const { data: summits } = await GK.supabase
+      .from('summits')
+      .select('peak_id, points')
+      .eq('user_id', benutzer.id);
+
+    if (summits) {
+      const totalPoints = summits.reduce((sum, s) => sum + (s.points || 0), 0);
+      const uniquePeaks = new Set(summits.map(s => s.peak_id)).size;
+
+      const statPoints = document.getElementById('stat-points');
+      const statSummits = document.getElementById('stat-summits');
+      const statCrowns = document.getElementById('stat-crowns');
+
+      if (statPoints) statPoints.textContent = totalPoints.toLocaleString('de');
+      if (statSummits) statSummits.textContent = uniquePeaks;
+      if (statCrowns) statCrowns.textContent = '0'; // TODO: aus ownership Tabelle
     }
   }
 
@@ -306,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Prüfen, ob wir auf der Landing-Page oder App-Seite sind
   if (document.getElementById('auth-form')) {
     initLandingPage();
-  } else if (document.getElementById('logout-btn') || document.getElementById('header-username')) {
+  } else if (document.getElementById('logout-btn') || document.getElementById('user-points')) {
     initAppPage();
   }
 });
