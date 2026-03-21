@@ -315,6 +315,14 @@ function initNavigation() {
       if (zielId === 'section-map' && GK.map && GK.map.leaflet) {
         setTimeout(function () { GK.map.leaflet.invalidateSize(); }, 100);
       }
+
+      // Daten laden beim Tab-Wechsel
+      if (zielId === 'section-summits' && GK.summits && GK.summits.loadMySummits) {
+        GK.summits.loadMySummits();
+      }
+      if (zielId === 'section-leaderboard' && GK.game && GK.game.loadLeaderboard) {
+        GK.game.loadLeaderboard();
+      }
     });
   });
 }
