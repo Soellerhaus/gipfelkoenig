@@ -272,15 +272,35 @@ const loadPeaksDebounced = debounce(loadPeaks, DEBOUNCE_DELAY);
  */
 async function initMap() {
   // Karte erstellen
-  const map = L.map('map').setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
+  const map = L.map('map', { attributionControl: false }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
 
-  // OpenTopoMap-Kacheln laden
-  L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  // Attribution — klein und dezent unten rechts
+  L.control.attribution({ position: 'bottomright', prefix: false })
+    .addAttribution('© <a href="https://openstreetmap.org">OSM</a> · <a href="https://opentopomap.org">OpenTopoMap</a>')
+    .addTo(map);
+
+  // Karten-Layer definieren
+  const topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
     maxZoom: 17,
-    attribution:
-      'Kartendaten: &copy; <a href="https://openstreetmap.org">OpenStreetMap</a>-Mitwirkende, ' +
-      '<a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
-  }).addTo(map);
+  });
+
+  const satellitLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 18,
+  });
+
+  const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  });
+
+  // Standard-Layer setzen
+  topoLayer.addTo(map);
+
+  // Layer-Switcher oben rechts
+  const layerControl = L.control.layers({
+    'Topo': topoLayer,
+    'Satellit': satellitLayer,
+    'Straße': osmLayer,
+  }, null, { position: 'topright', collapsed: true }).addTo(map);
 
   // Marker-Schicht erstellen
   markerLayer = L.layerGroup().addTo(map);
@@ -290,6 +310,9 @@ async function initMap() {
 
   // Aktuellen Benutzer laden
   GK.map._currentUserId = await getCurrentUserId();
+
+  // Orts-Suche einrichten
+  initSearchControl(map);
 
   // Benutzer-Standort ermitteln und Karte darauf zentrieren
   if (navigator.geolocation) {
@@ -301,7 +324,6 @@ async function initMap() {
       },
       (err) => {
         console.warn('Standort konnte nicht ermittelt werden:', err.message);
-        // Karte bleibt auf Kleinwalsertal zentriert
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -315,6 +337,82 @@ async function initMap() {
   map.on('zoomend', loadPeaksDebounced);
 
   console.log('Karte initialisiert.');
+}
+
+// ---------------------------------------------------------------------------
+// Orts-Suche (Nominatim/OpenStreetMap Geocoding)
+// ---------------------------------------------------------------------------
+
+/** Suchfeld oben auf der Karte für Ort/Gipfel-Eingabe */
+function initSearchControl(map) {
+  const searchContainer = document.createElement('div');
+  searchContainer.className = 'map-search-container';
+  searchContainer.innerHTML = `
+    <input type="text" id="map-search-input" class="map-search-input"
+      placeholder="Ort oder Gipfel suchen..." autocomplete="off">
+    <div id="map-search-results" class="map-search-results" style="display: none;"></div>
+  `;
+  document.getElementById('map').appendChild(searchContainer);
+
+  const input = document.getElementById('map-search-input');
+  const results = document.getElementById('map-search-results');
+  let searchTimeout = null;
+
+  input.addEventListener('input', function () {
+    clearTimeout(searchTimeout);
+    const query = input.value.trim();
+    if (query.length < 3) {
+      results.style.display = 'none';
+      return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+      try {
+        const url = 'https://nominatim.openstreetmap.org/search?format=json&q='
+          + encodeURIComponent(query)
+          + '&limit=5&viewbox=9.5,46.5,11.0,47.8&bounded=0';
+        const res = await fetch(url, {
+          headers: { 'Accept-Language': 'de' }
+        });
+        const data = await res.json();
+
+        if (data.length === 0) {
+          results.innerHTML = '<div class="map-search-item">Nichts gefunden</div>';
+          results.style.display = 'block';
+          return;
+        }
+
+        results.innerHTML = data.map(function (item) {
+          return '<div class="map-search-item" data-lat="' + item.lat + '" data-lng="' + item.lon + '">'
+            + item.display_name.split(',').slice(0, 2).join(', ')
+            + '</div>';
+        }).join('');
+        results.style.display = 'block';
+
+        // Klick auf Ergebnis
+        results.querySelectorAll('.map-search-item').forEach(function (el) {
+          el.addEventListener('click', function () {
+            const lat = parseFloat(el.getAttribute('data-lat'));
+            const lng = parseFloat(el.getAttribute('data-lng'));
+            if (lat && lng) {
+              map.setView([lat, lng], 14);
+            }
+            results.style.display = 'none';
+            input.value = el.textContent;
+          });
+        });
+      } catch (err) {
+        console.error('Suchfehler:', err);
+      }
+    }, 400);
+  });
+
+  // Ergebnisse schließen bei Klick außerhalb
+  document.addEventListener('click', function (e) {
+    if (!searchContainer.contains(e.target)) {
+      results.style.display = 'none';
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
