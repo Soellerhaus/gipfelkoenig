@@ -300,7 +300,19 @@ async function loadMySummits(season) {
     if (peak) peakMap.set(pid, peak);
   }
 
-  // Karten-HTML erzeugen — gruppiert nach Gipfel (letztes Datum)
+  // Combo-Tage erkennen (mehrere Gipfel am gleichen Tag)
+  const byDate = {};
+  for (const s of summits) {
+    const date = s.summited_at.slice(0, 10);
+    if (!byDate[date]) byDate[date] = new Set();
+    byDate[date].add(s.peak_id);
+  }
+  const comboDates = new Set();
+  for (const [date, peaks] of Object.entries(byDate)) {
+    if (peaks.size >= 2) comboDates.add(date);
+  }
+
+  // Karten-HTML erzeugen mit Badges
   const cardsHtml = summits.map((summit) => {
     const peak = peakMap.get(summit.peak_id);
     const peakName = peak ? peak.name : 'Unbekannter Gipfel';
@@ -312,11 +324,17 @@ async function loadMySummits(season) {
       hour: '2-digit', minute: '2-digit'
     });
 
+    // Badges für diesen Eintrag
+    let badges = '';
+    if (summit.is_season_first) badges += '<span style="background: rgba(201,168,76,0.15); color: var(--color-gold); padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 4px;">🌟 Pionier</span>';
+    const summitDate = summit.summited_at.slice(0, 10);
+    if (comboDates.has(summitDate)) badges += '<span style="background: rgba(201,168,76,0.15); color: var(--color-gold); padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 4px;">⚔️ Combo</span>';
+
     return `
       <div class="card" style="margin-bottom: 0.5rem; padding: 0.75rem;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <strong style="font-family: var(--font-display);">${peakName}</strong>
+            <strong style="font-family: var(--font-display);">${peakName}</strong>${badges}
             <div class="text-muted" style="font-size: 0.8rem;">${elevation} m · ${datum} · ${zeit} Uhr</div>
           </div>
           <div style="color: var(--color-gold); font-weight: 700; font-size: 0.9rem;">
