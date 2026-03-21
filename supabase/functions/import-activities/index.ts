@@ -229,6 +229,17 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    // Import-Status setzen
+    const updateProgress = async (progress: number, message: string) => {
+      await supabase.from('user_profiles').update({
+        import_status: 'importing',
+        import_progress: progress,
+        import_message: message
+      }).eq('id', user_id)
+    }
+
+    await updateProgress(0, 'Gipfel-Datenbank wird geladen...')
+
     // 1. Alle Gipfel aus der DB laden (paginiert)
     console.log('Lade alle Gipfel aus der Datenbank...')
     const peaks = await loadAllPeaks(supabase)
@@ -241,6 +252,7 @@ serve(async (req) => {
     }
 
     // 2. Alle relevanten Strava-Aktivitäten holen
+    await updateProgress(5, 'Strava-Aktivitäten werden geladen...')
     console.log('Lade Strava-Aktivitäten...')
     const activities = await fetchAllStravaActivities(strava_token)
 
@@ -274,6 +286,8 @@ serve(async (req) => {
 
     console.log(`${newActivities.length} neue Aktivitäten zu verarbeiten (${importedActivityIds.size} bereits importiert)`)
 
+    await updateProgress(10, `${newActivities.length} Aktivitäten werden analysiert...`)
+
     let activitiesProcessed = 0
     let summitsFound = 0
     let totalNewPoints = 0
@@ -287,6 +301,12 @@ serve(async (req) => {
         const season = getSeason(activityStart)
 
         console.log(`Verarbeite: "${activity.name}" (${activityId}) vom ${activity.start_date}`)
+
+        // Fortschritt aktualisieren (10% bis 90% über alle Aktivitäten)
+        const progress = Math.round(10 + (activitiesProcessed / newActivities.length) * 80)
+        if (activitiesProcessed % 5 === 0) {
+          await updateProgress(progress, `${activitiesProcessed}/${newActivities.length} Aktivitäten · ${summitsFound} Gipfel gefunden`)
+        }
 
         // Rate-Limiting: 2 Sekunden Pause zwischen Stream-Requests
         if (activitiesProcessed > 0) {
@@ -469,6 +489,13 @@ serve(async (req) => {
         console.log(`Gesamtpunkte aktualisiert: ${recalculatedTotal}`)
       }
     }
+
+    // Import abgeschlossen — Status auf "done" setzen
+    await supabase.from('user_profiles').update({
+      import_status: 'done',
+      import_progress: 100,
+      import_message: `${summitsFound} Gipfel gefunden · ${totalNewPoints} Punkte`
+    }).eq('id', user_id)
 
     // Zusammenfassung
     const summary = {

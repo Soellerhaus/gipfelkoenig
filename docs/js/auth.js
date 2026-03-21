@@ -201,6 +201,11 @@ async function initAppPage() {
     const punkteEl = document.getElementById('user-points');
     if (nameEl) nameEl.textContent = (profil.username || 'B').charAt(0).toUpperCase();
     if (punkteEl) punkteEl.textContent = (profil.total_points || 0).toLocaleString('de') + ' Pkt';
+
+    // Laufenden Import erkennen und Fortschrittsbalken zeigen
+    if (profil.import_status === 'importing') {
+      startImportPolling(benutzer.id);
+    }
   }
 
   // Strava-OAuth-Callback verarbeiten (Code in URL-Parametern)
@@ -260,13 +265,12 @@ async function initAppPage() {
           }
         }).then(result => {
           console.log('Import abgeschlossen:', result);
-          if (typeof GK.showToast === 'function') {
-            GK.showToast('Import fertig! Lade Seite neu...', 'success');
-          }
-          setTimeout(() => window.location.reload(), 2000);
         }).catch(err => {
           console.error('Import-Fehler:', err);
         });
+
+        // Fortschritts-Polling starten
+        startImportPolling(benutzer.id);
 
         // Nicht warten — User kann sofort die App nutzen
       } else {
@@ -430,6 +434,57 @@ function initNavigation() {
 // ---------------------------------------------------------------------------
 // Initialisierung — erkennt automatisch, welche Seite geladen ist
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Import-Fortschrittsbalken — pollt den Status aus user_profiles
+// ---------------------------------------------------------------------------
+
+function startImportPolling(userId) {
+  const bar = document.getElementById('import-bar');
+  const progressEl = document.getElementById('import-progress');
+  const messageEl = document.getElementById('import-message');
+  const percentEl = document.getElementById('import-percent');
+
+  if (bar) bar.style.display = 'block';
+
+  const pollInterval = setInterval(async () => {
+    try {
+      const { data: profil } = await GK.supabase
+        .from('user_profiles')
+        .select('import_status, import_progress, import_message, total_points')
+        .eq('id', userId)
+        .single();
+
+      if (!profil) return;
+
+      const progress = profil.import_progress || 0;
+      if (progressEl) progressEl.style.width = progress + '%';
+      if (percentEl) percentEl.textContent = progress + '%';
+      if (messageEl) messageEl.textContent = profil.import_message || 'Importiere...';
+
+      // Header-Punkte live aktualisieren
+      const punkteEl = document.getElementById('user-points');
+      if (punkteEl && profil.total_points) {
+        punkteEl.textContent = profil.total_points.toLocaleString('de') + ' Pkt';
+      }
+
+      if (profil.import_status === 'done') {
+        clearInterval(pollInterval);
+        if (messageEl) messageEl.textContent = '✅ ' + (profil.import_message || 'Import abgeschlossen!');
+        if (progressEl) progressEl.style.width = '100%';
+        if (percentEl) percentEl.textContent = '100%';
+
+        // Nach 3 Sekunden Balken ausblenden und Seite neu laden
+        setTimeout(() => {
+          if (bar) bar.style.display = 'none';
+          window.location.reload();
+        }, 3000);
+      }
+    } catch (err) {
+      console.error('Polling-Fehler:', err);
+    }
+  }, 5000); // Alle 5 Sekunden prüfen
+}
 
 // ---------------------------------------------------------------------------
 // Strava Aktivitäten-Import (läuft im Browser nach OAuth)

@@ -37,6 +37,17 @@
       </div>
     </header>
 
+    <!-- Import-Fortschrittsbalken -->
+    <div id="import-bar" style="display:none; background: var(--color-bg-card); padding: 8px 16px; border-bottom: 1px solid var(--color-border);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 0.8rem; color: var(--color-muted);" id="import-message">Importiere...</span>
+        <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+          <div id="import-progress" style="height: 100%; width: 0%; background: var(--color-gold); border-radius: 3px; transition: width 0.5s ease;"></div>
+        </div>
+        <span style="font-size: 0.75rem; color: var(--color-gold); font-weight: 700;" id="import-percent">0%</span>
+      </div>
+    </div>
+
     <!-- Karte -->
     <div class="map-container" id="map-section">
       <div id="map"></div>
