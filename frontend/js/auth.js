@@ -358,6 +358,9 @@ function initNavigation() {
       if (zielId === 'section-leaderboard' && GK.game && GK.game.loadLeaderboard) {
         GK.game.loadLeaderboard();
       }
+      if (zielId === 'section-feed') {
+        loadFeed();
+      }
     });
   });
 }

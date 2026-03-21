@@ -141,8 +141,8 @@ window.GK.game = (() => {
         row.className = 'leaderboard-row';
         row.innerHTML = `
           <span class="rank">${idx + 1}</span>
-          <span class="name">${escapeHtml(entry.display_name || 'Anonym')}</span>
-          <span class="points">${entry.total_points || 0} Pkt.</span>
+          <span class="name">${escapeHtml(entry.username || entry.display_name || 'Anonym')}</span>
+          <span class="points">${(entry.total_points || 0).toLocaleString('de')} Pkt.</span>
           <span class="summits">${entry.summit_count || 0} Gipfel</span>
         `;
         listEl.appendChild(row);

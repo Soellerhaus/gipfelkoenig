@@ -175,6 +175,14 @@
 
         <button class="btn btn-secondary btn-block" id="logout-btn" style="margin-top: 1.5rem;">Abmelden</button>
       </section>
+
+      <!-- Feed -->
+      <section class="content-section" id="section-feed">
+        <div class="section-title">Aktivitäten</div>
+        <div id="feed-list">
+          <p class="text-muted" style="font-size: 0.9rem;">Lade Feed...</p>
+        </div>
+      </section>
     </div>
 
     <!-- Bottom Navigation -->
@@ -183,13 +191,17 @@
         <span class="nav-icon">&#128506;</span>
         <span>Karte</span>
       </button>
+      <button class="nav-item" data-section="feed">
+        <span class="nav-icon">&#128240;</span>
+        <span>Feed</span>
+      </button>
       <button class="nav-item" data-section="summits">
         <span class="nav-icon">&#9968;&#65039;</span>
         <span>Gipfel</span>
       </button>
       <button class="nav-item" data-section="leaderboard">
         <span class="nav-icon">&#127942;</span>
-        <span>Rangliste</span>
+        <span>Rang</span>
       </button>
       <button class="nav-item" data-section="profile">
         <span class="nav-icon">&#128100;</span>
@@ -225,5 +237,6 @@
   <script src="./js/game.js"></script>
   <script src="./js/notifications.js"></script>
   <script src="./js/gpx-upload.js"></script>
+  <script src="./js/feed.js"></script>
 </body>
 </html>
