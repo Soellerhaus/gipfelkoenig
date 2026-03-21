@@ -264,13 +264,24 @@ async function loadMySummits(season) {
     return;
   }
 
-  const targetSeason = season || getSeason();
+  const targetSeason = season || null; // Alle Saisons wenn nicht angegeben
 
-  // Besteigungen vom Backend laden
-  const summits = await GK.api.getSummits(userId, targetSeason);
+  // Besteigungen vom Backend laden (alle oder gefiltert)
+  let summits;
+  if (targetSeason) {
+    summits = await GK.api.getSummits(userId, targetSeason);
+  } else {
+    // Alle Saisons laden
+    const { data, error } = await GK.supabase
+      .from('summits')
+      .select('*')
+      .eq('user_id', userId)
+      .order('summited_at', { ascending: false });
+    summits = error ? [] : data;
+  }
 
   // Container im DOM finden
-  const container = document.getElementById('my-summits');
+  const container = document.getElementById('my-peaks-grid');
   if (!container) return;
 
   // Leerer Zustand
@@ -281,39 +292,42 @@ async function loadMySummits(season) {
     return;
   }
 
-  // Besitzrechte für jeden Gipfel laden um König-Status zu prüfen
-  const ownershipMap = new Map();
-  for (const summit of summits) {
-    if (!ownershipMap.has(summit.peak_id)) {
-      const ownership = await GK.api.getOwnership(summit.peak_id, targetSeason);
-      ownershipMap.set(summit.peak_id, ownership);
-    }
+  // Peaks-Daten laden für Namen und Höhe
+  const peakIds = [...new Set(summits.map(s => s.peak_id))];
+  const peakMap = new Map();
+  for (const pid of peakIds) {
+    const peak = await GK.api.getPeakById(pid);
+    if (peak) peakMap.set(pid, peak);
   }
 
-  // Karten-HTML erzeugen
+  // Karten-HTML erzeugen — gruppiert nach Gipfel (letztes Datum)
   const cardsHtml = summits.map((summit) => {
-    const ownership = ownershipMap.get(summit.peak_id);
-    const isKing = ownership && ownership.user_id === userId;
-    const kingClass = isKing ? 'peak-card--king' : '';
-    const peakName = summit.peak_name || 'Unbekannter Gipfel';
-    const elevation = summit.elevation || '—';
-    const time = formatTime(summit.summited_at);
+    const peak = peakMap.get(summit.peak_id);
+    const peakName = peak ? peak.name : 'Unbekannter Gipfel';
+    const elevation = peak ? peak.elevation : '—';
+    const datum = new Date(summit.summited_at).toLocaleDateString('de-AT', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+    const zeit = new Date(summit.summited_at).toLocaleTimeString('de-AT', {
+      hour: '2-digit', minute: '2-digit'
+    });
 
     return `
-      <div class="peak-card ${kingClass}" data-peak-id="${summit.peak_id}">
-        <div class="peak-card__header">
-          <span class="peak-card__name">${peakName}</span>
-          ${isKing ? '<span class="peak-card__crown">👑</span>' : ''}
-        </div>
-        <div class="peak-card__details">
-          <span class="peak-card__elevation">${elevation} m</span>
-          <span class="peak-card__time">${time}</span>
+      <div class="card" style="margin-bottom: 0.5rem; padding: 0.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <strong style="font-family: var(--font-display);">${peakName}</strong>
+            <div class="text-muted" style="font-size: 0.8rem;">${elevation} m · ${datum} · ${zeit} Uhr</div>
+          </div>
+          <div style="color: var(--color-gold); font-weight: 700; font-size: 0.9rem;">
+            +${summit.points}
+          </div>
         </div>
       </div>
     `;
   }).join('');
 
-  container.innerHTML = `<div class="peak-grid">${cardsHtml}</div>`;
+  container.innerHTML = cardsHtml || '<p class="text-muted">Keine Gipfel gefunden.</p>';
 }
 
 // ---------------------------------------------------------------------------

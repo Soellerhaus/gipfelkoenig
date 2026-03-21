@@ -189,21 +189,26 @@ GK.api.getOwnership = async function (peakId, season) {
  */
 GK.api.getLeaderboard = async function (region, season, limit) {
   try {
-    let query = supabaseClient
-      .from('leaderboard')
-      .select('*')
-      .eq('season', season)
+    const { data, error } = await supabaseClient
+      .from('user_profiles')
+      .select('id, username, display_name, total_points')
+      .gt('total_points', 0)
       .order('total_points', { ascending: false })
       .limit(limit || 10);
 
-    // Optional nach Region filtern
-    if (region) {
-      query = query.eq('region', region);
+    if (error) throw error;
+
+    // Gipfel-Anzahl pro User berechnen
+    if (data) {
+      for (const user of data) {
+        const { count } = await supabaseClient
+          .from('summits')
+          .select('peak_id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        user.summit_count = count || 0;
+      }
     }
 
-    const { data, error } = await query;
-
-    if (error) throw error;
     return data;
   } catch (err) {
     console.error('Fehler beim Laden der Bestenliste:', err);
