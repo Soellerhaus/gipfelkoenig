@@ -148,8 +148,12 @@ function initLandingPage() {
             }
           }
 
-          // Bestätigungsmeldung anzeigen
-          zeigeAuthErfolg('Bestätigungs-E-Mail gesendet. Bitte prüfe dein Postfach.');
+          // Direkt weiterleiten (E-Mail-Bestätigung ist deaktiviert)
+          if (data.session) {
+            window.location.href = 'app.html';
+          } else {
+            zeigeAuthErfolg('Registrierung erfolgreich! Bitte melde dich an.');
+          }
         } catch (err) {
           console.error('Registrierungsfehler:', err);
           zeigeAuthFehler(err.message || 'Registrierung fehlgeschlagen.');
