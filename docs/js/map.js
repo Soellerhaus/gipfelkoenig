@@ -253,7 +253,6 @@ async function loadPeakDetails(peakId) {
         </div>
       </div>
       `;
-    }
 
     // Kein separater Button — Einchecken über den Floating-Button auf der Karte
 
