@@ -323,7 +323,7 @@
 }
 
 .trophy-slot .trophy-emoji {
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   opacity: 0.25;
 }
 
@@ -333,7 +333,7 @@
 
 .trophy-slot .trophy-label {
   font-family: var(--font-mono);
-  font-size: 0.5rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   color: var(--color-muted);
 }
@@ -343,7 +343,7 @@
 }
 
 .trophy-slot .trophy-user {
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   font-weight: 600;
   color: var(--color-text);
   white-space: nowrap;
@@ -352,12 +352,12 @@
 }
 
 .trophy-slot .trophy-detail {
-  font-size: 0.48rem;
+  font-size: 0.55rem;
   color: var(--color-muted);
 }
 
 .peak-history {
-  font-size: 0.58rem;
+  font-size: 0.65rem;
   color: var(--color-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -371,8 +371,10 @@
   align-items: center;
   background: var(--color-bg);
   border-top: 1px solid var(--granite);
-  position: sticky;
+  position: fixed;
   bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
 }
 
