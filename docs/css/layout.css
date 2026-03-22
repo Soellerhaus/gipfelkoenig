@@ -283,22 +283,17 @@
   display: none;
 }
 
-.peak-info-panel .peak-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 1px;
+.peak-top-meta {
+  text-align: right;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  margin-bottom: 2px;
 }
 
-.peak-info-panel .peak-header h3 {
+.peak-bottom-name {
   font-family: var(--font-display);
   font-size: 1.3rem;
-  margin: 0;
-}
-
-.peak-info-panel .peak-header .peak-meta {
-  font-size: 0.85rem;
-  color: var(--color-muted);
+  margin-top: 0.3rem;
 }
 
 .trophy-grid {

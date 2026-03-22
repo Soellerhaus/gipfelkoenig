@@ -193,17 +193,15 @@ async function openPeakPanel(peakId) {
     if (error || !summits || summits.length === 0) {
       // Leerer Gipfel — Trophy-Slots alle leer
       content.innerHTML = `
-        <div class="peak-header">
-          <h3>${peak.name}</h3>
-          <span class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</span>
-        </div>
+        <div class="peak-top-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</div>
         <div class="trophy-grid">
           <div class="trophy-slot"><div class="trophy-emoji">👑</div><div class="trophy-label">König</div></div>
           <div class="trophy-slot"><div class="trophy-emoji">⭐</div><div class="trophy-label">Pionier</div></div>
           <div class="trophy-slot"><div class="trophy-emoji">🌅</div><div class="trophy-label">Früh</div></div>
           <div class="trophy-slot"><div class="trophy-emoji">💎</div><div class="trophy-label">Selten</div></div>
         </div>
-        <div class="peak-history">Noch nie bestiegen — sei der Erste!</div>`;
+        <div class="peak-history">Noch nie bestiegen — sei der Erste!</div>
+        <div class="peak-bottom-name">${peak.name}</div>`;
       return;
     }
 
@@ -247,7 +245,7 @@ async function openPeakPanel(peakId) {
       : { emoji: '💎', label: 'Selten', earned: isRare, user: isRare ? '✓' : '—', detail: '' };
 
     const trophies = [
-      { emoji: '👑', label: 'König', earned: !!kingEntry, user: kingEntry ? userName(kingEntry[0]) : '—', detail: kingEntry ? kingEntry[1] + '×' : '' },
+      { emoji: '👑', label: 'König ' + focusSeason, earned: !!kingEntry, user: kingEntry ? userName(kingEntry[0]) : '—', detail: kingEntry ? kingEntry[1] + '×' : '' },
       { emoji: '⭐', label: 'Pionier', earned: !!pioneer, user: pioneer ? userName(pioneer.user_id) : '—', detail: '' },
       { emoji: '🌅', label: 'Früh', earned: !!earlyBird, user: earlyBird ? userName(earlyBird.user_id) : '—', detail: '' },
       slot4,
@@ -276,12 +274,10 @@ async function openPeakPanel(peakId) {
     }
 
     content.innerHTML = `
-      <div class="peak-header">
-        <h3>${peak.name}</h3>
-        <span class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml} · ${focusSeason}</span>
-      </div>
+      <div class="peak-top-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml} · ${focusSeason}</div>
       <div class="trophy-grid">${trophyHtml}</div>
       ${historyHtml ? '<div class="peak-history">' + historyHtml + '</div>' : ''}
+      <div class="peak-bottom-name">${peak.name}</div>
     `;
 
   } catch (err) {
