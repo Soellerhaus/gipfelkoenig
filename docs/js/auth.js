@@ -484,7 +484,7 @@ async function initAppPage() {
   // Karte als Startseite — app-content ausblenden, Karte zeigen
   const mapContainerInit = document.getElementById('map-section');
   const appContentInit = document.querySelector('.app-content');
-  if (mapContainerInit) mapContainerInit.style.display = 'block';
+  if (mapContainerInit) mapContainerInit.style.display = 'flex';
   if (appContentInit) appContentInit.style.display = 'none';
 
   // Karte-Tab als aktiv markieren
@@ -526,7 +526,7 @@ function initNavigation() {
 
       // Karte: map-container zeigen, app-content ausblenden
       if (mapContainer) {
-        mapContainer.style.display = isMap ? 'block' : 'none';
+        mapContainer.style.display = isMap ? 'flex' : 'none';
       }
       if (appContent) {
         appContent.style.display = isMap ? 'none' : 'block';
