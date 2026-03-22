@@ -383,10 +383,6 @@
   font-style: italic;
   line-height: 1.4;
   margin-top: 0.15rem;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
 }
 
 /* Bergkönig zweifarbig — überall nutzbar */
@@ -758,7 +754,6 @@
   }
   .peak-description {
     font-size: 0.8rem;
-    -webkit-line-clamp: 2;
     line-height: 1.3;
     margin-top: 0.15rem;
   }
