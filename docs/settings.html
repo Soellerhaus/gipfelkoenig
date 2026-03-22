@@ -461,32 +461,46 @@
         }
 
         // Besteigungen speichern
-        const season = new Date().getFullYear().toString();
         let saved = 0;
+        let errors = [];
         for (const fp of foundPeaks) {
           const summitTime = fp.point.time || new Date().toISOString();
-          const elevGain = fp.peak.elevation ? Math.round(fp.peak.elevation * 0.6) : null; // Schätzung
+          const summitYear = new Date(summitTime).getFullYear().toString();
+          const elevGain = fp.point.elevation ? Math.round(fp.point.elevation) : null;
+          const pts = Math.round((fp.peak.elevation || 0) / 100);
 
           const { error: insertError } = await GK.supabase
             .from('summits')
-            .upsert({
+            .insert({
               user_id: currentUser.id,
               peak_id: fp.peak.id,
               summited_at: summitTime,
-              season: new Date(summitTime).getFullYear().toString(),
+              season: summitYear,
               checkin_method: 'gpx_upload',
-              points: Math.round((fp.peak.elevation || 0) / 100),
+              points: pts,
               elevation_gain: elevGain,
               safety_ok: true,
-              safety_level: 0
-            }, { onConflict: 'user_id, peak_id, summited_at' });
+              safety_level: 0,
+              is_season_first: false,
+              is_personal_first: false
+            });
 
-          if (!insertError) saved++;
+          if (insertError) {
+            console.error('Insert-Fehler:', fp.peak.name, insertError);
+            errors.push(fp.peak.name + ': ' + insertError.message);
+          } else {
+            saved++;
+          }
         }
 
         bar.style.width = '100%';
-        msg.textContent = '✓ ' + saved + ' Gipfel erkannt und eingetragen: ' + foundPeaks.map(fp => fp.peak.name).join(', ');
-        msg.style.color = 'var(--color-safe)';
+        if (saved > 0) {
+          msg.textContent = '✓ ' + saved + ' Gipfel erkannt und eingetragen: ' + foundPeaks.filter((fp,i) => !errors.some(e => e.startsWith(fp.peak.name))).map(fp => fp.peak.name).join(', ');
+          msg.style.color = 'var(--color-safe)';
+        } else {
+          msg.textContent = 'Fehler beim Speichern: ' + errors.join('; ');
+          msg.style.color = 'var(--color-danger)';
+        }
 
       } catch (err) {
         msg.textContent = 'Fehler: ' + err.message;
