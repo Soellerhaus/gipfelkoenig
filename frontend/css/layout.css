@@ -259,25 +259,23 @@
 
 /* === MAP + INFO LAYOUT === */
 .map-container {
-  display: flex;
-  flex-direction: column;
   height: calc(100vh - var(--header-height) - var(--nav-height));
   position: relative;
 }
 
 #map {
   width: 100%;
-  flex: 1;
-  min-height: 0;
+  height: calc(100% - 90px);
   z-index: 1;
 }
 
 /* Gipfel-Info Panel — immer sichtbar, fixe Größe */
 .peak-info-panel {
+  height: 90px;
+  overflow: hidden;
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);
-  padding: 0.6rem 1rem;
-  flex-shrink: 0;
+  padding: 0.5rem 1rem;
 }
 
 .peak-info-panel .panel-handle,
