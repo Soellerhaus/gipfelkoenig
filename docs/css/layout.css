@@ -259,15 +259,16 @@
 
 /* === MAP + INFO LAYOUT === */
 .map-container {
-  flex: 1;
   display: flex;
   flex-direction: column;
+  height: calc(100vh - var(--header-height) - var(--nav-height));
   position: relative;
 }
 
 #map {
   width: 100%;
   flex: 1;
+  min-height: 0;
   z-index: 1;
 }
 
