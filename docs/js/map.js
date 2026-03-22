@@ -145,14 +145,13 @@ function getMarkerIcon(peak, ownership, userSummited, isSafe) {
 /**
  * Popup-HTML für einen Gipfel erzeugen.
  */
-function buildPopupContent(peak, ownership, summitCount, isSafe) {
-  // König anzeigen — aktuelles Jahr oder Vorjahr
+function buildPopupContent(peak, king, summitCount, isSafe) {
   let kingLine = '';
-  if (ownership && ownership.user_id) {
-    const kingName = GK.map._ownerNames && GK.map._ownerNames[ownership.user_id];
+  if (king && king.user_id) {
+    const kingName = GK.map._ownerNames && GK.map._ownerNames[king.user_id];
     if (kingName) {
-      const yearLabel = ownership._fromLastYear ? ownership.season : '';
-      kingLine = `<div style="font-size: 0.78rem; margin-top: 2px; color: #d4a24c;">👑 ${kingName}${yearLabel ? ' (' + yearLabel + ')' : ''}</div>`;
+      const label = king._fromLastYear ? ' (' + king.season + ')' : '';
+      kingLine = `<div style="font-size: 0.82rem; margin-top: 3px; color: #d4a24c;">👑 ${kingName} ${king.count}×${label}</div>`;
     }
   }
 
@@ -361,39 +360,47 @@ async function loadPeaks() {
     GK.map.peaks.set(peak.id, peak);
   }
 
-  const lastSeason = (parseInt(season) - 1).toString();
-
   // BATCH: Alle Daten parallel laden
-  const [ownershipResult, ownershipLastResult, safetyResult, userSummitsResult] = await Promise.all([
-    // 1. Ownership aktuelle Saison
-    GK.supabase.from('ownership').select('*').in('peak_id', peakIds).eq('season', season),
-    // 2. Ownership Vorjahr (Fallback)
-    GK.supabase.from('ownership').select('*').in('peak_id', peakIds).eq('season', lastSeason),
-    // 3. Sicherheitsstatus
+  const [summitsResult, safetyResult, userSummitsResult] = await Promise.all([
+    // 1. Alle Summits für sichtbare Gipfel (aktuelle + letzte Saison) — für König-Ermittlung
+    GK.supabase.from('summits').select('peak_id, user_id, season').in('peak_id', peakIds).in('season', [season, (parseInt(season) - 1).toString()]),
+    // 2. Sicherheitsstatus
     GK.supabase.from('safety_status').select('*').eq('date', today),
-    // 4. User-Summits
+    // 3. User-Summits
     userId ? GK.supabase.from('summits').select('peak_id').eq('user_id', userId).eq('season', season) : { data: [] }
   ]);
 
-  // Maps für schnellen Zugriff bauen — Vorjahr als Fallback
-  const ownershipMap = {};
-  if (ownershipLastResult.data) {
-    for (const o of ownershipLastResult.data) ownershipMap[o.peak_id] = { ...o, _fromLastYear: true };
-  }
-  if (ownershipResult.data) {
-    for (const o of ownershipResult.data) ownershipMap[o.peak_id] = o;
-  }
-
-  // Owner-Namen laden (batch)
+  // König pro Gipfel ermitteln (meiste Besteigungen) — aktuelle Saison, Fallback Vorjahr
+  const kingMap = {};
   GK.map._ownerNames = GK.map._ownerNames || {};
-  const ownerIds = [...new Set(ownershipResult.data ? ownershipResult.data.filter(o => o.user_id).map(o => o.user_id) : [])];
-  const missingIds = ownerIds.filter(id => !GK.map._ownerNames[id]);
-  if (missingIds.length > 0) {
-    const { data: profiles } = await GK.supabase.from('user_profiles').select('id, username, display_name').in('id', missingIds);
-    if (profiles) {
-      for (const p of profiles) {
-        const name = p.display_name || p.username || 'Anonym';
-        GK.map._ownerNames[p.id] = name.split(' ')[0];
+  if (summitsResult.data) {
+    // Nach peak_id + season gruppieren
+    const byPeak = {};
+    for (const s of summitsResult.data) {
+      const key = s.peak_id;
+      if (!byPeak[key]) byPeak[key] = {};
+      if (!byPeak[key][s.season]) byPeak[key][s.season] = {};
+      byPeak[key][s.season][s.user_id] = (byPeak[key][s.season][s.user_id] || 0) + 1;
+    }
+    for (const [peakId, seasons] of Object.entries(byPeak)) {
+      // Aktuelle Saison bevorzugen, sonst Vorjahr
+      const data = seasons[season] || seasons[(parseInt(season) - 1).toString()];
+      const fromLastYear = !seasons[season] && seasons[(parseInt(season) - 1).toString()];
+      if (data) {
+        const top = Object.entries(data).sort((a, b) => b[1] - a[1])[0];
+        kingMap[peakId] = { user_id: top[0], count: top[1], _fromLastYear: !!fromLastYear, season: fromLastYear ? (parseInt(season) - 1).toString() : season };
+      }
+    }
+
+    // König-Namen batch laden
+    const allKingIds = [...new Set(Object.values(kingMap).map(k => k.user_id))];
+    const missingIds = allKingIds.filter(id => !GK.map._ownerNames[id]);
+    if (missingIds.length > 0) {
+      const { data: profiles } = await GK.supabase.from('user_profiles').select('id, username, display_name').in('id', missingIds);
+      if (profiles) {
+        for (const p of profiles) {
+          GK.map._ownerNames[p.id] = (p.display_name || p.username || 'Anonym').split(' ')[0];
+        }
       }
     }
   }
@@ -408,15 +415,15 @@ async function loadPeaks() {
 
   // Marker erstellen — jetzt ohne weitere DB-Abfragen
   for (const peak of peaks) {
-    const ownership = ownershipMap[peak.id] || null;
+    const king = kingMap[peak.id] || null;
     const safety = peak.osm_region ? (safetyMap[peak.osm_region] || null) : null;
     const isSafe = safety ? safety.danger_level < 3 : true;
     const userSummited = userSummitedPeaks.has(peak.id);
 
-    const icon = getMarkerIcon(peak, ownership, userSummited, isSafe);
+    const icon = getMarkerIcon(peak, king, userSummited, isSafe);
 
     const marker = L.marker([peak.lat, peak.lng], { icon });
-    marker.bindPopup(buildPopupContent(peak, ownership, 0, isSafe), {
+    marker.bindPopup(buildPopupContent(peak, king, 0, isSafe), {
       maxWidth: 220,
       closeButton: false,
     });
