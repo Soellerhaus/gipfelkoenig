@@ -25,62 +25,56 @@ serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '')
 
-    // User-Client um den eingeloggten User zu identifizieren
-    const userClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { global: { headers: { Authorization: `Bearer ${token}` } } }
-    )
-    const { data: { user }, error: authError } = await userClient.auth.getUser()
-
-    if (authError || !user) {
-      console.error('Auth Error:', authError?.message)
-      return new Response(JSON.stringify({ error: 'Nicht autorisiert: ' + (authError?.message || 'kein User') }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    // Admin-Client für Lösch-Operationen
+    // Admin-Client (Service Role — kann alles)
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    // User aus dem JWT Token identifizieren
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+
+    if (authError || !user) {
+      console.error('Auth Error:', authError?.message, 'Token prefix:', token.substring(0, 20))
+      return new Response(JSON.stringify({ error: 'Nicht autorisiert: ' + (authError?.message || 'kein User') }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     const userId = user.id
 
-    // 1. Strava deautorisieren (falls verbunden)
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('strava_token')
-      .eq('id', userId)
-      .single()
+    console.log('Deleting account for user:', userId)
 
-    if (profile?.strava_token) {
-      await fetch('https://www.strava.com/oauth/deauthorize', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${profile.strava_token}` }
-      }).catch(() => {}) // Fehler ignorieren wenn Token abgelaufen
-    }
+    // 1. Strava deautorisieren
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles').select('strava_token').eq('id', userId).single()
+      if (profile?.strava_token) {
+        await fetch('https://www.strava.com/oauth/deauthorize', {
+          method: 'POST', headers: { 'Authorization': `Bearer ${profile.strava_token}` }
+        }).catch(() => {})
+      }
+    } catch (e) { console.log('Strava deauth skip:', e.message) }
 
-    // 2. Badges löschen
-    await supabase.from('badges').delete().eq('user_id', userId)
+    // 2. Badges löschen (ignoriere Fehler)
+    try { await supabase.from('badges').delete().eq('user_id', userId) }
+    catch (e) { console.log('Badges skip:', e.message) }
 
     // 3. Summits löschen
-    await supabase.from('summits').delete().eq('user_id', userId)
+    try { await supabase.from('summits').delete().eq('user_id', userId) }
+    catch (e) { console.log('Summits skip:', e.message) }
 
-    // 4. Ownership: user_id auf NULL setzen
-    await supabase.from('ownership')
-      .update({ user_id: null, summit_count: 0 })
-      .eq('user_id', userId)
+    // 4. Ownership nullen
+    try { await supabase.from('ownership').update({ user_id: null, summit_count: 0 }).eq('user_id', userId) }
+    catch (e) { console.log('Ownership skip:', e.message) }
 
     // 5. User-Profil löschen
-    await supabase.from('user_profiles').delete().eq('id', userId)
+    try { await supabase.from('user_profiles').delete().eq('id', userId) }
+    catch (e) { console.log('Profile skip:', e.message) }
 
-    // 6. Auth User löschen (muss als letztes)
+    // 6. Auth User löschen
     const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
-    if (deleteError) {
-      console.error('Auth User löschen fehlgeschlagen:', deleteError)
-    }
+    if (deleteError) console.error('Auth delete failed:', deleteError.message)
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

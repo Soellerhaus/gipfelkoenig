@@ -283,9 +283,18 @@
       const step2 = confirm('Bist du wirklich sicher? Alle Daten werden gelöscht!');
       if (!step2) return;
 
-      const { error } = await GK.supabase.functions.invoke('delete-account');
-      if (error) {
-        alert('Fehler beim Löschen. Bitte kontaktiere claudio-sch@hotmail.com');
+      try {
+        const { data, error } = await GK.supabase.functions.invoke('delete-account');
+        if (error) {
+          alert('Fehler beim Löschen: ' + (error.message || JSON.stringify(error)));
+          return;
+        }
+        if (data && data.error) {
+          alert('Fehler: ' + data.error);
+          return;
+        }
+      } catch (e) {
+        alert('Fehler: ' + e.message);
         return;
       }
 
