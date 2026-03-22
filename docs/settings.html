@@ -460,14 +460,24 @@
           return;
         }
 
+        // Echte Aufstiegs-HM berechnen (Summe aller positiven Höhenänderungen)
+        let totalElevGain = 0;
+        for (let i = 1; i < points.length; i++) {
+          if (points[i].elevation && points[i-1].elevation) {
+            const diff = points[i].elevation - points[i-1].elevation;
+            if (diff > 0) totalElevGain += diff;
+          }
+        }
+        totalElevGain = Math.round(totalElevGain);
+
         // Besteigungen speichern
         let saved = 0;
         let errors = [];
         for (const fp of foundPeaks) {
           const summitTime = fp.point.time || new Date().toISOString();
           const summitYear = new Date(summitTime).getFullYear().toString();
-          const elevGain = fp.point.elevation ? Math.round(fp.point.elevation) : null;
-          const pts = Math.round((fp.peak.elevation || 0) / 100);
+          // Punkte = echte Aufstiegs-HM / 100
+          const pts = Math.round(totalElevGain / 100);
 
           const { error: insertError } = await GK.supabase
             .from('summits')
@@ -478,7 +488,7 @@
               season: summitYear,
               checkin_method: 'manual',
               points: pts,
-              elevation_gain: elevGain,
+              elevation_gain: totalElevGain,
               safety_ok: true,
               safety_level: 0,
               is_season_first: false,
@@ -495,7 +505,8 @@
 
         bar.style.width = '100%';
         if (saved > 0) {
-          msg.textContent = '✓ ' + saved + ' Gipfel erkannt und eingetragen: ' + foundPeaks.filter((fp,i) => !errors.some(e => e.startsWith(fp.peak.name))).map(fp => fp.peak.name).join(', ');
+          const peakList = foundPeaks.filter(fp => !errors.some(e => e.startsWith(fp.peak.name))).map(fp => fp.peak.name).join(', ');
+          msg.textContent = '✓ ' + saved + ' Gipfel · ↗ ' + totalElevGain + ' HM · ' + Math.round(totalElevGain/100) + ' Pkt — ' + peakList;
           msg.style.color = 'var(--color-safe)';
         } else {
           msg.textContent = 'Fehler beim Speichern: ' + errors.join('; ');
