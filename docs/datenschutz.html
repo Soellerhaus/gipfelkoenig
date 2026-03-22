@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Datenschutzerklärung — Bergkönig</title>
+  <meta name="theme-color" content="#d4a24c">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/layout.css">
+</head>
+<body>
+  <div class="auth-page" style="max-width: 700px;">
+    <a href="/index.html" class="auth-logo">Bergkönig</a>
+
+    <div class="auth-card" style="padding: 2rem;">
+      <h1 style="font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1.5rem;">Datenschutzerklärung</h1>
+      <div style="font-size: 0.85rem; color: var(--color-muted); line-height: 1.8;">
+
+        <p><strong>Stand:</strong> März 2026</p>
+
+        <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-top: 1.5rem; color: var(--color-text);">1. Verantwortlicher</h2>
+        <p>Claudio Scheiwiller<br>
+        Walserstraße 264<br>
+        6992 Hirschegg, Österreich<br>
+        E-Mail: kontakt@bergkoenig.app</p>
+
+        <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-top: 1.5rem; color: var(--color-text);">2. Welche Daten wir erheben</h2>
+        <p>Bei der <strong>Registrierung</strong> erheben wir:</p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 0.5rem;">
+          <li>E-Mail-Adresse (für Login und Kommunikation)</li>
+          <li>Benutzername (öffentlich sichtbar in der Rangliste)</li>
+          <li>Passwort (verschlüsselt gespeichert, nicht einsehbar)</li>
+          <li>Avatar-Auswahl (Emoji)</li>
+        </ul>
+
+        <p>Bei der <strong>Nutzung der App</strong> speichern wir:</p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 0.5rem;">
+          <li>Gipfelbesteigungen (Gipfel-ID, Zeitpunkt, Punkte)</li>
+          <li>Spielfortschritt (Punkte, Kronen, Badges)</li>
+        </ul>
+
+        <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-top: 1.5rem; color: var(--color-text);">3. Strava-Datenverarbeitung</h2>
+        <p>Die Verbindung mit Strava ist <strong>optional</strong>. Bergkönig ist keine Strava-App — Strava ist eine optionale Datenquelle.</p>
+        <p>Wenn du dein Strava-Konto verbindest:</p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 0.5rem;">
+          <li>Wir erhalten Zugriff auf deine <strong>Aktivitäten</strong> (Scope: activity:read_all)</li>
+          <li>Wir verarbeiten <strong>nur GPS-Koordinaten und Höhendaten</strong> zur Gipfelerkennung</li>
+          <li><strong>GPS-Tracks werden NICHT gespeichert</strong> — nur abgeleitete Daten (welcher Gipfel, wann, Höhenmeter)</li>
+          <li>Dein Strava-Name und Profilbild werden <strong>nicht</strong> in Bergkönig angezeigt</li>
+          <li>Strava-Tokens werden verschlüsselt in unserer Datenbank gespeichert</li>
+        </ul>
+
+        <p><strong>Strava trennen:</strong> Du kannst die Verbindung jederzeit in den Einstellungen trennen. Dabei werden:</p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 0.5rem;">
+          <li>Alle Strava-Tokens aus unserer Datenbank gelöscht</li>
+          <li>Die Autorisierung bei Strava widerrufen (Deauthorize-API)</li>
+          <li>Deine bestehenden Punkte und Besteigungen bleiben erhalten</li>
+        </ul>
+
+        <p style="font-size: 0.8rem;">Bergkönig ist nicht von Strava® betrieben, empfohlen oder zertifiziert. Strava® ist eine eingetragene Marke der Strava, Inc. Siehe auch: <a href="https://www.strava.com/legal/privacy" target="_blank" style="color: var(--color-gold);">Strava Datenschutzrichtlinie</a></p>
+
+        <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-top: 1.5rem; color: var(--color-text);">4. Rechtsgrundlage</h2>
+        <p>Die Verarbeitung deiner Daten erfolgt auf Grundlage von:</p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 0.5rem;">
+          <li><strong>Einwilligung</strong> (Art. 6 Abs. 1 lit. a DSGVO) — bei der Registrierung</li>
+          <li><strong>Vertragserfüllung</strong> (Art. 6 Abs. 1 lit. b DSGVO) — zur Bereitstellung des Spiels</li>
+        </ul>
+
+        <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-top: 1.5rem; color: var(--color-text);">5. Datenspeicherung</h2>
+        <p>Deine Daten werden gespeichert bei:</p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 0.5rem;">
+          <li><strong>Supabase</strong> (Datenbank, Authentifizierung) — Server in der EU (Irland)</li>
+          <li><strong>GitHub Pages</strong> (Website-Hosting) — statische Dateien</li>
+        </ul>
+        <p>Wir übermitteln keine Daten an Dritte, ausser an Strava wenn du die Verbindung aktivierst.</p>
+
+        <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-top: 1.5rem; color: var(--color-text);">6. Deine Rechte (DSGVO)</h2>
+        <p>Du hast das Recht auf:</p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 0.5rem;">
+          <li><strong>Auskunft</strong> — welche Daten wir über dich gespeichert haben</li>
+          <li><strong>Berichtigung</strong> — falsche Daten korrigieren lassen</li>
+          <li><strong>Löschung</strong> — deinen Account und alle Daten löschen (in den Einstellungen)</li>
+          <li><strong>Datenübertragbarkeit</strong> — deine Daten in maschinenlesbarem Format erhalten</li>
+          <li><strong>Widerruf</strong> — deine Einwilligung jederzeit widerrufen</li>
+        </ul>
+        <p>Kontaktiere uns: <a href="mailto:kontakt@bergkoenig.app" style="color: var(--color-gold);">kontakt@bergkoenig.app</a></p>
+
+        <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-top: 1.5rem; color: var(--color-text);">7. Account-Löschung</h2>
+        <p>Du kannst deinen Account jederzeit in den <a href="/settings.html" style="color: var(--color-gold);">Einstellungen</a> vollständig löschen. Dabei werden unwiderruflich gelöscht:</p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 0.5rem;">
+          <li>Alle Gipfelbesteigungen und Punkte</li>
+          <li>Dein Profil und Benutzername</li>
+          <li>Alle Badges und Kronen</li>
+          <li>Strava-Verbindung (wird bei Strava deautorisiert)</li>
+          <li>Dein Authentifizierungs-Account</li>
+        </ul>
+
+        <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-top: 1.5rem; color: var(--color-text);">8. Cookies</h2>
+        <p>Bergkönig verwendet <strong>keine Tracking-Cookies</strong> und keine Analyse-Tools (kein Google Analytics, kein Facebook Pixel). Wir verwenden nur technisch notwendige Session-Tokens für die Authentifizierung.</p>
+
+        <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-top: 1.5rem; color: var(--color-text);">9. Kontakt</h2>
+        <p>Bei Fragen zum Datenschutz:<br>
+        <a href="mailto:kontakt@bergkoenig.app" style="color: var(--color-gold);">kontakt@bergkoenig.app</a></p>
+
+      </div>
+    </div>
+
+    <div class="auth-footer">
+      <a href="/impressum.html">Impressum</a> · <a href="/nutzungsbedingungen.html">Nutzungsbedingungen</a> · <a href="/index.html">Startseite</a>
+    </div>
+  </div>
+</body>
+</html>
