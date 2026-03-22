@@ -265,13 +265,13 @@
 
 #map {
   width: 100%;
-  height: calc(100% - 130px);
+  height: calc(100% - 155px);
   z-index: 1;
 }
 
 /* Gipfel-Info Panel — immer sichtbar, fixe Größe */
 .peak-info-panel {
-  height: 130px;
+  height: 155px;
   overflow: hidden;
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);
@@ -363,8 +363,9 @@
 }
 
 .peak-history {
-  font-size: 0.65rem;
+  font-size: 0.78rem;
   color: var(--color-muted);
+  margin-top: 0.4rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
