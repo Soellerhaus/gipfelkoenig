@@ -474,7 +474,7 @@ async function initAppPage() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async function () {
       await GK.supabase.auth.signOut();
-      window.location.href = '/login.html';
+      window.location.href = '/index.html';
     });
   }
 
