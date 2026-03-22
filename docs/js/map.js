@@ -162,11 +162,7 @@ function buildPopupContent(peak, ownership, summitCount, isSafe) {
 }
 
 /**
- * Historische Daten für ein Gipfel-Popup nachladen.
- * Zeigt Besteigungen pro Saison und wer am meisten war.
- */
-/**
- * Slide-Up Panel öffnen mit Gipfel-Details
+ * Slide-Up Panel öffnen mit Gipfel-Details — kompakte Badge-Pills pro Saison.
  */
 async function openPeakPanel(peakId) {
   const panel = document.getElementById('peak-info-panel');
@@ -213,91 +209,94 @@ async function openPeakPanel(peakId) {
       userProfiles[uid] = profil || { username: 'Anonym', display_name: 'Anonym' };
     }
 
-    const totalSummits = summits.length;
-    const totalPoints = summits.reduce((sum, s) => sum + (s.points || 0), 0);
-    const uniqueClimbers = userIds.length;
-    const lastSummit = summits[0];
-    const lastUser = userProfiles[lastSummit.user_id];
-
-    // Statistik-Karten
-    let statsHtml = `
-      <div class="peak-stats">
-        <div class="peak-stat">
-          <div class="peak-stat-value">${totalSummits}</div>
-          <div class="peak-stat-label">Besteigungen</div>
-        </div>
-        <div class="peak-stat">
-          <div class="peak-stat-value">${uniqueClimbers}</div>
-          <div class="peak-stat-label">Bergfreunde</div>
-        </div>
-        <div class="peak-stat">
-          <div class="peak-stat-value">${totalPoints.toLocaleString('de')}</div>
-          <div class="peak-stat-label">Punkte gesamt</div>
-        </div>
-      </div>`;
-
-    // Pioniere (Erst-Besteiger pro Saison)
-    const pioneers = summits.filter(s => s.is_season_first);
-    let pioneerHtml = '';
-    if (pioneers.length > 0) {
-      pioneerHtml = '<div style="margin-bottom: 0.75rem;"><div style="font-size: 0.75rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">🌟 Pioniere</div>';
-      for (const p of pioneers) {
-        const u = userProfiles[p.user_id];
-        const d = new Date(p.summited_at);
-        pioneerHtml += `<div class="season-row"><span>${u.display_name || u.username} <span class="text-muted">(${p.season})</span></span><span class="text-muted">${d.toLocaleDateString('de-AT')}</span></div>`;
-      }
-      pioneerHtml += '</div>';
-    }
-
-    // Frühaufsteher
-    const earlyBirds = summits.filter(s => new Date(s.summited_at).getHours() < 7);
-    let earlyHtml = '';
-    if (earlyBirds.length > 0) {
-      earlyHtml = '<div style="margin-bottom: 0.75rem;"><div style="font-size: 0.75rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">🌅 Frühaufsteher</div>';
-      for (const e of earlyBirds.slice(0, 5)) {
-        const u = userProfiles[e.user_id];
-        const d = new Date(e.summited_at);
-        const zeit = d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
-        earlyHtml += `<div class="season-row"><span>${u.display_name || u.username}</span><span class="text-muted">${zeit} Uhr · ${d.toLocaleDateString('de-AT')}</span></div>`;
-      }
-      earlyHtml += '</div>';
-    }
-
-    // Bergkönig pro Saison (letzte 3 Jahre)
+    // Nach Saison gruppieren
     const seasons = {};
     for (const s of summits) {
       if (!seasons[s.season]) seasons[s.season] = [];
       seasons[s.season].push(s);
     }
-    const sortedSeasons = Object.keys(seasons).sort((a, b) => b - a).slice(0, 3);
+    const currentYear = new Date().getFullYear().toString();
+    const sortedSeasons = Object.keys(seasons).sort((a, b) => b - a).slice(0, 4);
 
-    let kingHtml = '<div style="margin-bottom: 0.75rem;"><div style="font-size: 0.75rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">👑 Bergkönig pro Saison</div>';
-    for (const season of sortedSeasons) {
-      const entries = seasons[season];
+    // Badges pro Saison ermitteln
+    function getSeasonBadges(entries) {
+      const badges = [];
       const countByUser = {};
       for (const e of entries) {
         countByUser[e.user_id] = (countByUser[e.user_id] || 0) + 1;
       }
-      const sorted = Object.entries(countByUser).sort((a, b) => b[1] - a[1]);
-      const topUserId = sorted[0][0];
-      const topCount = sorted[0][1];
-      const topUser = userProfiles[topUserId];
-      kingHtml += `<div class="season-row"><span><strong>${season}</strong> — ${topUser.display_name || topUser.username}</span><span style="color: var(--color-gold); font-weight: 600;">${topCount}× · ${entries.length} ges.</span></div>`;
+      const topEntry = Object.entries(countByUser).sort((a, b) => b[1] - a[1])[0];
+      if (topEntry) {
+        const u = userProfiles[topEntry[0]];
+        badges.push({ emoji: '👑', label: 'König/in', user: u.display_name || u.username, detail: topEntry[1] + '×' });
+      }
+      const pioneer = entries.find(e => e.is_season_first);
+      if (pioneer) {
+        const u = userProfiles[pioneer.user_id];
+        badges.push({ emoji: '⭐', label: 'Pionier', user: u.display_name || u.username });
+      }
+      const earlyBird = entries.find(e => new Date(e.summited_at).getHours() < 7);
+      if (earlyBird) {
+        const u = userProfiles[earlyBird.user_id];
+        badges.push({ emoji: '🌅', label: 'Frühaufsteher', user: u.display_name || u.username });
+      }
+      const nightOwl = entries.find(e => new Date(e.summited_at).getHours() >= 21);
+      if (nightOwl) {
+        const u = userProfiles[nightOwl.user_id];
+        badges.push({ emoji: '🦉', label: 'Nachtwanderer', user: u.display_name || u.username });
+      }
+      if (summits.length < 5) {
+        badges.push({ emoji: '💎', label: 'Selten' });
+      }
+      return badges;
     }
-    kingHtml += '</div>';
 
-    // Letzte Besteigung
-    const lastDate = new Date(lastSummit.summited_at);
-    const lastDateStr = lastDate.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const lastTime = lastDate.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+    function badgePill(badge, large) {
+      const sz = large ? '0.75rem' : '0.65rem';
+      const eSz = large ? '1rem' : '0.8rem';
+      const pad = large ? '3px 8px' : '2px 6px';
+      const userHtml = badge.user
+        ? `<span style="font-weight:600;">${badge.user}</span>${badge.detail ? ' · ' + badge.detail : ''}`
+        : '';
+      return `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.25);color:var(--color-gold);padding:${pad};border-radius:6px;font-size:${sz};white-space:nowrap;">
+        <span style="font-size:${eSz};">${badge.emoji}</span>
+        <span>${badge.label}</span>
+        ${userHtml ? '<span style="color:var(--color-text);font-weight:400;margin-left:2px;">' + userHtml + '</span>' : ''}
+      </span>`;
+    }
+
+    let badgesHtml = '';
+    for (const season of sortedSeasons) {
+      const entries = seasons[season];
+      const badges = getSeasonBadges(entries);
+      const isCurrent = season === currentYear;
+
+      if (isCurrent) {
+        badgesHtml += `
+          <div style="margin-bottom:0.5rem;">
+            <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">
+              ${season} · ${entries.length} Besteigungen
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+              ${badges.map(b => badgePill(b, true)).join('')}
+            </div>
+          </div>`;
+      } else {
+        badgesHtml += `
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+            <span style="font-size:0.65rem;color:var(--color-muted);min-width:28px;">${season}</span>
+            <div style="display:flex;flex-wrap:wrap;gap:3px;">
+              ${badges.map(b => badgePill(b, false)).join('')}
+            </div>
+            <span style="font-size:0.6rem;color:var(--color-muted);margin-left:auto;">${entries.length}×</span>
+          </div>`;
+      }
+    }
 
     content.innerHTML = `
       <h3>${peak.name}</h3>
-      <div class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml} · Letzte: ${lastDateStr} ${lastTime} Uhr</div>
-      ${statsHtml}
-      ${kingHtml}
-      ${pioneerHtml}
-      ${earlyHtml}
+      <div class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</div>
+      ${badgesHtml}
     `;
 
   } catch (err) {
