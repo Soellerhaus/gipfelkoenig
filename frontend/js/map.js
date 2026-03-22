@@ -333,65 +333,75 @@ function showNearestPeakInPanel() {
 let _loadPeaksRunning = false;
 async function loadPeaks() {
   if (!GK.map.leaflet) return;
-  if (_loadPeaksRunning) return; // Verhindere parallele Aufrufe
+  if (_loadPeaksRunning) return;
   _loadPeaksRunning = true;
 
-  const bounds = GK.map.leaflet.getBounds();
-  const boundsObj = {
-    north: bounds.getNorth(),
-    south: bounds.getSouth(),
-    east: bounds.getEast(),
-    west: bounds.getWest(),
-  };
+  try {
+    const bounds = GK.map.leaflet.getBounds();
+    const boundsObj = {
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest(),
+    };
 
-  // Gipfel vom Backend laden — max 100 für Performance
-  let peaks = await GK.api.getPeaks(boundsObj);
-  if (!peaks || peaks.length === 0) return;
-  if (peaks.length > 100) peaks = peaks.slice(0, 100);
+    // Gipfel laden — max 100
+    let peaks = await GK.api.getPeaks(boundsObj);
+    if (!peaks || peaks.length === 0) return;
+    if (peaks.length > 100) peaks = peaks.slice(0, 100);
 
-  const season = getCurrentSeason();
-  const today = new Date().toISOString().slice(0, 10);
+    // Bestehende Marker entfernen
+    if (markerLayer) markerLayer.clearLayers();
+
+    // Cache + Marker SOFORT anzeigen — kein await mehr nach diesem Punkt
+    for (const peak of peaks) {
+      GK.map.peaks.set(peak.id, peak);
+      const icon = getMarkerIcon(peak, null, false, true);
+      const marker = L.marker([peak.lat, peak.lng], { icon });
+      marker.bindPopup(buildPopupContent(peak, null, 0, true), {
+        maxWidth: 220, closeButton: false,
+      });
+      marker.on('click', function () { openPeakPanel(peak.id); });
+      marker.peakData = peak;
+      markerLayer.addLayer(marker);
+    }
+  } finally {
+    _loadPeaksRunning = false;
+  }
+
+  // Kronen KOMPLETT ASYNC nachladen — blockiert NICHTS
+  loadCrownsAsync(peaks);
+}
+
+/** Kronen im Hintergrund laden — blockiert weder UI noch loadPeaks */
+function loadCrownsAsync() {
   const userId = GK.map._currentUserId;
-  const peakIds = peaks.map(p => p.id);
+  if (!userId || !markerLayer) return;
+  const season = getCurrentSeason();
+  const lastSeason = (parseInt(season) - 1).toString();
 
-  // Bestehende Marker entfernen
-  if (markerLayer) {
-    markerLayer.clearLayers();
-  }
+  // Fire-and-forget — kein await, kein Freeze
+  GK.supabase.from('summits').select('peak_id, season')
+    .eq('user_id', userId).in('season', [season, lastSeason])
+    .then(({ data }) => {
+      if (!data || data.length === 0) return;
+      const userSummitedPeaks = new Set(data.map(s => s.peak_id));
+      const visiblePeakIds = [];
+      markerLayer.eachLayer(m => { if (m.peakData) visiblePeakIds.push(m.peakData.id); });
+      const userPeakIds = [...userSummitedPeaks].filter(id => visiblePeakIds.includes(id));
+      if (userPeakIds.length === 0) {
+        // User hat Gipfel bestiegen aber keine davon sichtbar — trotzdem Marker updaten
+        markerLayer.eachLayer(m => {
+          if (m.peakData && userSummitedPeaks.has(m.peakData.id)) {
+            m.setIcon(getMarkerIcon(m.peakData, null, true, true));
+          }
+        });
+        return;
+      }
 
-  // Gipfel im Cache speichern
-  for (const peak of peaks) {
-    GK.map.peaks.set(peak.id, peak);
-  }
-
-  // SCHRITT 1: Marker SOFORT anzeigen (ohne König-Prüfung)
-  for (const peak of peaks) {
-    const icon = getMarkerIcon(peak, null, false, true);
-    const marker = L.marker([peak.lat, peak.lng], { icon });
-    marker.bindPopup(buildPopupContent(peak, null, 0, true), {
-      maxWidth: 220,
-      closeButton: false,
-    });
-    marker.on('click', function () { openPeakPanel(peak.id); });
-    marker.peakData = peak;
-    markerLayer.addLayer(marker);
-  }
-
-  // SCHRITT 2: Kronen im Hintergrund nachladen (blockiert UI nicht)
-  if (userId) {
-    const lastSeason = (parseInt(season) - 1).toString();
-    try {
-      const { data } = await GK.supabase.from('summits').select('peak_id, season')
-        .eq('user_id', userId).in('season', [season, lastSeason]);
-      if (data && data.length > 0) {
-        const userSummitedPeaks = new Set(data.map(s => s.peak_id));
-        const userPeakIds = [...userSummitedPeaks].filter(id => peakIds.includes(id));
-
-        if (userPeakIds.length > 0) {
-          const { data: allSummits } = await GK.supabase
-            .from('summits').select('peak_id, user_id, season')
-            .in('peak_id', userPeakIds).in('season', [season, lastSeason]);
-
+      return GK.supabase.from('summits').select('peak_id, user_id, season')
+        .in('peak_id', userPeakIds).in('season', [season, lastSeason])
+        .then(({ data: allSummits }) => {
           const userIsKing = new Set();
           if (allSummits) {
             const bySeason = {};
@@ -408,24 +418,20 @@ async function loadPeaks() {
               }
             }
           }
-
-          // Marker mit Kronen updaten
-          markerLayer.eachLayer(function (marker) {
-            if (marker.peakData) {
-              const pid = marker.peakData.id;
-              const summited = userSummitedPeaks.has(pid);
-              const isKing = userIsKing.has(pid);
-              if (summited || isKing) {
-                const king = isKing ? { user_id: userId } : null;
-                marker.setIcon(getMarkerIcon(marker.peakData, king, summited, true));
-              }
+          // Marker updaten
+          markerLayer.eachLayer(m => {
+            if (!m.peakData) return;
+            const pid = m.peakData.id;
+            const summited = userSummitedPeaks.has(pid);
+            const isKing = userIsKing.has(pid);
+            if (summited || isKing) {
+              const king = isKing ? { user_id: userId } : null;
+              m.setIcon(getMarkerIcon(m.peakData, king, summited, true));
             }
           });
-        }
-      }
-    } catch (e) { /* ignorieren */ }
-  }
-  _loadPeaksRunning = false;
+        });
+    })
+    .catch(() => { /* ignorieren */ });
 }
 
 /** Debounced-Version von loadPeaks */
@@ -539,9 +545,8 @@ async function initMap() {
     );
   }
 
-  // Gipfel beim ersten Laden anzeigen + nächsten Gipfel im Panel zeigen
-  await loadPeaks();
-  showNearestPeakInPanel();
+  // Gipfel laden — nicht blockierend, Panel danach füllen
+  loadPeaks().then(() => showNearestPeakInPanel());
 
   // Bei Kartenverschiebung und Zoom Gipfel neu laden (mit Debounce)
   map.on('moveend', loadPeaksDebounced);
