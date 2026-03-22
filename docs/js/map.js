@@ -146,17 +146,13 @@ function getMarkerIcon(peak, ownership, userSummited, isSafe) {
  * Popup-HTML für einen Gipfel erzeugen.
  */
 function buildPopupContent(peak, ownership, summitCount, isSafe) {
-  const safetyDot = isSafe
-    ? '<span style="color: #27ae60;">● Sicher</span>'
-    : '<span style="color: #e74c3c;">● Gesperrt</span>';
-
-  // König aus ownershipMap (hat user_id, braucht Username-Lookup)
+  // König anzeigen — aktuelles Jahr oder Vorjahr
   let kingLine = '';
   if (ownership && ownership.user_id) {
-    // Username aus Cache holen wenn verfügbar
     const kingName = GK.map._ownerNames && GK.map._ownerNames[ownership.user_id];
     if (kingName) {
-      kingLine = `<div style="font-size: 0.78rem; margin-top: 2px; color: #d4a24c;">👑 ${kingName}</div>`;
+      const yearLabel = ownership._fromLastYear ? ownership.season : '';
+      kingLine = `<div style="font-size: 0.78rem; margin-top: 2px; color: #d4a24c;">👑 ${kingName}${yearLabel ? ' (' + yearLabel + ')' : ''}</div>`;
     }
   }
 
@@ -165,7 +161,7 @@ function buildPopupContent(peak, ownership, summitCount, isSafe) {
       <strong style="font-family: 'Playfair Display', serif; font-size: 1rem;">
         ${peak.name}
       </strong>
-      <div style="font-size: 0.85rem; margin: 2px 0;">${peak.elevation} m · ${safetyDot}</div>
+      <div style="font-size: 0.85rem; margin: 2px 0;">${peak.elevation} m</div>
       ${kingLine}
     </div>
   `;
@@ -365,18 +361,25 @@ async function loadPeaks() {
     GK.map.peaks.set(peak.id, peak);
   }
 
-  // BATCH: Alle Daten parallel in 3 Queries laden (statt 4 pro Gipfel)
-  const [ownershipResult, safetyResult, userSummitsResult] = await Promise.all([
-    // 1. Ownership für alle sichtbaren Gipfel
+  const lastSeason = (parseInt(season) - 1).toString();
+
+  // BATCH: Alle Daten parallel laden
+  const [ownershipResult, ownershipLastResult, safetyResult, userSummitsResult] = await Promise.all([
+    // 1. Ownership aktuelle Saison
     GK.supabase.from('ownership').select('*').in('peak_id', peakIds).eq('season', season),
-    // 2. Sicherheitsstatus für alle Regionen
+    // 2. Ownership Vorjahr (Fallback)
+    GK.supabase.from('ownership').select('*').in('peak_id', peakIds).eq('season', lastSeason),
+    // 3. Sicherheitsstatus
     GK.supabase.from('safety_status').select('*').eq('date', today),
-    // 3. User-Summits (nur einmal laden)
+    // 4. User-Summits
     userId ? GK.supabase.from('summits').select('peak_id').eq('user_id', userId).eq('season', season) : { data: [] }
   ]);
 
-  // Maps für schnellen Zugriff bauen
+  // Maps für schnellen Zugriff bauen — Vorjahr als Fallback
   const ownershipMap = {};
+  if (ownershipLastResult.data) {
+    for (const o of ownershipLastResult.data) ownershipMap[o.peak_id] = { ...o, _fromLastYear: true };
+  }
   if (ownershipResult.data) {
     for (const o of ownershipResult.data) ownershipMap[o.peak_id] = o;
   }
