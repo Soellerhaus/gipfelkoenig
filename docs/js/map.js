@@ -178,10 +178,16 @@ async function openPeakPanel(peakId) {
   const content = document.getElementById('peak-info-content');
   if (!content) return;
 
-  // Immer frisch laden wegen description-Feld
-  const cachedPeak = GK.map.peaks.get(peakId);
-  const peak = await GK.api.getPeakById(peakId) || cachedPeak;
+  const peak = GK.map.peaks.get(peakId) || await GK.api.getPeakById(peakId);
   if (!peak) return;
+
+  // Beschreibung nachladen falls nicht im Cache
+  if (!peak.description) {
+    try {
+      const { data } = await GK.supabase.from('peaks').select('description').eq('id', peakId).single();
+      if (data && data.description) peak.description = data.description;
+    } catch (e) { /* ignorieren */ }
+  }
 
   content.innerHTML = '<p class="text-muted" style="font-size:0.8rem;">Lade...</p>';
 
