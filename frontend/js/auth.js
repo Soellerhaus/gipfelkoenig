@@ -754,7 +754,8 @@ async function importStravaActivities(userId, accessToken) {
             strava_activity_id: activity.id.toString(),
             checkin_method: 'strava',
             points: points,
-            safety_ok: true
+            safety_ok: true,
+            elevation_gain: activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : null
           }, { onConflict: 'user_id,peak_id,summited_at', ignoreDuplicates: true });
 
           totalSummits++;

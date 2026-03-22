@@ -17,7 +17,7 @@ async function loadFeed() {
   try {
     const { data: summits, error } = await GK.supabase
       .from('summits')
-      .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first')
+      .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first, elevation_gain')
       .order('summited_at', { ascending: false })
       .limit(30);
 
@@ -118,7 +118,7 @@ async function loadFeed() {
               ${badges}
             </div>
             <div style="font-size:0.75rem;color:var(--color-muted);margin-top:2px;">
-              ${peak.elevation ? peak.elevation + ' m · ' : ''}${zeit} Uhr
+              ${peak.elevation ? peak.elevation + ' m · ' : ''}${s.elevation_gain ? '↗ ' + s.elevation_gain + ' HM · ' : ''}${zeit} Uhr
             </div>
             ${breakdownParts.length > 0 ? `<div style="font-size:0.65rem;color:var(--color-muted);margin-top:2px;font-family:var(--font-mono);">${breakdownParts.join(' + ')}</div>` : ''}
           </div>
