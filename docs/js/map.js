@@ -191,10 +191,19 @@ async function openPeakPanel(peakId) {
       : '<span style="color: var(--color-danger);">● Gesperrt</span>';
 
     if (error || !summits || summits.length === 0) {
+      // Leerer Gipfel — Trophy-Slots alle leer
       content.innerHTML = `
-        <h3>${peak.name}</h3>
-        <div class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</div>
-        <p class="text-muted" style="font-size: 0.8rem;">Noch nie bestiegen. Sei der Erste!</p>`;
+        <div class="peak-header">
+          <h3>${peak.name}</h3>
+          <span class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</span>
+        </div>
+        <div class="trophy-grid">
+          <div class="trophy-slot"><div class="trophy-emoji">👑</div><div class="trophy-label">König</div><div class="trophy-user">—</div></div>
+          <div class="trophy-slot"><div class="trophy-emoji">⭐</div><div class="trophy-label">Pionier</div><div class="trophy-user">—</div></div>
+          <div class="trophy-slot"><div class="trophy-emoji">🌅</div><div class="trophy-label">Früh</div><div class="trophy-user">—</div></div>
+          <div class="trophy-slot"><div class="trophy-emoji">💎</div><div class="trophy-label">Selten</div><div class="trophy-user">—</div></div>
+        </div>
+        <div class="peak-history">Noch nie bestiegen — sei der Erste!</div>`;
       return;
     }
 
@@ -205,6 +214,11 @@ async function openPeakPanel(peakId) {
       const profil = await GK.api.getUserProfile(uid);
       userProfiles[uid] = profil || { username: 'Anonym', display_name: 'Anonym' };
     }
+    const userName = (uid) => {
+      const u = userProfiles[uid];
+      const name = u ? (u.display_name || u.username) : 'Anonym';
+      return name.split(' ')[0]; // Nur Vorname
+    };
 
     // Nach Saison gruppieren
     const seasons = {};
@@ -212,89 +226,62 @@ async function openPeakPanel(peakId) {
       if (!seasons[s.season]) seasons[s.season] = [];
       seasons[s.season].push(s);
     }
-    const currentYear = new Date().getFullYear().toString();
-    const sortedSeasons = Object.keys(seasons).sort((a, b) => b - a).slice(0, 4);
-
-    // Badges pro Saison ermitteln
-    function getSeasonBadges(entries) {
-      const badges = [];
-      const countByUser = {};
-      for (const e of entries) {
-        countByUser[e.user_id] = (countByUser[e.user_id] || 0) + 1;
-      }
-      const topEntry = Object.entries(countByUser).sort((a, b) => b[1] - a[1])[0];
-      if (topEntry) {
-        const u = userProfiles[topEntry[0]];
-        badges.push({ emoji: '👑', label: 'König/in', user: u.display_name || u.username, detail: topEntry[1] + '×' });
-      }
-      const pioneer = entries.find(e => e.is_season_first);
-      if (pioneer) {
-        const u = userProfiles[pioneer.user_id];
-        badges.push({ emoji: '⭐', label: 'Pionier', user: u.display_name || u.username });
-      }
-      const earlyBird = entries.find(e => new Date(e.summited_at).getHours() < 7);
-      if (earlyBird) {
-        const u = userProfiles[earlyBird.user_id];
-        badges.push({ emoji: '🌅', label: 'Frühaufsteher', user: u.display_name || u.username });
-      }
-      const nightOwl = entries.find(e => new Date(e.summited_at).getHours() >= 21);
-      if (nightOwl) {
-        const u = userProfiles[nightOwl.user_id];
-        badges.push({ emoji: '🦉', label: 'Nachtwanderer', user: u.display_name || u.username });
-      }
-      if (summits.length < 5) {
-        badges.push({ emoji: '💎', label: 'Selten' });
-      }
-      return badges;
-    }
-
-    function badgePill(badge, large) {
-      const sz = large ? '0.72rem' : '0.62rem';
-      const eSz = large ? '0.9rem' : '0.75rem';
-      const pad = large ? '2px 7px' : '2px 5px';
-      const userHtml = badge.user
-        ? `<span style="font-weight:600;">${badge.user}</span>${badge.detail ? ' · ' + badge.detail : ''}`
-        : '';
-      return `<span style="display:inline-flex;align-items:center;gap:2px;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.25);color:var(--color-gold);padding:${pad};border-radius:5px;font-size:${sz};white-space:nowrap;">
-        <span style="font-size:${eSz};">${badge.emoji}</span>
-        <span>${badge.label}</span>
-        ${userHtml ? '<span style="color:var(--color-text);font-weight:400;margin-left:2px;">' + userHtml + '</span>' : ''}
-      </span>`;
-    }
-
-    // Neustes Jahr immer im Fokus (groß), Rest kompakt
-    let badgesHtml = '';
+    const sortedSeasons = Object.keys(seasons).sort((a, b) => b - a);
     const focusSeason = sortedSeasons[0];
-    for (const season of sortedSeasons) {
-      const entries = seasons[season];
-      const badges = getSeasonBadges(entries);
+    const focusEntries = seasons[focusSeason];
 
-      if (season === focusSeason) {
-        badgesHtml += `
-          <div style="margin-bottom:3px;">
-            <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">
-              ${season} · ${entries.length} Besteigungen
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:3px;">
-              ${badges.map(b => badgePill(b, true)).join('')}
-            </div>
-          </div>`;
-      } else {
-        badgesHtml += `
-          <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">
-            <span style="font-size:0.62rem;color:var(--color-muted);min-width:26px;">${season}</span>
-            <div style="display:flex;flex-wrap:wrap;gap:2px;">
-              ${badges.map(b => badgePill(b, false)).join('')}
-            </div>
-            <span style="font-size:0.58rem;color:var(--color-muted);margin-left:auto;">${entries.length}×</span>
-          </div>`;
-      }
+    // Trophy-Daten für Fokus-Saison ermitteln
+    const countByUser = {};
+    for (const e of focusEntries) {
+      countByUser[e.user_id] = (countByUser[e.user_id] || 0) + 1;
+    }
+    const kingEntry = Object.entries(countByUser).sort((a, b) => b[1] - a[1])[0];
+    const pioneer = focusEntries.find(e => e.is_season_first);
+    const earlyBird = focusEntries.find(e => new Date(e.summited_at).getHours() < 7);
+    const nightOwl = focusEntries.find(e => new Date(e.summited_at).getHours() >= 21);
+    const isRare = summits.length < 5;
+
+    // 4. Slot: Nachtwanderer wenn vorhanden, sonst Selten
+    const slot4 = nightOwl
+      ? { emoji: '🦉', label: 'Nacht', earned: true, user: userName(nightOwl.user_id), detail: '' }
+      : { emoji: '💎', label: 'Selten', earned: isRare, user: isRare ? '✓' : '—', detail: '' };
+
+    const trophies = [
+      { emoji: '👑', label: 'König', earned: !!kingEntry, user: kingEntry ? userName(kingEntry[0]) : '—', detail: kingEntry ? kingEntry[1] + '×' : '' },
+      { emoji: '⭐', label: 'Pionier', earned: !!pioneer, user: pioneer ? userName(pioneer.user_id) : '—', detail: '' },
+      { emoji: '🌅', label: 'Früh', earned: !!earlyBird, user: earlyBird ? userName(earlyBird.user_id) : '—', detail: '' },
+      slot4,
+    ];
+
+    const trophyHtml = trophies.map(t => `
+      <div class="trophy-slot${t.earned ? ' earned' : ''}">
+        <div class="trophy-emoji">${t.emoji}</div>
+        <div class="trophy-label">${t.label}</div>
+        <div class="trophy-user">${t.user}</div>
+        ${t.detail ? '<div class="trophy-detail">' + t.detail + '</div>' : ''}
+      </div>`).join('');
+
+    // Vergangene Jahre als kompakte Zeile
+    const pastSeasons = sortedSeasons.slice(1, 4);
+    let historyHtml = '';
+    if (pastSeasons.length > 0) {
+      const parts = pastSeasons.map(s => {
+        const entries = seasons[s];
+        const cbu = {};
+        for (const e of entries) cbu[e.user_id] = (cbu[e.user_id] || 0) + 1;
+        const top = Object.entries(cbu).sort((a, b) => b[1] - a[1])[0];
+        return `${s}: 👑 ${userName(top[0])} ${top[1]}×`;
+      });
+      historyHtml = parts.join('  ·  ');
     }
 
     content.innerHTML = `
-      <h3>${peak.name}</h3>
-      <div class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</div>
-      ${badgesHtml}
+      <div class="peak-header">
+        <h3>${peak.name}</h3>
+        <span class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml} · ${focusSeason}</span>
+      </div>
+      <div class="trophy-grid">${trophyHtml}</div>
+      ${historyHtml ? '<div class="peak-history">' + historyHtml + '</div>' : ''}
     `;
 
   } catch (err) {

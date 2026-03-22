@@ -265,17 +265,17 @@
 
 #map {
   width: 100%;
-  height: calc(100% - 110px);
+  height: calc(100% - 120px);
   z-index: 1;
 }
 
 /* Gipfel-Info Panel — immer sichtbar, fixe Größe */
 .peak-info-panel {
-  height: 110px;
+  height: 120px;
   overflow: hidden;
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 0.75rem;
 }
 
 .peak-info-panel .panel-handle,
@@ -283,16 +283,87 @@
   display: none;
 }
 
-.peak-info-panel h3 {
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  margin: 0 0 2px 0;
+.peak-info-panel .peak-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.3rem;
 }
 
-.peak-info-panel .peak-meta {
-  font-size: 0.8rem;
+.peak-info-panel .peak-header h3 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.peak-info-panel .peak-header .peak-meta {
+  font-size: 0.72rem;
   color: var(--color-muted);
-  margin-bottom: 0.4rem;
+}
+
+.trophy-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 0.25rem;
+}
+
+.trophy-slot {
+  text-align: center;
+  padding: 3px 2px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+}
+
+.trophy-slot.earned {
+  background: rgba(201,168,76,0.12);
+  border-color: rgba(201,168,76,0.3);
+}
+
+.trophy-slot .trophy-emoji {
+  font-size: 1.1rem;
+  line-height: 1;
+  opacity: 0.25;
+}
+
+.trophy-slot.earned .trophy-emoji {
+  opacity: 1;
+}
+
+.trophy-slot .trophy-label {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-muted);
+  margin-top: 1px;
+}
+
+.trophy-slot.earned .trophy-label {
+  color: var(--color-gold);
+}
+
+.trophy-slot .trophy-user {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trophy-slot .trophy-detail {
+  font-size: 0.48rem;
+  color: var(--color-muted);
+}
+
+.peak-history {
+  font-size: 0.58rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* === BOTTOM NAVIGATION === */
