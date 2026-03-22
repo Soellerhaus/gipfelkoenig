@@ -371,22 +371,48 @@ async function loadPeaks() {
     if (data) for (const s of data) safetyMap[s.region_id] = s;
   } catch (e) { /* ignorieren */ }
 
-  // User-Summits laden (welche Gipfel hat der User bestiegen)
+  // User-Summits laden + König-Status prüfen (nur für User-Peaks)
   const userSummitedPeaks = new Set();
+  const userIsKing = new Set();
   if (userId) {
     try {
+      // User-Summits mit Zählung laden
       const { data } = await GK.supabase.from('summits').select('peak_id').eq('user_id', userId).eq('season', season);
-      if (data) for (const s of data) userSummitedPeaks.add(s.peak_id);
+      if (data) {
+        for (const s of data) userSummitedPeaks.add(s.peak_id);
+
+        // Für bestiegene Peaks prüfen ob User König ist (meiste Besteigungen)
+        const userPeakIds = [...userSummitedPeaks].filter(id => peakIds.includes(id));
+        if (userPeakIds.length > 0) {
+          const { data: allSummits } = await GK.supabase
+            .from('summits').select('peak_id, user_id')
+            .in('peak_id', userPeakIds).eq('season', season);
+          if (allSummits) {
+            // Pro Peak zählen wer die meisten hat
+            const counts = {};
+            for (const s of allSummits) {
+              if (!counts[s.peak_id]) counts[s.peak_id] = {};
+              counts[s.peak_id][s.user_id] = (counts[s.peak_id][s.user_id] || 0) + 1;
+            }
+            for (const [pid, users] of Object.entries(counts)) {
+              const top = Object.entries(users).sort((a, b) => b[1] - a[1])[0];
+              if (top && top[0] === userId) userIsKing.add(parseInt(pid));
+            }
+          }
+        }
+      }
     } catch (e) { /* ignorieren */ }
   }
 
-  // Marker erstellen — schnell, keine schweren Queries
+  // Marker erstellen — schnell
   for (const peak of peaks) {
     const safety = peak.osm_region ? (safetyMap[peak.osm_region] || null) : null;
     const isSafe = safety ? safety.danger_level < 3 : true;
     const userSummited = userSummitedPeaks.has(peak.id);
 
-    const icon = getMarkerIcon(peak, null, userSummited, isSafe);
+    // König-Marker wenn User König ist
+    const king = userIsKing.has(peak.id) ? { user_id: userId } : null;
+    const icon = getMarkerIcon(peak, king, userSummited, isSafe);
 
     const marker = L.marker([peak.lat, peak.lng], { icon });
     marker.bindPopup(buildPopupContent(peak, null, 0, isSafe), {
