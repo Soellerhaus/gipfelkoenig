@@ -332,68 +332,62 @@ async function loadPeaks() {
   const season = getCurrentSeason();
   const today = new Date().toISOString().slice(0, 10);
   const userId = GK.map._currentUserId;
+  const peakIds = peaks.map(p => p.id);
 
   // Bestehende Marker entfernen
   if (markerLayer) {
     markerLayer.clearLayers();
   }
 
-  // Jeden Gipfel verarbeiten
+  // Gipfel im Cache speichern
   for (const peak of peaks) {
-    // Gipfel im Cache speichern
     GK.map.peaks.set(peak.id, peak);
+  }
 
-    // Besitzrechte laden
-    const ownership = await GK.api.getOwnership(peak.id, season);
+  // BATCH: Alle Daten parallel in 3 Queries laden (statt 4 pro Gipfel)
+  const [ownershipResult, safetyResult, userSummitsResult] = await Promise.all([
+    // 1. Ownership für alle sichtbaren Gipfel
+    GK.supabase.from('ownership').select('*').in('peak_id', peakIds).eq('season', season),
+    // 2. Sicherheitsstatus für alle Regionen
+    GK.supabase.from('safety_status').select('*').eq('date', today),
+    // 3. User-Summits (nur einmal laden)
+    userId ? GK.supabase.from('summits').select('peak_id').eq('user_id', userId).eq('season', season) : { data: [] }
+  ]);
 
-    // Sicherheitsstatus laden
-    const safety = peak.osm_region
-      ? await GK.api.getSafetyStatus(peak.osm_region, today)
-      : null;
+  // Maps für schnellen Zugriff bauen
+  const ownershipMap = {};
+  if (ownershipResult.data) {
+    for (const o of ownershipResult.data) ownershipMap[o.peak_id] = o;
+  }
+  const safetyMap = {};
+  if (safetyResult.data) {
+    for (const s of safetyResult.data) safetyMap[s.region_id] = s;
+  }
+  const userSummitedPeaks = new Set();
+  if (userSummitsResult.data) {
+    for (const s of userSummitsResult.data) userSummitedPeaks.add(s.peak_id);
+  }
+
+  // Marker erstellen — jetzt ohne weitere DB-Abfragen
+  for (const peak of peaks) {
+    const ownership = ownershipMap[peak.id] || null;
+    const safety = peak.osm_region ? (safetyMap[peak.osm_region] || null) : null;
     const isSafe = safety ? safety.danger_level < 3 : true;
+    const userSummited = userSummitedPeaks.has(peak.id);
 
-    // Prüfen ob der Benutzer diesen Gipfel schon bestiegen hat
-    let userSummited = false;
-    if (userId) {
-      const summits = await GK.api.getSummits(userId, season);
-      userSummited = summits.some((s) => s.peak_id === peak.id);
-    }
-
-    // Besteigungen dieser Saison zählen
-    let summitCount = 0;
-    try {
-      const { data, error } = await GK.supabase
-        .from('summits')
-        .select('id', { count: 'exact', head: true })
-        .eq('peak_id', peak.id)
-        .eq('season', season);
-
-      if (!error && data) {
-        summitCount = data.length;
-      }
-    } catch (err) {
-      console.error('Fehler beim Zählen der Besteigungen:', err);
-    }
-
-    // Icon bestimmen
     const icon = getMarkerIcon(peak, ownership, userSummited, isSafe);
 
-    // Marker erstellen und zur Schicht hinzufügen
     const marker = L.marker([peak.lat, peak.lng], { icon });
-    // Kompaktes Popup auf der Karte
-    marker.bindPopup(buildPopupContent(peak, ownership, summitCount, isSafe), {
+    marker.bindPopup(buildPopupContent(peak, ownership, 0, isSafe), {
       maxWidth: 220,
       closeButton: false,
     });
 
-    // Beim Klick: Slide-Up Panel mit Details öffnen
     marker.on('click', function () {
       openPeakPanel(peak.id);
     });
 
-    // Gipfel-Daten am Marker speichern für späteren Zugriff
     marker.peakData = peak;
-
     markerLayer.addLayer(marker);
   }
 }
