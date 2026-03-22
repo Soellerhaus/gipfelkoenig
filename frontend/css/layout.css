@@ -712,54 +712,54 @@
     padding: 20px 24px;
   }
 
-  /* Infobox auf Mobile — gut lesbar */
+  /* Infobox auf Mobile — GROSS und lesbar */
   .peak-info-panel {
-    padding: 0.4rem 0.6rem;
+    padding: 0.5rem 0.7rem;
   }
   .peak-top-meta {
-    font-size: 0.8rem;
+    font-size: 1rem;
   }
   .trophy-grid {
-    gap: 4px;
-    margin-top: 0.2rem;
-    margin-bottom: 0.15rem;
+    gap: 6px;
+    margin-top: 0.3rem;
+    margin-bottom: 0.2rem;
     flex-wrap: nowrap;
     overflow-x: auto;
   }
   .trophy-slot {
-    padding: 4px 8px;
+    padding: 5px 10px;
     gap: 3px;
     min-width: 0;
     flex-shrink: 1;
   }
   .trophy-slot .trophy-emoji {
-    font-size: 1.1rem;
+    font-size: 1.4rem;
   }
   .trophy-slot .trophy-label {
-    font-size: 0.75rem;
+    font-size: 1rem;
   }
   .trophy-slot .trophy-user {
-    font-size: 0.75rem;
-    max-width: 65px;
+    font-size: 1rem;
+    max-width: 85px;
   }
   .peak-bottom-name {
-    font-size: 1.1rem;
-    margin-top: 0.15rem;
+    font-size: 1.4rem;
+    margin-top: 0.2rem;
   }
   .peak-bottom-name .peak-elev {
-    font-size: 0.85rem;
+    font-size: 1rem;
     color: var(--color-muted);
     font-weight: 400;
     margin-left: 4px;
   }
   .peak-description {
-    font-size: 0.8rem;
-    line-height: 1.3;
-    margin-top: 0.15rem;
+    font-size: 1rem;
+    line-height: 1.4;
+    margin-top: 0.2rem;
   }
   .peak-history {
-    font-size: 0.75rem;
-    margin-top: 0.15rem;
+    font-size: 0.95rem;
+    margin-top: 0.2rem;
   }
 }
 
