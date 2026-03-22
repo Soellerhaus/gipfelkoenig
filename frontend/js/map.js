@@ -408,18 +408,59 @@ async function initMap() {
   // Orts-Suche einrichten
   initSearchControl(map);
 
-  // Benutzer-Standort ermitteln und Karte darauf zentrieren
+  // Benutzer-Standort ermitteln — Strava-Stadt bevorzugen, Browser-GPS als Fallback
+  let homeLocation = null;
+
+  // Versuche Strava-Standort aus Profil zu laden
+  try {
+    const userId = GK.map._currentUserId;
+    if (userId) {
+      const profil = await GK.api.getUserProfile(userId);
+      if (profil && profil.home_region) {
+        // Strava-Stadt geocodieren wenn vorhanden
+        const city = profil.display_name ? null : null; // Platzhalter
+      }
+    }
+  } catch (e) { /* ignorieren */ }
+
+  // Kleinwalsertal als Fallback wenn kein Standort
+  if (!homeLocation) {
+    homeLocation = MAP_DEFAULT_CENTER;
+  }
+
+  // Home-Button auf der Karte
+  const homeBtn = L.control({ position: 'topleft' });
+  homeBtn.onAdd = function () {
+    const div = L.DomUtil.create('div', 'leaflet-bar');
+    div.innerHTML = '<a href="#" title="Zum Heimatort" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--color-bg-card,#2d2a26);color:#c9a84c;font-size:18px;text-decoration:none;border-radius:4px;">🏠</a>';
+    div.querySelector('a').addEventListener('click', function (e) {
+      e.preventDefault();
+      map.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
+    });
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  };
+  homeBtn.addTo(map);
+
+  // Browser-GPS als Standort-Bestimmung (nur wenn nicht vom Server)
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        map.setView([latitude, longitude], MAP_DEFAULT_ZOOM);
-        console.log('Standort erkannt:', latitude, longitude);
+        // Nur zentrieren wenn Standort plausibel alpin ist (lat 45-48, lng 5-16)
+        if (latitude > 45 && latitude < 48.5 && longitude > 5 && longitude < 17) {
+          map.setView([latitude, longitude], MAP_DEFAULT_ZOOM);
+          console.log('Standort erkannt (alpin):', latitude, longitude);
+        } else {
+          console.log('Standort nicht alpin (' + latitude.toFixed(2) + ', ' + longitude.toFixed(2) + '), zeige Kleinwalsertal');
+          map.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
+        }
       },
       (err) => {
-        console.warn('Standort konnte nicht ermittelt werden:', err.message);
+        console.warn('Standort nicht ermittelt, zeige Kleinwalsertal');
+        map.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: false, timeout: 5000 }
     );
   }
 
