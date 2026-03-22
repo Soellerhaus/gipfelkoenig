@@ -287,12 +287,18 @@ async function openPeakPanel(peakId) {
     }
 
     const desc = peak.description || '';
+    const totalSummits = summits.length;
+    const uniqueUsers = [...new Set(summits.map(s => s.user_id))].length;
+    const lastSummit = summits[0];
+    const lastDate = new Date(lastSummit.summited_at).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const lastUser = userName(lastSummit.user_id);
+
     content.innerHTML = `
-      <div class="peak-top-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml} · ${focusSeason}</div>
+      <div class="peak-top-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml} · ${totalSummits} Besteigungen · ${uniqueUsers} Bergfreunde</div>
       <div class="trophy-grid">${trophyHtml}</div>
       ${historyHtml ? '<div class="peak-history">' + historyHtml + '</div>' : ''}
       <div class="peak-bottom-name">${peak.name}</div>
-      ${desc ? '<div class="peak-description">' + desc + '</div>' : ''}
+      ${desc ? '<div class="peak-description">' + desc + '</div>' : '<div class="peak-description">Letzte Besteigung: ' + lastDate + ' von ' + lastUser + '</div>'}
     `;
 
   } catch (err) {

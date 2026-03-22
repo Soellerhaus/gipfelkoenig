@@ -266,15 +266,14 @@
 
 #map {
   width: 100%;
-  flex: 1;
-  min-height: 0;
+  height: calc(100% - 140px);
   z-index: 1;
 }
 
-/* Gipfel-Info Panel — passt sich dem Inhalt an, max 30% */
+/* Gipfel-Info Panel — fixe Höhe 140px */
 .peak-info-panel {
+  height: 140px;
   flex-shrink: 0;
-  max-height: 30%;
   overflow: hidden;
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);
