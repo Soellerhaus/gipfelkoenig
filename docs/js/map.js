@@ -166,52 +166,104 @@ function buildPopupContent(peak, ownership, summitCount, isSafe) {
  * Zeigt Besteigungen pro Saison und wer am meisten war.
  */
 /**
- * Detail-Infos zum angeklickten Gipfel im "In deiner Nähe" Bereich anzeigen.
+ * Slide-Up Panel öffnen mit Gipfel-Details
  */
-async function loadPeakDetails(peakId) {
-  const container = document.getElementById('nearby-peaks');
-  if (!container) return;
+async function openPeakPanel(peakId) {
+  const panel = document.getElementById('peak-info-panel');
+  const content = document.getElementById('peak-info-content');
+  if (!panel || !content) return;
 
-  // Peak-Daten holen
   const peak = GK.map.peaks.get(peakId) || await GK.api.getPeakById(peakId);
   if (!peak) return;
 
-  container.innerHTML = '<p class="text-muted" style="font-size: 0.85rem;">Lade Details...</p>';
+  // Panel öffnen mit Lade-Anzeige
+  content.innerHTML = '<p class="text-muted">Lade Details...</p>';
+  panel.classList.add('open');
+
+  // Close-Button
+  document.getElementById('panel-close').onclick = () => panel.classList.remove('open');
+  document.getElementById('panel-handle').onclick = () => panel.classList.remove('open');
 
   try {
     // Alle Besteigungen dieses Gipfels laden
     const { data: summits, error } = await GK.supabase
       .from('summits')
-      .select('user_id, season, summited_at, points')
+      .select('user_id, season, summited_at, points, is_season_first')
       .eq('peak_id', peakId)
       .order('summited_at', { ascending: false });
 
+    // Sicherheitsstatus
+    const safetyHtml = peak.is_active !== false
+      ? '<span style="color: var(--color-safe);">● Sicher</span>'
+      : '<span style="color: var(--color-danger);">● Gesperrt</span>';
+
     if (error || !summits || summits.length === 0) {
-      container.innerHTML = `
-        <div style="padding: 0.5rem 0;">
-          <h2 style="font-family: var(--font-display); margin: 0; font-size: 1.3rem;">${peak.name}</h2>
-          <div style="color: var(--color-muted); font-size: 0.85rem;">${peak.elevation} m</div>
-          <p class="text-muted" style="font-size: 0.85rem; margin-top: 0.5rem;">Noch nie bestiegen. Sei der Erste!</p>
-        </div>`;
+      content.innerHTML = `
+        <h3>${peak.name}</h3>
+        <div class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</div>
+        <p class="text-muted" style="margin-top: 1rem; font-size: 0.9rem;">Noch nie bestiegen. Sei der Erste!</p>`;
       return;
     }
 
-    // User-Namen laden
+    // User-Daten laden
     const userIds = [...new Set(summits.map(s => s.user_id))];
-    const userNames = {};
+    const userProfiles = {};
     for (const uid of userIds) {
       const profil = await GK.api.getUserProfile(uid);
-      userNames[uid] = profil ? (profil.username || 'Anonym') : 'Anonym';
+      userProfiles[uid] = profil || { username: 'Anonym', display_name: 'Anonym' };
     }
 
-    // Gesamt-Punkte und letzte Besteigung
+    const totalSummits = summits.length;
     const totalPoints = summits.reduce((sum, s) => sum + (s.points || 0), 0);
+    const uniqueClimbers = userIds.length;
     const lastSummit = summits[0];
-    const lastDate = new Date(lastSummit.summited_at).toLocaleDateString('de-AT', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    });
+    const lastUser = userProfiles[lastSummit.user_id];
 
-    // Nach Saison gruppieren — nur letzte 3 Jahre
+    // Statistik-Karten
+    let statsHtml = `
+      <div class="peak-stats">
+        <div class="peak-stat">
+          <div class="peak-stat-value">${totalSummits}</div>
+          <div class="peak-stat-label">Besteigungen</div>
+        </div>
+        <div class="peak-stat">
+          <div class="peak-stat-value">${uniqueClimbers}</div>
+          <div class="peak-stat-label">Bergfreunde</div>
+        </div>
+        <div class="peak-stat">
+          <div class="peak-stat-value">${totalPoints.toLocaleString('de')}</div>
+          <div class="peak-stat-label">Punkte gesamt</div>
+        </div>
+      </div>`;
+
+    // Pioniere (Erst-Besteiger pro Saison)
+    const pioneers = summits.filter(s => s.is_season_first);
+    let pioneerHtml = '';
+    if (pioneers.length > 0) {
+      pioneerHtml = '<div style="margin-bottom: 0.75rem;"><div style="font-size: 0.75rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">🌟 Pioniere</div>';
+      for (const p of pioneers) {
+        const u = userProfiles[p.user_id];
+        const d = new Date(p.summited_at);
+        pioneerHtml += `<div class="season-row"><span>${u.display_name || u.username} <span class="text-muted">(${p.season})</span></span><span class="text-muted">${d.toLocaleDateString('de-AT')}</span></div>`;
+      }
+      pioneerHtml += '</div>';
+    }
+
+    // Frühaufsteher
+    const earlyBirds = summits.filter(s => new Date(s.summited_at).getHours() < 7);
+    let earlyHtml = '';
+    if (earlyBirds.length > 0) {
+      earlyHtml = '<div style="margin-bottom: 0.75rem;"><div style="font-size: 0.75rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">🌅 Frühaufsteher</div>';
+      for (const e of earlyBirds.slice(0, 5)) {
+        const u = userProfiles[e.user_id];
+        const d = new Date(e.summited_at);
+        const zeit = d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+        earlyHtml += `<div class="season-row"><span>${u.display_name || u.username}</span><span class="text-muted">${zeit} Uhr · ${d.toLocaleDateString('de-AT')}</span></div>`;
+      }
+      earlyHtml += '</div>';
+    }
+
+    // Bergkönig pro Saison (letzte 3 Jahre)
     const seasons = {};
     for (const s of summits) {
       if (!seasons[s.season]) seasons[s.season] = [];
@@ -219,49 +271,54 @@ async function loadPeakDetails(peakId) {
     }
     const sortedSeasons = Object.keys(seasons).sort((a, b) => b - a).slice(0, 3);
 
-    // Bergkönig-Karten für rechte Seite
-    let kingHtml = '';
+    let kingHtml = '<div style="margin-bottom: 0.75rem;"><div style="font-size: 0.75rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">👑 Bergkönig pro Saison</div>';
     for (const season of sortedSeasons) {
       const entries = seasons[season];
       const countByUser = {};
       for (const e of entries) {
         countByUser[e.user_id] = (countByUser[e.user_id] || 0) + 1;
       }
-      const topUserId = Object.entries(countByUser).sort((a, b) => b[1] - a[1])[0][0];
-      const topCount = countByUser[topUserId];
-      const topName = userNames[topUserId];
-
-      kingHtml += `
-        <div style="text-align: center; min-width: 80px;">
-          <div style="font-size: 0.7rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px;">${season}</div>
-          <div style="font-size: 1.1rem;">👑</div>
-          <div style="font-size: 0.8rem; font-weight: 600;">${topName}</div>
-          <div style="font-size: 0.7rem; color: var(--color-muted);">${topCount}x · ${entries.length} ges.</div>
-        </div>`;
+      const sorted = Object.entries(countByUser).sort((a, b) => b[1] - a[1]);
+      const topUserId = sorted[0][0];
+      const topCount = sorted[0][1];
+      const topUser = userProfiles[topUserId];
+      kingHtml += `<div class="season-row"><span><strong>${season}</strong> — ${topUser.display_name || topUser.username}</span><span style="color: var(--color-gold); font-weight: 600;">${topCount}× · ${entries.length} ges.</span></div>`;
     }
+    kingHtml += '</div>';
 
-    // Layout: Links Info, Rechts Könige
-    let html = `
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 0.5rem 0;">
-        <div style="flex: 1;">
-          <h2 style="font-family: var(--font-display); margin: 0; font-size: 1.3rem;">${peak.name}</h2>
-          <div style="color: var(--color-muted); font-size: 0.82rem; margin-bottom: 0.4rem;">${peak.elevation} m · ${summits.length} Besteigungen · ${totalPoints.toLocaleString('de')} Pkt</div>
-          <div style="font-size: 0.82rem; color: var(--color-muted);">Letzte: ${lastDate} von <strong style="color: var(--color-text);">${userNames[lastSummit.user_id]}</strong></div>
-        </div>
-        <div style="display: flex; gap: 0.75rem;">
-          ${kingHtml}
-        </div>
-      </div>
-      `;
+    // Letzte Besteigung
+    const lastDate = new Date(lastSummit.summited_at);
+    const lastDateStr = lastDate.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const lastTime = lastDate.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
 
-    // Kein separater Button — Einchecken über den Floating-Button auf der Karte
+    content.innerHTML = `
+      <h3>${peak.name}</h3>
+      <div class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml} · Letzte: ${lastDateStr} ${lastTime} Uhr</div>
+      ${statsHtml}
+      ${kingHtml}
+      ${pioneerHtml}
+      ${earlyHtml}
+    `;
 
-    container.innerHTML = html;
   } catch (err) {
     console.error('Fehler beim Laden der Gipfel-Details:', err);
-    container.innerHTML = '<p class="text-muted">Fehler beim Laden der Details.</p>';
+    content.innerHTML = '<p class="text-muted">Fehler beim Laden.</p>';
   }
 }
+
+// Panel schließen wenn auf Karte geklickt wird (nicht auf Marker)
+document.addEventListener('DOMContentLoaded', function () {
+  const panel = document.getElementById('peak-info-panel');
+  if (panel) {
+    // Swipe down zum Schließen
+    let startY = 0;
+    panel.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; });
+    panel.addEventListener('touchmove', (e) => {
+      const diff = e.touches[0].clientY - startY;
+      if (diff > 50) { panel.classList.remove('open'); }
+    });
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Gipfel laden und Marker setzen
@@ -337,13 +394,15 @@ async function loadPeaks() {
 
     // Marker erstellen und zur Schicht hinzufügen
     const marker = L.marker([peak.lat, peak.lng], { icon });
+    // Kompaktes Popup auf der Karte
     marker.bindPopup(buildPopupContent(peak, ownership, summitCount, isSafe), {
-      maxWidth: 280,
+      maxWidth: 220,
+      closeButton: false,
     });
 
-    // Beim Klick auf Marker: Details unten im "In deiner Nähe" Bereich laden
-    marker.on('popupopen', function () {
-      loadPeakDetails(peak.id);
+    // Beim Klick: Slide-Up Panel mit Details öffnen
+    marker.on('click', function () {
+      openPeakPanel(peak.id);
     });
 
     // Gipfel-Daten am Marker speichern für späteren Zugriff

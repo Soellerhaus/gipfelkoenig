@@ -54,15 +54,20 @@
       <button class="checkin-btn" id="checkin-btn" title="Manueller Gipfel Check-in">&#9968;&#65039;</button>
     </div>
 
+    <!-- Gipfel-Info Slide-Up Panel (über der Karte) -->
+    <div class="peak-info-panel" id="peak-info-panel">
+      <div class="panel-handle" id="panel-handle"></div>
+      <button class="panel-close" id="panel-close">&times;</button>
+      <div id="peak-info-content">
+        <p class="text-muted">Tippe auf einen Gipfel-Marker.</p>
+      </div>
+    </div>
+
     <!-- Content Sections -->
     <div class="app-content">
 
-      <!-- Gipfel-Details unter der Karte -->
-      <section class="content-section" id="section-map">
-        <div id="nearby-peaks">
-          <p class="text-muted" style="font-size: 0.85rem; padding: 0.5rem 0;">Tippe auf einen Gipfel-Marker für Details.</p>
-        </div>
-      </section>
+      <!-- Karten-Platzhalter (leer, Karte ist fullscreen darüber) -->
+      <section class="content-section" id="section-map" style="display:none;"></section>
 
       <!-- Meine Gipfel -->
       <section class="content-section" id="section-summits">
