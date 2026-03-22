@@ -279,7 +279,7 @@
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  max-height: 60vh;
+  max-height: 40vh;
   overflow-y: auto;
   transform: translateY(100%);
   transition: transform 0.3s ease;
