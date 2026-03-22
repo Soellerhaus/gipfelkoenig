@@ -354,39 +354,92 @@ async function initAppPage() {
       if (el('season-hm')) el('season-hm').textContent = seasonHM.toLocaleString('de');
     }
 
-    // Badges aus DB laden und anzeigen
-    const { data: badges } = await GK.supabase
-      .from('badges')
-      .select('badge_type, peak_id, season')
-      .eq('user_id', benutzer.id);
-
+    // Trophäen aus Summits-Daten berechnen (pro Jahr, 3 Jahre zurück)
     const badgesGrid = document.getElementById('badges-grid');
-    if (badgesGrid && badges && badges.length > 0) {
-      const badgeTypes = {
-        pioneer: { emoji: '🌟', label: 'Pionier' },
-        combo: { emoji: '⚔️', label: 'Combo' },
-        king_end: { emoji: '👑', label: 'König' },
-        rare: { emoji: '💎', label: 'Selten' },
-        streak: { emoji: '🔥', label: 'Streak' },
-      };
+    if (badgesGrid && summits && summits.length > 0) {
+      const currentYear = new Date().getFullYear();
+      const years = [currentYear, currentYear - 1, currentYear - 2];
 
-      // Badges nach Typ zählen
-      const counts = {};
-      for (const b of badges) {
-        counts[b.badge_type] = (counts[b.badge_type] || 0) + 1;
+      // Alle Peak-Daten laden für Trophäen-Berechnung
+      const allPeakIds = [...new Set(summits.map(s => s.peak_id))];
+      const peakCache = new Map();
+      for (const pid of allPeakIds) {
+        const p = await GK.api.getPeakById(pid);
+        if (p) peakCache.set(pid, p);
       }
 
-      let badgeHtml = '';
-      for (const [type, count] of Object.entries(counts)) {
-        const info = badgeTypes[type] || { emoji: '🏅', label: type };
-        badgeHtml += `
-          <div class="profile-badge">
-            <div class="profile-badge-icon">${info.emoji}</div>
-            <span>${info.label}</span>
-            <span style="color: var(--color-gold); font-size: 0.8rem;">${count}x</span>
+      let trophyHtml = '';
+
+      for (const year of years) {
+        const yearStr = year.toString();
+        const yearSummits = summits.filter(s => s.season === yearStr);
+        if (yearSummits.length === 0) continue;
+
+        // Pionier: Erst-Besteigungen der Saison
+        const pioneerCount = yearSummits.filter(s => s.is_season_first).length;
+
+        // Combo: Tage mit 2+ Gipfeln
+        const byDate = {};
+        for (const s of yearSummits) {
+          const date = s.summited_at.slice(0, 10);
+          if (!byDate[date]) byDate[date] = new Set();
+          byDate[date].add(s.peak_id);
+        }
+        const comboCount = Object.values(byDate).filter(peaks => peaks.size >= 2).length;
+
+        // Frühaufsteher: Gipfel vor 07:00
+        const earlyCount = yearSummits.filter(s => {
+          const h = new Date(s.summited_at).getHours();
+          return h < 7;
+        }).length;
+
+        // Sammler: Unique Gipfel
+        const uniquePeaks = new Set(yearSummits.map(s => s.peak_id)).size;
+
+        // Gesamt-Besteigungen + HM
+        const yearPts = yearSummits.reduce((sum, s) => sum + (s.points || 0), 0);
+        let yearHM = 0;
+        for (const s of yearSummits) {
+          const p = peakCache.get(s.peak_id);
+          if (p && p.elevation) yearHM += p.elevation;
+        }
+
+        trophyHtml += `
+          <div style="margin-bottom: 1rem;">
+            <div style="font-family: var(--font-display); font-size: 1rem; color: var(--color-gold); margin-bottom: 6px;">${year}</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px;">
+              <div class="card" style="padding: 8px; text-align: center;">
+                <div style="font-size: 1.2rem;">⛰️</div>
+                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${uniquePeaks}</div>
+                <div class="text-muted" style="font-size: 0.65rem;">Gipfel</div>
+              </div>
+              ${pioneerCount > 0 ? `<div class="card" style="padding: 8px; text-align: center;">
+                <div style="font-size: 1.2rem;">🌟</div>
+                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${pioneerCount}</div>
+                <div class="text-muted" style="font-size: 0.65rem;">Pionier</div>
+              </div>` : ''}
+              ${comboCount > 0 ? `<div class="card" style="padding: 8px; text-align: center;">
+                <div style="font-size: 1.2rem;">⚔️</div>
+                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${comboCount}</div>
+                <div class="text-muted" style="font-size: 0.65rem;">Combo</div>
+              </div>` : ''}
+              ${earlyCount > 0 ? `<div class="card" style="padding: 8px; text-align: center;">
+                <div style="font-size: 1.2rem;">🌅</div>
+                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${earlyCount}</div>
+                <div class="text-muted" style="font-size: 0.65rem;">Frühaufsteher</div>
+              </div>` : ''}
+              <div class="card" style="padding: 8px; text-align: center;">
+                <div style="font-size: 1.2rem;">📊</div>
+                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${yearHM.toLocaleString('de')}</div>
+                <div class="text-muted" style="font-size: 0.65rem;">HM</div>
+              </div>
+            </div>
           </div>`;
       }
-      badgesGrid.innerHTML = badgeHtml;
+
+      if (trophyHtml) {
+        badgesGrid.innerHTML = trophyHtml;
+      }
     }
   }
 

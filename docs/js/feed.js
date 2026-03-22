@@ -15,12 +15,12 @@ async function loadFeed() {
   container.innerHTML = '<p class="text-muted" style="font-size: 0.85rem;">Lade Feed...</p>';
 
   try {
-    // Letzte 50 Besteigungen laden
+    // Letzte 10 Besteigungen laden (leichtgewichtig)
     const { data: summits, error } = await GK.supabase
       .from('summits')
       .select('user_id, peak_id, summited_at, points, season')
       .order('summited_at', { ascending: false })
-      .limit(50);
+      .limit(10);
 
     if (error || !summits || summits.length === 0) {
       container.innerHTML = '<p class="text-muted">Noch keine Aktivitäten.</p>';
