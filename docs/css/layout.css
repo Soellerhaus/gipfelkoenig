@@ -257,107 +257,43 @@
   font-size: 0.85rem;
 }
 
-/* === MAP CONTAINER (Fullscreen) === */
+/* === MAP + INFO LAYOUT === */
 .map-container {
-  height: calc(100vh - var(--header-height) - var(--nav-height));
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   position: relative;
 }
 
 #map {
   width: 100%;
-  height: 100%;
+  flex: 1;
   z-index: 1;
 }
 
-/* Gipfel-Info Slide-Up Panel */
+/* Gipfel-Info Panel — immer sichtbar, fixe Größe */
 .peak-info-panel {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 500;
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  max-height: 40vh;
-  overflow-y: auto;
-  transform: translateY(100%);
-  transition: transform 0.3s ease;
-  padding: 1rem 1.25rem;
-  box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+  padding: 0.6rem 1rem;
+  flex-shrink: 0;
 }
 
-.peak-info-panel.open {
-  transform: translateY(0);
-}
-
-.peak-info-panel .panel-handle {
-  width: 40px;
-  height: 4px;
-  background: var(--color-border);
-  border-radius: 2px;
-  margin: 0 auto 0.75rem;
-  cursor: pointer;
-}
-
+.peak-info-panel .panel-handle,
 .peak-info-panel .panel-close {
-  position: absolute;
-  top: 0.75rem;
-  right: 1rem;
-  background: none;
-  border: none;
-  color: var(--color-muted);
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 4px 8px;
+  display: none;
 }
 
 .peak-info-panel h3 {
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   margin: 0 0 2px 0;
 }
 
 .peak-info-panel .peak-meta {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-muted);
-  margin-bottom: 0.75rem;
-}
-
-.peak-info-panel .peak-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 1rem;
-}
-
-.peak-info-panel .peak-stat {
-  text-align: center;
-  padding: 8px;
-  background: var(--color-bg-card);
-  border-radius: var(--radius);
-}
-
-.peak-info-panel .peak-stat-value {
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  color: var(--color-gold);
-}
-
-.peak-info-panel .peak-stat-label {
-  font-size: 0.65rem;
-  color: var(--color-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.peak-info-panel .season-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 0.82rem;
+  margin-bottom: 0.4rem;
 }
 
 /* === BOTTOM NAVIGATION === */

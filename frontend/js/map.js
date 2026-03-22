@@ -150,45 +150,42 @@ function buildPopupContent(peak, ownership, summitCount, isSafe) {
     ? '<span style="color: #27ae60;">● Sicher</span>'
     : '<span style="color: #e74c3c;">● Gesperrt</span>';
 
-  // Kompaktes Popup — nur Name, Höhe, Sicherheit
+  // König-Info: aktuelles Jahr oder Vorjahr
+  let kingLine = '';
+  if (ownership && ownership.username) {
+    kingLine = `<div style="font-size: 0.75rem; margin-top: 2px;">👑 ${ownership.username}</div>`;
+  }
+
   return `
     <div class="peak-popup" style="min-width: 140px; text-align: center;">
       <strong style="font-family: 'Playfair Display', serif; font-size: 1rem;">
         ${peak.name}
       </strong>
       <div style="font-size: 0.85rem; margin: 2px 0;">${peak.elevation} m · ${safetyDot}</div>
+      ${kingLine}
     </div>
   `;
 }
 
 /**
- * Slide-Up Panel öffnen mit Gipfel-Details — kompakte Badge-Pills pro Saison.
+ * Gipfel-Info im fixierten Panel anzeigen — kompakte Badge-Pills pro Saison.
  */
 async function openPeakPanel(peakId) {
-  const panel = document.getElementById('peak-info-panel');
   const content = document.getElementById('peak-info-content');
-  if (!panel || !content) return;
+  if (!content) return;
 
   const peak = GK.map.peaks.get(peakId) || await GK.api.getPeakById(peakId);
   if (!peak) return;
 
-  // Panel öffnen mit Lade-Anzeige
-  content.innerHTML = '<p class="text-muted">Lade Details...</p>';
-  panel.classList.add('open');
-
-  // Close-Button
-  document.getElementById('panel-close').onclick = () => panel.classList.remove('open');
-  document.getElementById('panel-handle').onclick = () => panel.classList.remove('open');
+  content.innerHTML = '<p class="text-muted" style="font-size:0.8rem;">Lade...</p>';
 
   try {
-    // Alle Besteigungen dieses Gipfels laden
     const { data: summits, error } = await GK.supabase
       .from('summits')
       .select('user_id, season, summited_at, points, is_season_first')
       .eq('peak_id', peakId)
       .order('summited_at', { ascending: false });
 
-    // Sicherheitsstatus
     const safetyHtml = peak.is_active !== false
       ? '<span style="color: var(--color-safe);">● Sicher</span>'
       : '<span style="color: var(--color-danger);">● Gesperrt</span>';
@@ -197,7 +194,7 @@ async function openPeakPanel(peakId) {
       content.innerHTML = `
         <h3>${peak.name}</h3>
         <div class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</div>
-        <p class="text-muted" style="margin-top: 1rem; font-size: 0.9rem;">Noch nie bestiegen. Sei der Erste!</p>`;
+        <p class="text-muted" style="font-size: 0.8rem;">Noch nie bestiegen. Sei der Erste!</p>`;
       return;
     }
 
@@ -252,13 +249,13 @@ async function openPeakPanel(peakId) {
     }
 
     function badgePill(badge, large) {
-      const sz = large ? '0.75rem' : '0.65rem';
-      const eSz = large ? '1rem' : '0.8rem';
-      const pad = large ? '3px 8px' : '2px 6px';
+      const sz = large ? '0.72rem' : '0.62rem';
+      const eSz = large ? '0.9rem' : '0.75rem';
+      const pad = large ? '2px 7px' : '2px 5px';
       const userHtml = badge.user
         ? `<span style="font-weight:600;">${badge.user}</span>${badge.detail ? ' · ' + badge.detail : ''}`
         : '';
-      return `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.25);color:var(--color-gold);padding:${pad};border-radius:6px;font-size:${sz};white-space:nowrap;">
+      return `<span style="display:inline-flex;align-items:center;gap:2px;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.25);color:var(--color-gold);padding:${pad};border-radius:5px;font-size:${sz};white-space:nowrap;">
         <span style="font-size:${eSz};">${badge.emoji}</span>
         <span>${badge.label}</span>
         ${userHtml ? '<span style="color:var(--color-text);font-weight:400;margin-left:2px;">' + userHtml + '</span>' : ''}
@@ -273,22 +270,22 @@ async function openPeakPanel(peakId) {
 
       if (isCurrent) {
         badgesHtml += `
-          <div style="margin-bottom:0.5rem;">
-            <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">
+          <div style="margin-bottom:3px;">
+            <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">
               ${season} · ${entries.length} Besteigungen
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            <div style="display:flex;flex-wrap:wrap;gap:3px;">
               ${badges.map(b => badgePill(b, true)).join('')}
             </div>
           </div>`;
       } else {
         badgesHtml += `
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
-            <span style="font-size:0.65rem;color:var(--color-muted);min-width:28px;">${season}</span>
-            <div style="display:flex;flex-wrap:wrap;gap:3px;">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">
+            <span style="font-size:0.62rem;color:var(--color-muted);min-width:26px;">${season}</span>
+            <div style="display:flex;flex-wrap:wrap;gap:2px;">
               ${badges.map(b => badgePill(b, false)).join('')}
             </div>
-            <span style="font-size:0.6rem;color:var(--color-muted);margin-left:auto;">${entries.length}×</span>
+            <span style="font-size:0.58rem;color:var(--color-muted);margin-left:auto;">${entries.length}×</span>
           </div>`;
       }
     }
@@ -305,19 +302,25 @@ async function openPeakPanel(peakId) {
   }
 }
 
-// Panel schließen wenn auf Karte geklickt wird (nicht auf Marker)
-document.addEventListener('DOMContentLoaded', function () {
-  const panel = document.getElementById('peak-info-panel');
-  if (panel) {
-    // Swipe down zum Schließen
-    let startY = 0;
-    panel.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; });
-    panel.addEventListener('touchmove', (e) => {
-      const diff = e.touches[0].clientY - startY;
-      if (diff > 50) { panel.classList.remove('open'); }
-    });
+/**
+ * Nächsten Gipfel zur Kartenmitte finden und im Panel anzeigen.
+ */
+function showNearestPeakInPanel() {
+  if (!GK.map.leaflet || GK.map.peaks.size === 0) return;
+  const center = GK.map.leaflet.getCenter();
+  let nearest = null;
+  let minDist = Infinity;
+  for (const [id, peak] of GK.map.peaks) {
+    const dist = Math.pow(peak.lat - center.lat, 2) + Math.pow(peak.lng - center.lng, 2);
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = peak;
+    }
   }
-});
+  if (nearest) {
+    openPeakPanel(nearest.id);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Gipfel laden und Marker setzen
@@ -522,8 +525,9 @@ async function initMap() {
     );
   }
 
-  // Gipfel beim ersten Laden anzeigen
+  // Gipfel beim ersten Laden anzeigen + nächsten Gipfel im Panel zeigen
   await loadPeaks();
+  showNearestPeakInPanel();
 
   // Bei Kartenverschiebung und Zoom Gipfel neu laden (mit Debounce)
   map.on('moveend', loadPeaksDebounced);
