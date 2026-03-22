@@ -326,12 +326,38 @@ async function loadMySummits(season) {
     return lastB - lastA;
   });
 
-  // Gruppierte Karten erzeugen
+  // Statistiken berechnen
+  const totalPeaks = sortedGroups.length;
+  const totalSummits = summits.length;
+  const totalPoints = summits.reduce((s, e) => s + (e.points || 0), 0);
+  const kronCount = sortedGroups.filter(([pid]) => {
+    // Vereinfacht: Wenn User der einzige ist, ist er Koenig
+    return true; // Wird spaeter mit Ownership geprueft
+  }).length;
+
+  // Header mit Gesamt-Stats
+  const statsHtml = `
+    <div style="display:flex;gap:12px;margin-bottom:1rem;flex-wrap:wrap;">
+      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:1.5rem;font-weight:700;color:var(--color-gold);">${totalPeaks}</div>
+        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;">Gipfel</div>
+      </div>
+      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:1.5rem;font-weight:700;color:var(--color-gold);">${totalSummits}</div>
+        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;">Touren</div>
+      </div>
+      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:1.5rem;font-weight:700;color:var(--color-gold);">${totalPoints.toLocaleString('de')}</div>
+        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;">Punkte</div>
+      </div>
+    </div>
+  `;
+
+  // Spielerische Karten pro Gipfel
   const cardsHtml = sortedGroups.map(([peakId, entries]) => {
     const peak = peakMap.get(peakId);
     const peakName = peak ? peak.name : 'Unbekannter Gipfel';
-    const elevation = peak ? peak.elevation : '—';
-    const difficulty = peak ? peak.difficulty : 'T2';
+    const elevation = peak ? peak.elevation : null;
     const count = entries.length;
     const totalPts = entries.reduce((s, e) => s + (e.points || 0), 0);
     const lastEntry = entries[0];
@@ -339,51 +365,61 @@ async function loadMySummits(season) {
       day: '2-digit', month: '2-digit', year: 'numeric'
     });
 
-    // Typ-Icon bestimmen
-    let typIcon = '⛰️';
-    if (difficulty === 'pass') typIcon = '🔀';
-    else if (difficulty === 'saddle') typIcon = '⬇️';
-    else if (difficulty === 'hut') typIcon = '🏠';
+    // Fruehaufsteher pruefen (vor 07:00)
+    const hasEarly = entries.some(e => {
+      const h = new Date(e.summited_at).getHours();
+      return h < 7;
+    });
 
     // Badges sammeln
     const hasPionier = entries.some(e => e.is_season_first);
     const hasCombo = entries.some(e => comboDates.has(e.summited_at.slice(0, 10)));
-    let badges = '';
-    if (hasPionier) badges += '<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:1px 6px;border-radius:4px;font-size:0.65rem;margin-left:4px;">🌟 Pionier</span>';
-    if (hasCombo) badges += '<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:1px 6px;border-radius:4px;font-size:0.65rem;margin-left:4px;">⚔️ Combo</span>';
 
-    // Einzelne Besteigungen (aufklappbar)
-    const detailsId = 'details-' + peakId;
-    const detailRows = entries.map(e => {
-      const d = new Date(e.summited_at);
-      const dat = d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const zeit = d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
-      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid var(--color-border);font-size:0.75rem;">
-        <span class="text-muted">${dat} · ${zeit} Uhr</span>
-        <span style="color:var(--color-gold);">+${e.points || 0}</span>
-      </div>`;
-    }).join('');
+    // Rang-Farbe basierend auf Besteigungen
+    let rankColor = 'rgba(201,168,76,0.15)';
+    let rankBorder = 'rgba(201,168,76,0.3)';
+    let rankIcon = '▲';
+    if (count >= 10) { rankColor = 'rgba(255,215,0,0.15)'; rankBorder = 'rgba(255,215,0,0.5)'; rankIcon = '👑'; }
+    else if (count >= 5) { rankColor = 'rgba(192,192,192,0.15)'; rankBorder = 'rgba(192,192,192,0.4)'; rankIcon = '🏔️'; }
+    else if (count >= 2) { rankIcon = '⛰️'; }
+
+    // Badge-Pills
+    let badgeHtml = '';
+    if (count >= 10) badgeHtml += `<span style="background:rgba(255,215,0,0.2);color:#ffd700;padding:2px 6px;border-radius:4px;font-size:0.7rem;">👑 König</span> `;
+    if (hasPionier) badgeHtml += `<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:2px 6px;border-radius:4px;font-size:0.7rem;">⭐ Pionier</span> `;
+    if (hasEarly) badgeHtml += `<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:2px 6px;border-radius:4px;font-size:0.7rem;">🌅 Früh</span> `;
+    if (hasCombo) badgeHtml += `<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:2px 6px;border-radius:4px;font-size:0.7rem;">🔥 Combo</span> `;
+    if (count === 1) badgeHtml += `<span style="background:rgba(147,112,219,0.15);color:#9370db;padding:2px 6px;border-radius:4px;font-size:0.7rem;">💎 Selten</span> `;
+
+    // Fortschrittsbalken (visuell: wie viele Besteigungen bis Koenig)
+    const progress = Math.min(count / 10, 1);
+    const progressWidth = Math.round(progress * 100);
 
     return `
-      <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;cursor:pointer;" onclick="document.getElementById('${detailsId}').style.display=document.getElementById('${detailsId}').style.display==='none'?'block':'none'">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <strong style="font-family:var(--font-display);">${typIcon} ${peakName}</strong>${badges}
-            <div class="text-muted" style="font-size:0.8rem;">${elevation ? elevation + ' m · ' : ''}${count}× · Letzte: ${lastDatum}</div>
+      <div style="background:${rankColor};border:1px solid ${rankBorder};border-radius:10px;padding:12px;margin-bottom:8px;position:relative;overflow:hidden;">
+        <div style="position:absolute;bottom:0;left:0;width:${progressWidth}%;height:3px;background:var(--color-gold);border-radius:0 3px 0 10px;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="flex:1;">
+            <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;">
+              ${rankIcon} ${peakName}
+            </div>
+            <div style="font-size:0.75rem;color:var(--color-muted);margin:2px 0;">
+              ${elevation ? elevation + ' m · ' : ''}${count}× bestiegen · ${lastDatum}
+            </div>
+            <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;">
+              ${badgeHtml}
+            </div>
           </div>
-          <div style="text-align:right;">
-            <div style="color:var(--color-gold);font-weight:700;font-size:0.9rem;">${totalPts.toLocaleString('de')}</div>
-            <div class="text-muted" style="font-size:0.7rem;">Punkte</div>
+          <div style="text-align:right;min-width:60px;">
+            <div style="font-size:1.3rem;font-weight:700;color:var(--color-gold);font-family:var(--font-mono);">${totalPts.toLocaleString('de')}</div>
+            <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;">Punkte</div>
           </div>
-        </div>
-        <div id="${detailsId}" style="display:none;margin-top:8px;">
-          ${detailRows}
         </div>
       </div>
     `;
   }).join('');
 
-  container.innerHTML = cardsHtml || '<p class="text-muted">Keine Gipfel gefunden.</p>';
+  container.innerHTML = statsHtml + cardsHtml || '<p class="text-muted">Keine Gipfel gefunden.</p>';
 }
 
 // ---------------------------------------------------------------------------
