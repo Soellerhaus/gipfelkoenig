@@ -259,8 +259,9 @@
 
 /* === MAP + INFO LAYOUT === */
 .map-container {
-  height: calc(100vh - var(--header-height) - var(--nav-height));
+  flex: 1;
   position: relative;
+  min-height: 0;
 }
 
 #map {
