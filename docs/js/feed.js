@@ -81,15 +81,12 @@ async function loadFeed() {
 
       // Punkte-Breakdown berechnen
       const pts = s.points || 0;
-      const elev = peak.elevation || 0;
-      const basis = Math.round(elev / 100);
       let breakdownParts = [];
-      if (elev) breakdownParts.push(`${elev} HM`);
-      if (s.is_season_first) breakdownParts.push('×3 Pionier');
-      else if (s.is_personal_first) breakdownParts.push('×1.5 Erst');
-      else breakdownParts.push('×0.2 Wdh.');
-      if (isCombo) breakdownParts.push('+500 Combo');
-      if (elev) breakdownParts.push(`= ${pts} Pkt`);
+      if (s.is_season_first) breakdownParts.push('⭐ Saison-Erster ×3');
+      else if (s.is_personal_first) breakdownParts.push('🆕 Erstbesteigung ×1.5');
+      else if (pts > 0) breakdownParts.push('🔄 Wiederholung');
+      if (isCombo) breakdownParts.push('🔥 Combo +500');
+      if (isEarly) breakdownParts.push('🌅 vor 07:00');
 
       // Badges
       let badges = '';
