@@ -265,13 +265,13 @@
 
 #map {
   width: 100%;
-  height: calc(100% - 50px);
+  height: calc(100% - 65px);
   z-index: 1;
 }
 
 /* Gipfel-Info Panel — immer sichtbar, fixe Größe */
 .peak-info-panel {
-  height: 50px;
+  height: 65px;
   overflow: hidden;
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);
@@ -292,12 +292,12 @@
 
 .peak-info-panel .peak-header h3 {
   font-family: var(--font-display);
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   margin: 0;
 }
 
 .peak-info-panel .peak-header .peak-meta {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   color: var(--color-muted);
 }
 
@@ -309,9 +309,9 @@
 .trophy-slot {
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 1px 6px;
-  border-radius: 3px;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
   border: 1px solid rgba(255,255,255,0.06);
   background: rgba(255,255,255,0.02);
   white-space: nowrap;
@@ -323,7 +323,7 @@
 }
 
 .trophy-slot .trophy-emoji {
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   opacity: 0.25;
 }
 
@@ -333,7 +333,7 @@
 
 .trophy-slot .trophy-label {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   color: var(--color-muted);
 }
@@ -343,7 +343,7 @@
 }
 
 .trophy-slot .trophy-user {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text);
   white-space: nowrap;
