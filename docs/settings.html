@@ -101,6 +101,59 @@
       </div>
     </div>
 
+    <!-- GPX/CSV UPLOAD -->
+    <div class="auth-card" style="margin-bottom: 1rem;">
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">📁 GPX/CSV Import</h2>
+
+      <p style="color: var(--color-muted); font-size: 0.82rem; margin-bottom: 1rem;">
+        Lade deine Touren als GPX- oder CSV-Datei hoch. Die GPS-Daten werden auf Gipfelnähe (80m) geprüft
+        und erkannte Gipfel automatisch eingetragen.
+      </p>
+
+      <div style="margin-bottom: 0.75rem;">
+        <label for="gpx-file" class="btn btn-primary btn-block" style="cursor:pointer;text-align:center;display:block;">
+          📂 Datei auswählen (.gpx / .csv)
+        </label>
+        <input type="file" id="gpx-file" accept=".gpx,.csv" style="display:none;">
+      </div>
+
+      <div id="upload-status" style="display:none; margin-top:0.5rem;">
+        <div id="upload-progress" style="height:4px;background:var(--color-border);border-radius:2px;overflow:hidden;">
+          <div id="upload-bar" style="height:100%;background:var(--color-gold);width:0%;transition:width 0.3s;"></div>
+        </div>
+        <p id="upload-message" style="font-size:0.8rem;color:var(--color-muted);margin-top:0.3rem;"></p>
+      </div>
+
+      <details style="margin-top: 0.75rem;">
+        <summary style="font-size: 0.75rem; color: var(--color-muted); cursor: pointer;">CSV-Format Info</summary>
+        <div style="font-size: 0.7rem; color: var(--color-muted); margin-top: 0.5rem; font-family: var(--font-mono);">
+          <p>CSV mit Spalten: lat, lng, elevation, time</p>
+          <p>Beispiel:<br>
+          lat,lng,elevation,time<br>
+          47.3456,10.1234,1815,2025-10-15T08:30:00Z<br>
+          47.3457,10.1235,1820,2025-10-15T08:31:00Z</p>
+        </div>
+      </details>
+    </div>
+
+    <!-- GARMIN (Coming Soon) -->
+    <div class="auth-card" style="margin-bottom: 1rem; opacity: 0.6;">
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.5rem;">⌚ Garmin Connect</h2>
+      <p style="color: var(--color-muted); font-size: 0.82rem;">
+        Garmin-Integration kommt bald! Automatische Gipfelerkennung direkt von deiner Garmin-Uhr.
+      </p>
+      <button class="btn btn-sm btn-block" disabled style="opacity:0.5;">Garmin verbinden (bald verfügbar)</button>
+    </div>
+
+    <!-- SUUNTO (Coming Soon) -->
+    <div class="auth-card" style="margin-bottom: 1rem; opacity: 0.6;">
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.5rem;">⌚ Suunto</h2>
+      <p style="color: var(--color-muted); font-size: 0.82rem;">
+        Suunto-Integration kommt bald! Automatische Gipfelerkennung direkt von deiner Suunto-Uhr.
+      </p>
+      <button class="btn btn-sm btn-block" disabled style="opacity:0.5;">Suunto verbinden (bald verfügbar)</button>
+    </div>
+
     <!-- GEFAHRENZONE -->
     <div class="auth-card" style="border-color: var(--color-danger); margin-bottom: 2rem;">
       <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--color-danger);">⚠️ Gefahrenzone</h2>
@@ -300,6 +353,145 @@
 
       await GK.supabase.auth.signOut();
       window.location.href = '/index.html?deleted=true';
+    });
+
+    // GPX/CSV Upload
+    document.getElementById('gpx-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const statusDiv = document.getElementById('upload-status');
+      const bar = document.getElementById('upload-bar');
+      const msg = document.getElementById('upload-message');
+      statusDiv.style.display = 'block';
+      bar.style.width = '10%';
+      msg.textContent = 'Datei wird gelesen...';
+
+      try {
+        const text = await file.text();
+        let points = [];
+
+        if (file.name.endsWith('.gpx')) {
+          // GPX parsen
+          const parser = new DOMParser();
+          const xml = parser.parseFromString(text, 'text/xml');
+          const trkpts = xml.querySelectorAll('trkpt');
+          for (const pt of trkpts) {
+            const lat = parseFloat(pt.getAttribute('lat'));
+            const lon = parseFloat(pt.getAttribute('lon'));
+            const eleEl = pt.querySelector('ele');
+            const timeEl = pt.querySelector('time');
+            points.push({
+              lat, lng: lon,
+              elevation: eleEl ? parseFloat(eleEl.textContent) : null,
+              time: timeEl ? timeEl.textContent : null
+            });
+          }
+        } else if (file.name.endsWith('.csv')) {
+          // CSV parsen
+          const lines = text.trim().split('\n');
+          const header = lines[0].toLowerCase().split(',').map(h => h.trim());
+          const latIdx = header.indexOf('lat');
+          const lngIdx = header.findIndex(h => h === 'lng' || h === 'lon' || h === 'longitude');
+          const eleIdx = header.findIndex(h => h === 'elevation' || h === 'ele' || h === 'altitude');
+          const timeIdx = header.findIndex(h => h === 'time' || h === 'timestamp');
+
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',').map(c => c.trim());
+            if (cols.length >= 2) {
+              points.push({
+                lat: parseFloat(cols[latIdx]),
+                lng: parseFloat(cols[lngIdx >= 0 ? lngIdx : 1]),
+                elevation: eleIdx >= 0 ? parseFloat(cols[eleIdx]) : null,
+                time: timeIdx >= 0 ? cols[timeIdx] : null
+              });
+            }
+          }
+        }
+
+        bar.style.width = '30%';
+        msg.textContent = points.length + ' GPS-Punkte geladen. Prüfe Gipfelnähe...';
+
+        if (points.length === 0) {
+          msg.textContent = 'Keine GPS-Punkte gefunden. Dateiformat prüfen.';
+          msg.style.color = 'var(--color-danger)';
+          return;
+        }
+
+        // Gipfel in der Nähe suchen (vereinfacht: Bounding Box der Tour)
+        const lats = points.map(p => p.lat).filter(l => !isNaN(l));
+        const lngs = points.map(p => p.lng).filter(l => !isNaN(l));
+        const minLat = Math.min(...lats) - 0.01;
+        const maxLat = Math.max(...lats) + 0.01;
+        const minLng = Math.min(...lngs) - 0.01;
+        const maxLng = Math.max(...lngs) + 0.01;
+
+        const { data: peaks } = await GK.supabase
+          .from('peaks')
+          .select('id, name, elevation, lat, lng')
+          .gte('lat', minLat).lte('lat', maxLat)
+          .gte('lng', minLng).lte('lng', maxLng);
+
+        bar.style.width = '60%';
+        msg.textContent = (peaks ? peaks.length : 0) + ' Gipfel in der Region. Prüfe 80m Radius...';
+
+        // Gipfelerkennung (80m Radius)
+        const foundPeaks = [];
+        const R = 6371000; // Erdradius in Metern
+        for (const peak of (peaks || [])) {
+          for (const pt of points) {
+            const dLat = (pt.lat - peak.lat) * Math.PI / 180;
+            const dLng = (pt.lng - peak.lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(peak.lat*Math.PI/180) * Math.cos(pt.lat*Math.PI/180) * Math.sin(dLng/2)**2;
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            if (dist <= 80) {
+              foundPeaks.push({ peak, point: pt, distance: Math.round(dist) });
+              break; // Nur einmal pro Gipfel
+            }
+          }
+        }
+
+        bar.style.width = '80%';
+
+        if (foundPeaks.length === 0) {
+          msg.textContent = 'Keine Gipfel innerhalb 80m gefunden. Tour hat keinen Gipfel erreicht.';
+          msg.style.color = 'var(--color-warning)';
+          bar.style.width = '100%';
+          return;
+        }
+
+        // Besteigungen speichern
+        const season = new Date().getFullYear().toString();
+        let saved = 0;
+        for (const fp of foundPeaks) {
+          const summitTime = fp.point.time || new Date().toISOString();
+          const elevGain = fp.peak.elevation ? Math.round(fp.peak.elevation * 0.6) : null; // Schätzung
+
+          const { error: insertError } = await GK.supabase
+            .from('summits')
+            .upsert({
+              user_id: currentUser.id,
+              peak_id: fp.peak.id,
+              summited_at: summitTime,
+              season: new Date(summitTime).getFullYear().toString(),
+              checkin_method: 'gpx_upload',
+              points: Math.round((fp.peak.elevation || 0) / 100),
+              elevation_gain: elevGain,
+              safety_ok: true,
+              safety_level: 0
+            }, { onConflict: 'user_id, peak_id, summited_at' });
+
+          if (!insertError) saved++;
+        }
+
+        bar.style.width = '100%';
+        msg.textContent = '✓ ' + saved + ' Gipfel erkannt und eingetragen: ' + foundPeaks.map(fp => fp.peak.name).join(', ');
+        msg.style.color = 'var(--color-safe)';
+
+      } catch (err) {
+        msg.textContent = 'Fehler: ' + err.message;
+        msg.style.color = 'var(--color-danger)';
+      }
     });
 
     // Logout
