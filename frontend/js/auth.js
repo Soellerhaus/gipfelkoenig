@@ -499,10 +499,12 @@ function initNavigation() {
   const navItems = document.querySelectorAll('.nav-item');
   const sections = document.querySelectorAll('.content-section');
   const mapContainer = document.getElementById('map-section');
+  const appContent = document.querySelector('.app-content');
 
   navItems.forEach(function (item) {
     item.addEventListener('click', function () {
       const zielId = 'section-' + item.getAttribute('data-section');
+      const isMap = zielId === 'section-map';
 
       // Alle Abschnitte ausblenden
       sections.forEach(function (section) {
@@ -514,14 +516,19 @@ function initNavigation() {
         nav.classList.remove('active');
       });
 
-      // Karte nur bei Karte-Tab anzeigen
+      // Karte: map-container zeigen, app-content ausblenden
       if (mapContainer) {
-        mapContainer.style.display = (zielId === 'section-map') ? 'block' : 'none';
+        mapContainer.style.display = isMap ? 'block' : 'none';
+      }
+      if (appContent) {
+        appContent.style.display = isMap ? 'none' : 'block';
       }
 
       // Zielabschnitt einblenden und Nav-Element hervorheben
-      const zielSection = document.getElementById(zielId);
-      if (zielSection) zielSection.style.display = 'block';
+      if (!isMap) {
+        const zielSection = document.getElementById(zielId);
+        if (zielSection) zielSection.style.display = 'block';
+      }
       item.classList.add('active');
 
       // Karte neu berechnen wenn sichtbar (Leaflet Bug)
