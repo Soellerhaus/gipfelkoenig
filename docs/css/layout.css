@@ -260,22 +260,23 @@
 /* === MAP + INFO LAYOUT === */
 .map-container {
   height: calc(100vh - var(--header-height) - var(--nav-height));
-  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 #map {
   width: 100%;
-  height: 75%;
+  flex: 1;
+  min-height: 0;
   z-index: 1;
 }
 
-/* Gipfel-Info Panel — immer sichtbar, fixe Größe */
+/* Gipfel-Info Panel — passt sich dem Inhalt an, kein leerer Raum */
 .peak-info-panel {
-  height: 25%;
-  overflow: hidden;
+  flex-shrink: 0;
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);
-  padding: 0.3rem 0.75rem;
+  padding: 0.4rem 0.75rem 0.3rem;
 }
 
 .peak-info-panel .panel-handle,
@@ -292,8 +293,8 @@
 
 .peak-bottom-name {
   font-family: var(--font-display);
-  font-size: 1rem;
-  margin-top: 0.15rem;
+  font-size: 1.15rem;
+  margin-top: 0.2rem;
 }
 
 .trophy-grid {
@@ -320,7 +321,7 @@
 }
 
 .trophy-slot .trophy-emoji {
-  font-size: 0.85rem;
+  font-size: 1rem;
   line-height: 1;
   opacity: 0.25;
 }
@@ -331,7 +332,7 @@
 
 .trophy-slot .trophy-label {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   color: var(--color-muted);
 }
