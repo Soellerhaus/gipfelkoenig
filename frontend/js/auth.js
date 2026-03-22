@@ -682,7 +682,7 @@ async function importStravaActivities(userId, accessToken) {
     if (!activities || !Array.isArray(activities) || activities.length === 0) break;
 
     for (const activity of activities) {
-      if (!['Hike', 'Run', 'Walk', 'TrailRun', 'AlpineSki'].includes(activity.type)) continue;
+      if (!['Hike', 'Run', 'Walk', 'TrailRun', 'BackcountrySki', 'Snowshoe'].includes(activity.type)) continue;
       if (!activity.total_elevation_gain || activity.total_elevation_gain < 100) continue;
 
       totalActivities++;

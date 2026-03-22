@@ -10,7 +10,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const ALLOWED_TYPES = ['Hike', 'Run', 'Walk', 'TrailRun', 'AlpineSki', 'NordicSki']
+// Skitouren (BackcountrySki) zählen, Pistenskifahren (AlpineSki) NICHT
+const ALLOWED_TYPES = ['Hike', 'Run', 'Walk', 'TrailRun', 'BackcountrySki', 'Snowshoe']
 const MIN_ELEVATION_GAIN = 50
 const STRAVA_PAGE_SIZE = 30
 const PEAK_RADIUS_METERS = 80
