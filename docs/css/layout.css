@@ -265,13 +265,13 @@
 
 #map {
   width: 100%;
-  height: calc(100% - 90px);
+  height: calc(100% - 110px);
   z-index: 1;
 }
 
 /* Gipfel-Info Panel — immer sichtbar, fixe Größe */
 .peak-info-panel {
-  height: 90px;
+  height: 110px;
   overflow: hidden;
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);

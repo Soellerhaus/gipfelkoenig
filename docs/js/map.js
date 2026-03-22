@@ -262,13 +262,14 @@ async function openPeakPanel(peakId) {
       </span>`;
     }
 
+    // Neustes Jahr immer im Fokus (groß), Rest kompakt
     let badgesHtml = '';
+    const focusSeason = sortedSeasons[0];
     for (const season of sortedSeasons) {
       const entries = seasons[season];
       const badges = getSeasonBadges(entries);
-      const isCurrent = season === currentYear;
 
-      if (isCurrent) {
+      if (season === focusSeason) {
         badgesHtml += `
           <div style="margin-bottom:3px;">
             <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">
