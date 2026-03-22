@@ -408,6 +408,7 @@
 .app-content {
   flex: 1;
   overflow-y: auto;
+  padding-bottom: calc(var(--nav-height) + 1rem);
 }
 
 .content-section {
