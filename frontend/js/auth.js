@@ -365,6 +365,15 @@ async function initAppPage() {
 
   // Navigation — Inhaltsbereiche umschalten
   initNavigation();
+
+  // Profil als Startseite — Karte initial ausblenden
+  const mapContainerInit = document.getElementById('map-section');
+  if (mapContainerInit) mapContainerInit.style.display = 'none';
+
+  // Alle Sections außer Profil ausblenden
+  document.querySelectorAll('.content-section').forEach(function (s) {
+    s.style.display = (s.id === 'section-profile') ? 'block' : 'none';
+  });
 }
 
 /**

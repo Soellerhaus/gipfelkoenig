@@ -26,9 +26,17 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-// Punkte-Berechnung
-// Punkte: 1 Punkt pro 100 HM Gipfelhöhe
-function calculatePoints(elevation: number, isSeasonFirst: boolean, isPersonalFirst: boolean, osmRegion: string): number {
+// Punkte-Berechnung: 1 Punkt pro 100 HM, Pässe/Hütten/Scharten = 2 Punkte fix
+function calculatePoints(elevation: number, isSeasonFirst: boolean, isPersonalFirst: boolean, osmRegion: string, difficulty?: string): number {
+  // Pässe, Hütten, Scharten: feste 2 Punkte
+  if (difficulty === 'pass' || difficulty === 'hut' || difficulty === 'saddle') {
+    let points = 2
+    if (isSeasonFirst) points *= 3
+    else if (isPersonalFirst) points *= 1.5
+    else points *= 0.2
+    return Math.round(points)
+  }
+  // Gipfel: 1 Punkt pro 100 HM
   let points = Math.round((elevation || 1000) / 100)
   if (isSeasonFirst) points *= 3
   else if (isPersonalFirst) points *= 1.5
@@ -155,7 +163,7 @@ serve(async (req) => {
         // Gipfel im Umkreis von ~30km laden (0.3 Grad)
         const { data: nearbyPeaks } = await supabase
           .from('peaks')
-          .select('id, name, lat, lng, elevation, osm_region, season_from, season_to')
+          .select('id, name, lat, lng, elevation, osm_region, season_from, season_to, difficulty')
           .eq('is_active', true)
           .gte('lat', startLat - 0.3)
           .lte('lat', startLat + 0.3)
@@ -213,7 +221,7 @@ serve(async (req) => {
 
           const isSeasonFirst = (sc || 0) === 0
           const isPersonalFirst = (pc || 0) === 0
-          const points = calculatePoints(peak.elevation, isSeasonFirst, isPersonalFirst, peak.osm_region)
+          const points = calculatePoints(peak.elevation, isSeasonFirst, isPersonalFirst, peak.osm_region, peak.difficulty)
 
           await supabase.from('summits').insert({
             user_id, peak_id: peakId,
