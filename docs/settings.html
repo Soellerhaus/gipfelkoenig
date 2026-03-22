@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Einstellungen — Gipfelkönig</title>
+  <title>Einstellungen — Bergkönig</title>
   <meta name="theme-color" content="#d4a24c">
   <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +17,7 @@
 <body>
   <div class="auth-page" style="max-width: 600px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-      <a href="/app.html" class="auth-logo">← Gipfelkönig</a>
+      <a href="/app.html" class="auth-logo">← Bergkönig</a>
       <button id="logout-btn" class="btn btn-sm" style="font-size: 0.75rem;">Abmelden</button>
     </div>
 
@@ -28,7 +28,7 @@
       <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Mein Profil</h2>
 
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <span style="color: var(--color-muted); font-size: 0.85rem;">Gipfelkönig-Name</span>
+        <span style="color: var(--color-muted); font-size: 0.85rem;">Bergkönig-Name</span>
         <strong id="current-username">...</strong>
       </div>
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -79,7 +79,7 @@
           Mit Strava verbinden
         </a>
         <small style="display: block; margin-top: 0.5rem; color: var(--color-muted); font-size: 0.7rem;">
-          Gipfelkönig ist nicht von Strava® betrieben oder empfohlen. Strava® ist eine eingetragene Marke der Strava, Inc.
+          Bergkönig ist nicht von Strava® betrieben oder empfohlen. Strava® ist eine eingetragene Marke der Strava, Inc.
         </small>
       </div>
 
@@ -286,7 +286,7 @@
         .eq('id', currentUser.id)
         .single();
 
-      const step2 = prompt('Zur Bestätigung: Gib deinen Gipfelkönig-Namen ein:');
+      const step2 = prompt('Zur Bestätigung: Gib deinen Bergkönig-Namen ein:');
       if (step2 !== profile?.username) {
         alert('Falscher Name. Account wurde nicht gelöscht.');
         return;

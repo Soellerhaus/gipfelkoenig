@@ -1,5 +1,5 @@
 // =============================================================================
-// Gipfelkönig — Activity Feed (feed.js)
+// Bergkönig — Activity Feed (feed.js)
 // Zeigt die letzten Besteigungen aller User als chronologischen Stream.
 // =============================================================================
 

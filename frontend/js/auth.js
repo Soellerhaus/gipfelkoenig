@@ -1,5 +1,5 @@
 // =============================================================================
-// Gipfelkönig — Authentifizierungs-Modul (auth.js)
+// Bergkönig — Authentifizierungs-Modul (auth.js)
 // Login, Registrierung, Strava-OAuth und Sitzungsverwaltung.
 // =============================================================================
 

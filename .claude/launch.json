@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "gipfelkoenig",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "8080", "frontend"],
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8080", "-d", "frontend"],
       "port": 8080
     }
   ]

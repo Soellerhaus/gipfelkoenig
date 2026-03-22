@@ -1,5 +1,5 @@
 // =============================================================================
-// Gipfelkönig — Kartenintegration (map.js)
+// Bergkönig — Kartenintegration (map.js)
 // Leaflet-Karte mit Gipfelmarkern, Popup-Infos und Echtzeit-Aktualisierung.
 // =============================================================================
 

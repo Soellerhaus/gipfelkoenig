@@ -1,5 +1,5 @@
 // =============================================================================
-// Gipfelkönig — API-Schicht (api.js)
+// Bergkönig — API-Schicht (api.js)
 // Initialisiert den Supabase-Client und stellt alle Backend-Aufrufe bereit.
 // =============================================================================
 

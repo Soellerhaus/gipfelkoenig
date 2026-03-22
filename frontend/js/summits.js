@@ -1,5 +1,5 @@
 // =============================================================================
-// Gipfelkönig — Besteigungen & Check-in (summits.js)
+// Bergkönig — Besteigungen & Check-in (summits.js)
 // Manueller GPS Check-in, "Meine Gipfel"-Ansicht und Toast-Benachrichtigungen.
 // =============================================================================
 

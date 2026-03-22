@@ -1,5 +1,5 @@
 /**
- * Gipfelkönig — Web-Push-Benachrichtigungen
+ * Bergkönig — Web-Push-Benachrichtigungen
  * Registrierung, Abo-Verwaltung und Fallback auf Telegram
  */
 
@@ -142,7 +142,7 @@ window.GK.notifications = (() => {
       <div class="notification-info">
         <p>Push-Benachrichtigungen sind in diesem Browser nicht verfügbar oder wurden deaktiviert.</p>
         <p>Als Alternative kannst du Benachrichtigungen über
-          <a href="https://t.me/GipfelkoenigBot" target="_blank" rel="noopener">
+          <a href="https://t.me/BergkoenigBot" target="_blank" rel="noopener">
             unseren Telegram-Bot
           </a> erhalten.
         </p>
@@ -165,7 +165,7 @@ window.GK.notifications = (() => {
     //
     // self.addEventListener('push', (event) => {
     //   const data = event.data ? event.data.json() : {};
-    //   const title = data.title || 'Gipfelkönig';
+    //   const title = data.title || 'Bergkönig';
     //   const options = {
     //     body: data.body || 'Du hast eine neue Benachrichtigung.',
     //     icon: '/img/icon-192.png',

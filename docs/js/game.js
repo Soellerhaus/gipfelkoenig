@@ -1,5 +1,5 @@
 /**
- * Gipfelkönig — Spiel-Logik
+ * Bergkönig — Spiel-Logik
  * Punkte-Berechnung, Besitz, Abzeichen, Rangliste
  */
 

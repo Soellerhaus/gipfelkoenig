@@ -1,4 +1,4 @@
-// Gipfelkönig — Service Worker
+// Bergkönig — Service Worker
 // Cache-Strategie: Cache First für Assets, Network First für API
 
 const CACHE_NAME = 'gipfelkoenig-v1'
@@ -112,7 +112,7 @@ self.addEventListener('push', (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Gipfelkönig', options)
+    self.registration.showNotification(data.title || 'Bergkönig', options)
   )
 })
 
