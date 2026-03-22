@@ -331,12 +331,19 @@ async function loadMySummits(season) {
     const peak = peakMap.get(peakId);
     const peakName = peak ? peak.name : 'Unbekannter Gipfel';
     const elevation = peak ? peak.elevation : '—';
+    const difficulty = peak ? peak.difficulty : 'T2';
     const count = entries.length;
     const totalPts = entries.reduce((s, e) => s + (e.points || 0), 0);
     const lastEntry = entries[0];
     const lastDatum = new Date(lastEntry.summited_at).toLocaleDateString('de-AT', {
       day: '2-digit', month: '2-digit', year: 'numeric'
     });
+
+    // Typ-Icon bestimmen
+    let typIcon = '⛰️';
+    if (difficulty === 'pass') typIcon = '🔀';
+    else if (difficulty === 'saddle') typIcon = '⬇️';
+    else if (difficulty === 'hut') typIcon = '🏠';
 
     // Badges sammeln
     const hasPionier = entries.some(e => e.is_season_first);
@@ -361,8 +368,8 @@ async function loadMySummits(season) {
       <div class="card" style="margin-bottom:0.5rem;padding:0.75rem;cursor:pointer;" onclick="document.getElementById('${detailsId}').style.display=document.getElementById('${detailsId}').style.display==='none'?'block':'none'">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
-            <strong style="font-family:var(--font-display);">${peakName}</strong>${badges}
-            <div class="text-muted" style="font-size:0.8rem;">${elevation} m · ${count}× bestiegen · Letzte: ${lastDatum}</div>
+            <strong style="font-family:var(--font-display);">${typIcon} ${peakName}</strong>${badges}
+            <div class="text-muted" style="font-size:0.8rem;">${elevation ? elevation + ' m · ' : ''}${count}× · Letzte: ${lastDatum}</div>
           </div>
           <div style="text-align:right;">
             <div style="color:var(--color-gold);font-weight:700;font-size:0.9rem;">${totalPts.toLocaleString('de')}</div>

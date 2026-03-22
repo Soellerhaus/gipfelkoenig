@@ -39,9 +39,17 @@ window.GK.game = (() => {
    * @param {boolean} combo           - Teil einer Mehrfach-Gipfel-Tour
    * @returns {number} Berechnete Punkte (gerundet)
    */
-  // Punkte: 1 Punkt pro 100 HM Gipfelhöhe
+  // Punkte-Berechnung: Gipfel = HM/100, Pässe/Hütten/Scharten = 2 Punkte fix
   function calculatePoints(peak, isPersonalFirst, isSeasonFirst, combo) {
-    let points = Math.round((peak.elevation || 1000) / 100);
+    const difficulty = peak.difficulty || 'T2';
+    let points;
+
+    // Feste Punkte für POIs, HM-basiert für Gipfel
+    if (difficulty === 'pass' || difficulty === 'hut' || difficulty === 'saddle') {
+      points = 2;
+    } else {
+      points = Math.round((peak.elevation || 1000) / 100);
+    }
 
     // Multiplikator je nach Besuchstyp
     if (isSeasonFirst) {
