@@ -90,133 +90,111 @@
 
       <!-- Profil / Dashboard -->
       <section class="content-section" id="section-profile">
-        <div class="profile-header">
-          <div class="profile-avatar" id="profile-avatar">?</div>
-          <h2 id="profile-name">Laden...</h2>
-          <p class="text-muted" id="profile-username">@...</p>
-          <div class="profile-stats">
-            <div class="stat-box">
-              <div class="stat-value" id="stat-points">0</div>
-              <div class="stat-label">Punkte</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-value" id="stat-summits">0</div>
-              <div class="stat-label">Gipfel</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-value" id="stat-crowns">0</div>
-              <div class="stat-label">Kronen</div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Rang-Übersicht -->
-        <div class="card" style="margin-bottom: 1rem; padding: 0.75rem; text-align: center;">
-          <div style="font-size: 0.8rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Dein Rang</div>
-          <div id="profile-rank" style="font-family: var(--font-display); font-size: 1.4rem; color: var(--color-gold);">—</div>
-          <div id="profile-rank-detail" class="text-muted" style="font-size: 0.75rem;"></div>
-        </div>
-
-        <!-- Trophäen -->
-        <h4 style="margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--color-muted);">Trophäen</h4>
-        <div class="profile-badges" id="badges-grid" style="margin-bottom: 1rem;">
-          <p class="text-muted" style="font-size: 0.82rem;">Sammle Gipfel um Trophäen zu erhalten.</p>
-        </div>
-
-        <!-- Letzte Gipfel -->
-        <h4 style="margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--color-muted);">Letzte Besteigungen</h4>
-        <div id="profile-recent-summits" style="margin-bottom: 1rem;">
-          <p class="text-muted" style="font-size: 0.82rem;">Noch keine Besteigungen.</p>
-        </div>
-
-        <!-- Saison-Statistik -->
-        <h4 style="margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--color-muted);">Saison <span id="profile-season-year">2026</span></h4>
-        <div class="card" style="margin-bottom: 1rem; padding: 0.75rem;">
+        <!-- Saison oben -->
+        <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: var(--color-gold);">
+          <div style="text-align: center; font-size: 0.75rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Saison <span id="profile-season-year">2026</span></div>
           <div style="display: flex; justify-content: space-around; text-align: center;">
             <div>
-              <div style="font-family: var(--font-display); font-size: 1.1rem; color: var(--color-gold);" id="season-summits">0</div>
-              <div class="text-muted" style="font-size: 0.7rem;">Gipfel</div>
-            </div>
-            <div>
-              <div style="font-family: var(--font-display); font-size: 1.1rem; color: var(--color-gold);" id="season-points">0</div>
+              <div style="font-family: var(--font-display); font-size: 1.3rem; color: var(--color-gold);" id="stat-points">0</div>
               <div class="text-muted" style="font-size: 0.7rem;">Punkte</div>
             </div>
             <div>
-              <div style="font-family: var(--font-display); font-size: 1.1rem; color: var(--color-gold);" id="season-hm">0</div>
+              <div style="font-family: var(--font-display); font-size: 1.3rem; color: var(--color-gold);" id="stat-summits">0</div>
+              <div class="text-muted" style="font-size: 0.7rem;">Gipfel</div>
+            </div>
+            <div>
+              <div style="font-family: var(--font-display); font-size: 1.3rem; color: var(--color-gold);" id="stat-crowns">0</div>
+              <div class="text-muted" style="font-size: 0.7rem;">Kronen</div>
+            </div>
+            <div>
+              <div style="font-family: var(--font-display); font-size: 1.3rem; color: var(--color-gold);" id="season-hm">0</div>
               <div class="text-muted" style="font-size: 0.7rem;">HM</div>
             </div>
           </div>
+          <div style="text-align: center; margin-top: 6px;">
+            <span style="font-size: 0.75rem; color: var(--color-muted);">Platz </span>
+            <span id="profile-rank" style="font-family: var(--font-display); font-size: 1rem; color: var(--color-gold);">—</span>
+          </div>
+          <div id="profile-rank-detail" class="text-muted" style="font-size: 0.7rem; text-align: center;"></div>
+          <!-- Hidden elements for backward compatibility -->
+          <div id="season-summits" style="display:none;">0</div>
+          <div id="season-points" style="display:none;">0</div>
         </div>
 
-        <!-- Einstellungen (aufklappbar) -->
-        <details class="settings-details" style="margin-bottom: 0.75rem;">
-          <summary style="cursor: pointer; font-weight: 500; padding: 0.5rem 0; color: var(--color-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">
-            Einstellungen
-          </summary>
-          <div style="padding-top: 0.75rem;">
-            <div class="card" style="margin-bottom: 0.5rem; padding: 0.6rem;">
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 0.4rem;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#FC4C02"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-                  <span style="font-size: 0.82rem;" id="strava-status">Strava verbinden</span>
-                </div>
-                <button class="btn btn-strava btn-sm" id="strava-profile-btn" style="font-size: 0.7rem; padding: 3px 8px;">Verbinden</button>
-              </div>
+        <!-- Profil-Header -->
+        <div class="profile-header" style="margin-bottom: 0.75rem;">
+          <div class="profile-avatar" id="profile-avatar">?</div>
+          <h2 id="profile-name">Laden...</h2>
+          <p class="text-muted" id="profile-username">@...</p>
+        </div>
+
+        <!-- Trophäen — übersichtlich als Grid -->
+        <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem;">
+          <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem;">🏆 Trophäen</h4>
+          <div id="badges-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+            <div style="text-align:center;padding:6px;background:var(--color-bg);border-radius:4px;">
+              <div style="font-size:1.3rem;opacity:0.25;">👑</div>
+              <div style="font-size:0.6rem;color:var(--color-muted);">König</div>
+              <div id="badge-king-count" style="font-size:0.7rem;font-weight:600;">0</div>
             </div>
-            <div class="card" style="margin-bottom: 0.5rem; padding: 0.6rem;">
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 0.4rem;">
-                  <span style="font-size: 0.85rem;">📂</span>
-                  <span style="font-size: 0.82rem;">GPX hochladen</span>
-                </div>
-                <label class="btn btn-secondary btn-sm" for="gpx-upload" style="cursor: pointer; font-size: 0.7rem; padding: 3px 8px;">Wählen</label>
-                <input type="file" id="gpx-upload" accept=".gpx" style="display: none;">
-              </div>
-              <div id="gpx-result" style="margin-top: 0.4rem; font-size: 0.75rem; display: none;"></div>
+            <div style="text-align:center;padding:6px;background:var(--color-bg);border-radius:4px;">
+              <div style="font-size:1.3rem;opacity:0.25;">⭐</div>
+              <div style="font-size:0.6rem;color:var(--color-muted);">Pionier</div>
+              <div id="badge-pioneer-count" style="font-size:0.7rem;font-weight:600;">0</div>
             </div>
-            <div style="text-align: center; margin-top: 0.5rem;">
-              <span class="text-muted" style="font-size: 0.65rem;">Powered by Strava</span>
+            <div style="text-align:center;padding:6px;background:var(--color-bg);border-radius:4px;">
+              <div style="font-size:1.3rem;opacity:0.25;">🔥</div>
+              <div style="font-size:0.6rem;color:var(--color-muted);">Combo</div>
+              <div id="badge-combo-count" style="font-size:0.7rem;font-weight:600;">0</div>
+            </div>
+            <div style="text-align:center;padding:6px;background:var(--color-bg);border-radius:4px;">
+              <div style="font-size:1.3rem;opacity:0.25;">🌅</div>
+              <div style="font-size:0.6rem;color:var(--color-muted);">Früh</div>
+              <div id="badge-early-count" style="font-size:0.7rem;font-weight:600;">0</div>
             </div>
           </div>
-        </details>
+        </div>
+
+        <!-- Letzte Gipfel -->
+        <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem;">
+          <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem;">⛰️ Letzte Besteigungen</h4>
+          <div id="profile-recent-summits">
+            <p class="text-muted" style="font-size: 0.82rem;">Noch keine Besteigungen.</p>
+          </div>
+        </div>
 
         <!-- Spielregeln -->
-        <div class="card" style="margin-top: 1rem; padding: 1rem; border-color: var(--color-gold);">
-          <h4 style="font-family: var(--font-display); font-size: 1rem; margin-bottom: 0.6rem; color: var(--color-gold);">⚔️ So funktioniert Bergkönig</h4>
-          <div style="font-size: 0.8rem; color: var(--color-muted); line-height: 1.6;">
-            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--color-text);">👑 Werde König.</strong> Wer einen Gipfel in einer Saison am häufigsten besteigt, hält die Krone — bis jemand ihn schlägt.</p>
-            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--color-text);">⭐ Sei der Erste.</strong> Der Pionier-Bonus gibt 3× Punkte für die erste Besteigung der Saison.</p>
-            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--color-text);">🔥 Sammle Combos.</strong> 2+ Gipfel am selben Tag = Combo-Bonus.</p>
-            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--color-text);">🌅 Frühaufsteher.</strong> Gipfel vor 07:00 Uhr? Besonderer Badge.</p>
-            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--color-text);">🛡️ Sicherheit zuerst.</strong> Bei Lawinenwarnstufe 3+ gibt es keine Punkte. Deine Sicherheit geht vor.</p>
-          </div>
-        </div>
-
-        <!-- Punkte-System -->
-        <div class="card" style="margin-top: 0.5rem; padding: 1rem;">
-          <h4 style="font-family: var(--font-display); font-size: 1rem; margin-bottom: 0.6rem;">📊 Punkte-System</h4>
-          <div style="font-size: 0.78rem; color: var(--color-muted); line-height: 1.6;">
-            <p style="margin-bottom: 0.3rem;">⛰️ <strong style="color: var(--color-text);">Höhenmeter = Punkte.</strong> 1 Punkt pro 100m Gipfelhöhe.</p>
-            <p style="margin-bottom: 0.3rem;">⭐ Erster der Saison: <strong style="color: var(--color-gold);">×3</strong></p>
-            <p style="margin-bottom: 0.3rem;">🆕 Persönlich erster Besuch: <strong style="color: var(--color-gold);">×1.5</strong></p>
-            <p style="margin-bottom: 0.3rem;">🔄 Wiederholung: <strong>×0.2</strong></p>
-            <p style="margin-bottom: 0.3rem;">🔥 Combo (2+ Gipfel/Tag): <strong style="color: var(--color-gold);">+5</strong></p>
+        <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: var(--color-gold);">
+          <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--color-gold);">⚔️ So funktioniert Bergkönig</h4>
+          <div style="font-size: 0.78rem; color: var(--color-muted); line-height: 1.5;">
+            <p style="margin-bottom: 0.4rem;">👑 <strong style="color: var(--color-text);">Werde König.</strong> Meiste Besteigungen = Krone.</p>
+            <p style="margin-bottom: 0.4rem;">⭐ <strong style="color: var(--color-text);">Sei der Erste.</strong> Pionier-Bonus: 3× Punkte.</p>
+            <p style="margin-bottom: 0.4rem;">🔥 <strong style="color: var(--color-text);">Combos.</strong> 2+ Gipfel am Tag = Bonus.</p>
+            <p style="margin-bottom: 0.4rem;">⛰️ <strong style="color: var(--color-text);">Punkte.</strong> 1 Pkt pro 100m Höhe. ×3 Erster, ×1.5 Neu, ×0.2 Wiederholung.</p>
+            <p>🛡️ <strong style="color: var(--color-text);">Sicherheit.</strong> Lawinenwarnstufe 3+ = keine Punkte.</p>
           </div>
         </div>
 
         <!-- Gewinne -->
-        <div class="card" style="margin-top: 0.5rem; padding: 1rem; border-color: var(--color-gold); background: rgba(201,168,76,0.05);">
-          <h4 style="font-family: var(--font-display); font-size: 1rem; margin-bottom: 0.6rem; color: var(--color-gold);">🏆 Gewinne & Preise</h4>
-          <div style="font-size: 0.8rem; color: var(--color-muted); line-height: 1.6;">
-            <p style="margin-bottom: 0.5rem;">Ab <strong style="color: var(--color-text);">500 aktiven Spielern</strong> verlosen wir attraktive, gesponserte Preise:</p>
-            <p style="margin-bottom: 0.3rem;">👑 <strong style="color: var(--color-gold);">Unter allen Bergkönigen:</strong> Exklusive Preise für die Gipfel-Könige der Saison.</p>
-            <p style="margin-bottom: 0.3rem;">🎲 <strong style="color: var(--color-text);">Unter allen Teilnehmern:</strong> Verlosung von Outdoor-Ausrüstung, Hütten-Gutscheinen und mehr.</p>
-            <p style="margin-top: 0.5rem; font-size: 0.72rem; font-style: italic;">Je mehr Gipfel du sammelst, desto höher deine Gewinnchance. Mitmachen lohnt sich!</p>
+        <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: var(--color-gold); background: rgba(201,168,76,0.05);">
+          <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--color-gold);">🏆 Gewinne & Preise</h4>
+          <div style="font-size: 0.78rem; color: var(--color-muted); line-height: 1.5;">
+            <p style="margin-bottom: 0.3rem;">Ab <strong style="color: var(--color-text);">500 Spielern</strong> verlosen wir gesponserte Preise:</p>
+            <p style="margin-bottom: 0.3rem;">👑 Unter allen Bergkönigen: exklusive Preise.</p>
+            <p style="margin-bottom: 0.3rem;">🎲 Unter allen Teilnehmern: Outdoor-Ausrüstung, Hütten-Gutscheine.</p>
+            <p style="font-size: 0.7rem; font-style: italic; margin-top: 0.3rem;">Je mehr Gipfel, desto höher die Gewinnchance!</p>
           </div>
         </div>
 
-        <a href="/settings.html" class="btn btn-secondary btn-block" style="font-size: 0.8rem; padding: 8px; text-align: center; text-decoration: none; display: block; margin-top: 1rem; margin-bottom: 0.5rem;">⚙️ Einstellungen · Datenlöschung</a>
+        <!-- Einstellungen — ein Button zu settings.html -->
+        <a href="/settings.html" class="btn btn-secondary btn-block" style="font-size: 0.8rem; padding: 8px; text-align: center; text-decoration: none; display: block; margin-bottom: 0.5rem;">⚙️ Einstellungen</a>
+        <input type="file" id="gpx-upload" accept=".gpx" style="display: none;">
+        <div id="gpx-result" style="font-size: 0.75rem; display: none;"></div>
         <button class="btn btn-secondary btn-block" id="logout-btn" style="font-size: 0.8rem; padding: 8px;">Abmelden</button>
+        <!-- Hidden for JS compatibility -->
+        <button id="strava-profile-btn" style="display:none;"></button>
+        <span id="strava-status" style="display:none;"></span>
       </section>
 
       <!-- Feed -->
