@@ -272,12 +272,13 @@ async function initAppPage() {
     }
   }
 
-  // Profil-Stats aus Summits berechnen
+  // Dashboard-Daten laden
   if (profil) {
     const { data: summits } = await GK.supabase
       .from('summits')
-      .select('peak_id, points')
-      .eq('user_id', benutzer.id);
+      .select('peak_id, points, summited_at, season')
+      .eq('user_id', benutzer.id)
+      .order('summited_at', { ascending: false });
 
     if (summits) {
       const totalPoints = summits.reduce((sum, s) => sum + (s.points || 0), 0);
@@ -289,7 +290,68 @@ async function initAppPage() {
 
       if (statPoints) statPoints.textContent = totalPoints.toLocaleString('de');
       if (statSummits) statSummits.textContent = uniquePeaks;
-      if (statCrowns) statCrowns.textContent = '0'; // TODO: aus ownership Tabelle
+      if (statCrowns) statCrowns.textContent = '0';
+
+      // Saison-Statistik
+      const currentSeason = new Date().getFullYear().toString();
+      const seasonSummits = summits.filter(s => s.season === currentSeason);
+      const seasonPts = seasonSummits.reduce((sum, s) => sum + (s.points || 0), 0);
+      const seasonUnique = new Set(seasonSummits.map(s => s.peak_id)).size;
+      const el = (id) => document.getElementById(id);
+      if (el('season-summits')) el('season-summits').textContent = seasonUnique;
+      if (el('season-points')) el('season-points').textContent = seasonPts.toLocaleString('de');
+      if (el('profile-season-year')) el('profile-season-year').textContent = currentSeason;
+
+      // Letzte 5 Besteigungen
+      const recentContainer = document.getElementById('profile-recent-summits');
+      if (recentContainer && summits.length > 0) {
+        const recent = summits.slice(0, 5);
+        const peakIds = [...new Set(recent.map(s => s.peak_id))];
+        const peakMap = new Map();
+        for (const pid of peakIds) {
+          const p = await GK.api.getPeakById(pid);
+          if (p) peakMap.set(pid, p);
+        }
+        recentContainer.innerHTML = recent.map(s => {
+          const p = peakMap.get(s.peak_id);
+          const name = p ? p.name : '?';
+          const elev = p ? p.elevation : '';
+          const d = new Date(s.summited_at);
+          const dat = d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--color-border);font-size:0.82rem;">' +
+            '<span>' + name + (elev ? ' <span class="text-muted" style="font-size:0.75rem;">' + elev + 'm</span>' : '') + '</span>' +
+            '<span class="text-muted">' + dat + '</span></div>';
+        }).join('');
+      }
+
+      // Rang berechnen
+      const { data: allProfiles } = await GK.supabase
+        .from('user_profiles')
+        .select('id, total_points, username')
+        .order('total_points', { ascending: false });
+      if (allProfiles) {
+        const myRank = allProfiles.findIndex(p => p.id === benutzer.id) + 1;
+        const rankEl = document.getElementById('profile-rank');
+        const rankDetail = document.getElementById('profile-rank-detail');
+        if (rankEl) rankEl.textContent = myRank > 0 ? 'Platz ' + myRank : '—';
+        if (rankDetail) rankDetail.textContent = 'von ' + allProfiles.length + ' Bergfreunden';
+      }
+
+      // HM berechnen (Summe aller Gipfelhöhen)
+      const peakIdsAll = [...new Set(summits.map(s => s.peak_id))];
+      let totalHM = 0;
+      const seasonPeakIds = new Set(seasonSummits.map(s => s.peak_id));
+      let seasonHM = 0;
+      for (const pid of peakIdsAll) {
+        const p = await GK.api.getPeakById(pid);
+        if (p && p.elevation) {
+          const count = summits.filter(s => s.peak_id === pid).length;
+          totalHM += p.elevation * count;
+          const sCount = seasonSummits.filter(s => s.peak_id === pid).length;
+          if (sCount > 0) seasonHM += p.elevation * sCount;
+        }
+      }
+      if (el('season-hm')) el('season-hm').textContent = seasonHM.toLocaleString('de');
     }
 
     // Badges aus DB laden und anzeigen

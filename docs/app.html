@@ -85,7 +85,7 @@
         </div>
       </section>
 
-      <!-- Profil -->
+      <!-- Profil / Dashboard -->
       <section class="content-section active" id="section-profile">
         <div class="profile-header">
           <div class="profile-avatar" id="profile-avatar">?</div>
@@ -107,57 +107,77 @@
           </div>
         </div>
 
+        <!-- Rang-Übersicht -->
+        <div class="card" style="margin-bottom: 1rem; padding: 0.75rem; text-align: center;">
+          <div style="font-size: 0.8rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Dein Rang</div>
+          <div id="profile-rank" style="font-family: var(--font-display); font-size: 1.4rem; color: var(--color-gold);">—</div>
+          <div id="profile-rank-detail" class="text-muted" style="font-size: 0.75rem;"></div>
+        </div>
+
         <!-- Trophäen -->
-        <div class="divider"></div>
-        <h4 style="margin-bottom: 0.75rem;">Trophäen</h4>
-        <div class="profile-badges" id="badges-grid">
+        <h4 style="margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--color-muted);">Trophäen</h4>
+        <div class="profile-badges" id="badges-grid" style="margin-bottom: 1rem;">
           <p class="text-muted" style="font-size: 0.82rem;">Sammle Gipfel um Trophäen zu erhalten.</p>
         </div>
 
+        <!-- Letzte Gipfel -->
+        <h4 style="margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--color-muted);">Letzte Besteigungen</h4>
+        <div id="profile-recent-summits" style="margin-bottom: 1rem;">
+          <p class="text-muted" style="font-size: 0.82rem;">Noch keine Besteigungen.</p>
+        </div>
+
+        <!-- Saison-Statistik -->
+        <h4 style="margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--color-muted);">Saison <span id="profile-season-year">2026</span></h4>
+        <div class="card" style="margin-bottom: 1rem; padding: 0.75rem;">
+          <div style="display: flex; justify-content: space-around; text-align: center;">
+            <div>
+              <div style="font-family: var(--font-display); font-size: 1.1rem; color: var(--color-gold);" id="season-summits">0</div>
+              <div class="text-muted" style="font-size: 0.7rem;">Gipfel</div>
+            </div>
+            <div>
+              <div style="font-family: var(--font-display); font-size: 1.1rem; color: var(--color-gold);" id="season-points">0</div>
+              <div class="text-muted" style="font-size: 0.7rem;">Punkte</div>
+            </div>
+            <div>
+              <div style="font-family: var(--font-display); font-size: 1.1rem; color: var(--color-gold);" id="season-hm">0</div>
+              <div class="text-muted" style="font-size: 0.7rem;">HM</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Einstellungen (aufklappbar) -->
-        <div class="divider"></div>
-        <details class="settings-details" style="margin-bottom: 1rem;">
-          <summary style="cursor: pointer; font-weight: 500; padding: 0.5rem 0; color: var(--color-text); font-size: 0.9rem;">
+        <details class="settings-details" style="margin-bottom: 0.75rem;">
+          <summary style="cursor: pointer; font-weight: 500; padding: 0.5rem 0; color: var(--color-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">
             Einstellungen
           </summary>
           <div style="padding-top: 0.75rem;">
-
-            <!-- Strava -->
             <div class="card" style="margin-bottom: 0.5rem; padding: 0.6rem;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.4rem;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#FC4C02"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-                  <span style="font-size: 0.85rem;" id="strava-status">Strava verbinden</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#FC4C02"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+                  <span style="font-size: 0.82rem;" id="strava-status">Strava verbinden</span>
                 </div>
-                <button class="btn btn-strava btn-sm" id="strava-profile-btn" style="font-size: 0.75rem; padding: 4px 10px;">
-                  Verbinden
-                </button>
+                <button class="btn btn-strava btn-sm" id="strava-profile-btn" style="font-size: 0.7rem; padding: 3px 8px;">Verbinden</button>
               </div>
             </div>
-
-            <!-- GPX Upload -->
             <div class="card" style="margin-bottom: 0.5rem; padding: 0.6rem;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 0.4rem;">
-                  <span style="font-size: 0.9rem;">📂</span>
-                  <span style="font-size: 0.85rem;">GPX-Datei hochladen</span>
+                  <span style="font-size: 0.85rem;">📂</span>
+                  <span style="font-size: 0.82rem;">GPX hochladen</span>
                 </div>
-                <label class="btn btn-secondary btn-sm" for="gpx-upload" style="cursor: pointer; font-size: 0.75rem; padding: 4px 10px;">
-                  Wählen
-                </label>
+                <label class="btn btn-secondary btn-sm" for="gpx-upload" style="cursor: pointer; font-size: 0.7rem; padding: 3px 8px;">Wählen</label>
                 <input type="file" id="gpx-upload" accept=".gpx" style="display: none;">
               </div>
-              <div id="gpx-result" style="margin-top: 0.4rem; font-size: 0.78rem; display: none;"></div>
+              <div id="gpx-result" style="margin-top: 0.4rem; font-size: 0.75rem; display: none;"></div>
             </div>
-
-            <!-- Powered by Strava -->
-            <div style="text-align: center; margin-top: 0.75rem;">
-              <span class="text-muted" style="font-size: 0.7rem;">Powered by Strava</span>
+            <div style="text-align: center; margin-top: 0.5rem;">
+              <span class="text-muted" style="font-size: 0.65rem;">Powered by Strava</span>
             </div>
           </div>
         </details>
 
-        <button class="btn btn-secondary btn-block" id="logout-btn" style="margin-top: 0.5rem; font-size: 0.85rem;">Abmelden</button>
+        <button class="btn btn-secondary btn-block" id="logout-btn" style="font-size: 0.8rem; padding: 8px;">Abmelden</button>
       </section>
 
       <!-- Feed -->
