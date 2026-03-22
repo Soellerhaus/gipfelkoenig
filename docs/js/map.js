@@ -198,10 +198,10 @@ async function openPeakPanel(peakId) {
           <span class="peak-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</span>
         </div>
         <div class="trophy-grid">
-          <div class="trophy-slot"><div class="trophy-emoji">👑</div><div class="trophy-label">König</div><div class="trophy-user">—</div></div>
-          <div class="trophy-slot"><div class="trophy-emoji">⭐</div><div class="trophy-label">Pionier</div><div class="trophy-user">—</div></div>
-          <div class="trophy-slot"><div class="trophy-emoji">🌅</div><div class="trophy-label">Früh</div><div class="trophy-user">—</div></div>
-          <div class="trophy-slot"><div class="trophy-emoji">💎</div><div class="trophy-label">Selten</div><div class="trophy-user">—</div></div>
+          <div class="trophy-slot"><span class="trophy-emoji">👑</span><span class="trophy-label">König</span></div>
+          <div class="trophy-slot"><span class="trophy-emoji">⭐</span><span class="trophy-label">Pionier</span></div>
+          <div class="trophy-slot"><span class="trophy-emoji">🌅</span><span class="trophy-label">Früh</span></div>
+          <div class="trophy-slot"><span class="trophy-emoji">💎</span><span class="trophy-label">Selten</span></div>
         </div>
         <div class="peak-history">Noch nie bestiegen — sei der Erste!</div>`;
       return;
@@ -255,10 +255,9 @@ async function openPeakPanel(peakId) {
 
     const trophyHtml = trophies.map(t => `
       <div class="trophy-slot${t.earned ? ' earned' : ''}">
-        <div class="trophy-emoji">${t.emoji}</div>
-        <div class="trophy-label">${t.label}</div>
-        <div class="trophy-user">${t.user}</div>
-        ${t.detail ? '<div class="trophy-detail">' + t.detail + '</div>' : ''}
+        <span class="trophy-emoji">${t.emoji}</span>
+        <span class="trophy-label">${t.label}</span>
+        ${t.earned && t.user !== '✓' && t.user !== '—' ? '<span class="trophy-user">' + t.user + (t.detail ? ' ' + t.detail : '') + '</span>' : ''}
       </div>`).join('');
 
     // Vergangene Jahre als kompakte Zeile
