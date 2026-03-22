@@ -364,33 +364,36 @@ async function loadPeaks() {
     GK.map.peaks.set(peak.id, peak);
   }
 
-  // Nur Safety laden — König wird beim Klick im Panel geladen
-  const safetyMap = {};
-  try {
-    const { data } = await GK.supabase.from('safety_status').select('*').eq('date', today);
-    if (data) for (const s of data) safetyMap[s.region_id] = s;
-  } catch (e) { /* ignorieren */ }
+  // SCHRITT 1: Marker SOFORT anzeigen (ohne König-Prüfung)
+  for (const peak of peaks) {
+    const icon = getMarkerIcon(peak, null, false, true);
+    const marker = L.marker([peak.lat, peak.lng], { icon });
+    marker.bindPopup(buildPopupContent(peak, null, 0, true), {
+      maxWidth: 220,
+      closeButton: false,
+    });
+    marker.on('click', function () { openPeakPanel(peak.id); });
+    marker.peakData = peak;
+    markerLayer.addLayer(marker);
+  }
 
-  // User-Summits laden + König-Status prüfen (aktuelle Saison + Vorjahr Fallback)
-  const lastSeason = (parseInt(season) - 1).toString();
-  const userSummitedPeaks = new Set();
-  const userIsKing = new Set();
+  // SCHRITT 2: Kronen im Hintergrund nachladen (blockiert UI nicht)
   if (userId) {
+    const lastSeason = (parseInt(season) - 1).toString();
     try {
-      // User-Summits aktuelle + letzte Saison
       const { data } = await GK.supabase.from('summits').select('peak_id, season')
         .eq('user_id', userId).in('season', [season, lastSeason]);
-      if (data) {
-        for (const s of data) userSummitedPeaks.add(s.peak_id);
-
-        // Für bestiegene Peaks prüfen ob User König ist
+      if (data && data.length > 0) {
+        const userSummitedPeaks = new Set(data.map(s => s.peak_id));
         const userPeakIds = [...userSummitedPeaks].filter(id => peakIds.includes(id));
+
         if (userPeakIds.length > 0) {
           const { data: allSummits } = await GK.supabase
             .from('summits').select('peak_id, user_id, season')
             .in('peak_id', userPeakIds).in('season', [season, lastSeason]);
+
+          const userIsKing = new Set();
           if (allSummits) {
-            // Pro Peak: aktuelle Saison bevorzugen, Vorjahr als Fallback
             const bySeason = {};
             for (const s of allSummits) {
               if (!bySeason[s.peak_id]) bySeason[s.peak_id] = {};
@@ -398,40 +401,29 @@ async function loadPeaks() {
               bySeason[s.peak_id][s.season][s.user_id] = (bySeason[s.peak_id][s.season][s.user_id] || 0) + 1;
             }
             for (const [pid, seasons] of Object.entries(bySeason)) {
-              const data = seasons[season] || seasons[lastSeason];
-              if (data) {
-                const top = Object.entries(data).sort((a, b) => b[1] - a[1])[0];
+              const d = seasons[season] || seasons[lastSeason];
+              if (d) {
+                const top = Object.entries(d).sort((a, b) => b[1] - a[1])[0];
                 if (top && top[0] === userId) userIsKing.add(parseInt(pid));
               }
             }
           }
+
+          // Marker mit Kronen updaten
+          markerLayer.eachLayer(function (marker) {
+            if (marker.peakData) {
+              const pid = marker.peakData.id;
+              const summited = userSummitedPeaks.has(pid);
+              const isKing = userIsKing.has(pid);
+              if (summited || isKing) {
+                const king = isKing ? { user_id: userId } : null;
+                marker.setIcon(getMarkerIcon(marker.peakData, king, summited, true));
+              }
+            }
+          });
         }
       }
     } catch (e) { /* ignorieren */ }
-  }
-
-  // Marker erstellen — schnell
-  for (const peak of peaks) {
-    const safety = peak.osm_region ? (safetyMap[peak.osm_region] || null) : null;
-    const isSafe = safety ? safety.danger_level < 3 : true;
-    const userSummited = userSummitedPeaks.has(peak.id);
-
-    // König-Marker wenn User König ist
-    const king = userIsKing.has(peak.id) ? { user_id: userId } : null;
-    const icon = getMarkerIcon(peak, king, userSummited, isSafe);
-
-    const marker = L.marker([peak.lat, peak.lng], { icon });
-    marker.bindPopup(buildPopupContent(peak, null, 0, isSafe), {
-      maxWidth: 220,
-      closeButton: false,
-    });
-
-    marker.on('click', function () {
-      openPeakPanel(peak.id);
-    });
-
-    marker.peakData = peak;
-    markerLayer.addLayer(marker);
   }
   _loadPeaksRunning = false;
 }
