@@ -17,20 +17,34 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Kein Auth-Header' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+
+    // User-Client um den eingeloggten User zu identifizieren
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+    const { data: { user }, error: authError } = await userClient.auth.getUser()
+
+    if (authError || !user) {
+      console.error('Auth Error:', authError?.message)
+      return new Response(JSON.stringify({ error: 'Nicht autorisiert: ' + (authError?.message || 'kein User') }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Admin-Client für Lösch-Operationen
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader?.replace('Bearer ', '') ?? ''
-    )
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Nicht autorisiert' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
 
     const userId = user.id
 

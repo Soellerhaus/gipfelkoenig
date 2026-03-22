@@ -201,7 +201,7 @@ async function openPeakPanel(peakId) {
       // Leerer Gipfel — Trophy-Slots alle leer
       const desc = peak.description || '';
       content.innerHTML = `
-        <div class="peak-top-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</div>
+        <div class="peak-top-meta">${safetyHtml}</div>
         <div class="trophy-grid">
           <div class="trophy-slot"><span class="trophy-emoji">👑</span><span class="trophy-label">König</span></div>
           <div class="trophy-slot"><span class="trophy-emoji">⭐</span><span class="trophy-label">Pionier</span></div>
@@ -209,7 +209,7 @@ async function openPeakPanel(peakId) {
           <div class="trophy-slot"><span class="trophy-emoji">💎</span><span class="trophy-label">Selten</span></div>
         </div>
         <div class="peak-history">Noch nie bestiegen — sei der Erste!</div>
-        <div class="peak-bottom-name">${peak.name}</div>
+        <div class="peak-bottom-name">${peak.name}${peak.elevation ? ' <span class="peak-elev">' + peak.elevation + ' m</span>' : ''}</div>
         ${desc ? '<div class="peak-description">' + desc + '</div>' : ''}`;
       return;
     }
@@ -289,10 +289,10 @@ async function openPeakPanel(peakId) {
     const lastUser = userName(lastSummit.user_id);
 
     content.innerHTML = `
-      <div class="peak-top-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml} · ${totalSummits} Besteigungen · ${uniqueUsers} Bergfreunde</div>
+      <div class="peak-top-meta">${safetyHtml} · ${totalSummits} Besteigungen · ${uniqueUsers} Bergfreunde</div>
       <div class="trophy-grid">${trophyHtml}</div>
       ${historyHtml ? '<div class="peak-history">' + historyHtml + '</div>' : ''}
-      <div class="peak-bottom-name">${peak.name}</div>
+      <div class="peak-bottom-name">${peak.name}${peak.elevation ? ' <span class="peak-elev">' + peak.elevation + ' m</span>' : ''}</div>
       ${desc ? '<div class="peak-description">' + desc + '</div>' : '<div class="peak-description">Letzte Besteigung: ' + lastDate + ' von ' + lastUser + '</div>'}
     `;
 
