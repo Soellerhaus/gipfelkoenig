@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registrieren — Gipfelkönig</title>
+  <meta name="theme-color" content="#d4a24c">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div class="auth-page">
+    <a href="/index.html" class="auth-logo">Gipfelkönig</a>
+
+    <div class="auth-card">
+      <h1>Registrieren</h1>
+
+      <form id="register-form">
+        <!-- Account-Daten -->
+        <div class="form-group">
+          <label class="form-label" for="email">E-Mail-Adresse</label>
+          <input class="form-input" type="email" id="email" required autocomplete="email" placeholder="deine@email.at">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Passwort</label>
+          <input class="form-input" type="password" id="password" required minlength="8" autocomplete="new-password" placeholder="Mindestens 8 Zeichen">
+          <div id="password-strength" class="form-hint"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password-confirm">Passwort wiederholen</label>
+          <input class="form-input" type="password" id="password-confirm" required autocomplete="new-password" placeholder="Passwort bestätigen">
+        </div>
+
+        <!-- Spieler-Identität -->
+        <div class="form-group">
+          <label class="form-label" for="username">Dein Gipfelkönig-Name</label>
+          <input class="form-input" type="text" id="username" required minlength="3" maxlength="20" pattern="[a-zA-Z0-9_]+" autocomplete="off" placeholder="z.B. AlpinClaudio">
+          <div id="username-availability" class="form-hint"></div>
+          <small class="form-hint">Nur Buchstaben, Zahlen und _ erlaubt. Erscheint in der Rangliste.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Wähle deinen Berg-Avatar</label>
+          <div class="avatar-selector">
+            <button type="button" class="avatar-option selected" data-avatar="mountain">🏔️</button>
+            <button type="button" class="avatar-option" data-avatar="eagle">🦅</button>
+            <button type="button" class="avatar-option" data-avatar="ski">⛷️</button>
+            <button type="button" class="avatar-option" data-avatar="climber">🧗</button>
+            <button type="button" class="avatar-option" data-avatar="tree">🌲</button>
+            <button type="button" class="avatar-option" data-avatar="snow">❄️</button>
+            <button type="button" class="avatar-option" data-avatar="deer">🦌</button>
+            <button type="button" class="avatar-option" data-avatar="rock">🪨</button>
+          </div>
+          <input type="hidden" id="avatar-type" value="mountain">
+        </div>
+
+        <!-- Einwilligungen -->
+        <div class="consent-section">
+          <div class="consent-item">
+            <input type="checkbox" id="consent-privacy" required>
+            <label for="consent-privacy">
+              Ich habe die <a href="/datenschutz.html" target="_blank">Datenschutzerklärung</a> gelesen und bin einverstanden.
+            </label>
+          </div>
+          <div class="consent-item">
+            <input type="checkbox" id="consent-safety" required>
+            <label for="consent-safety">
+              Ich verstehe dass Gipfelkönig ein <strong>Spiel</strong> ist. Lawinenlagen prüfe ich eigenverantwortlich auf <a href="https://lawinen.report" target="_blank">lawinen.report</a>.
+            </label>
+          </div>
+          <div class="consent-item">
+            <input type="checkbox" id="consent-leaderboard" required>
+            <label for="consent-leaderboard">
+              Mein Name und Punkte dürfen in der öffentlichen Rangliste erscheinen.
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="register-btn" disabled>
+          Berge warten nicht — Registrieren ⛰️
+        </button>
+
+        <p id="register-error" class="text-danger text-center" style="margin-top: 0.75rem; font-size: 0.85rem; display: none;"></p>
+        <p id="register-success" class="text-safe text-center" style="margin-top: 0.75rem; font-size: 0.85rem; display: none;"></p>
+      </form>
+
+      <p class="auth-alt-link">
+        Bereits registriert? <a href="/login.html">Anmelden</a>
+      </p>
+    </div>
+
+    <div class="auth-footer">
+      <a href="/impressum.html">Impressum</a> · <a href="/datenschutz.html">Datenschutz</a>
+    </div>
+  </div>
+
+  <script src="./js/api.js"></script>
+  <script>
+    // Wenn bereits eingeloggt → zur App
+    ;(async () => {
+      const { data: { session } } = await GK.supabase.auth.getSession();
+      if (session) { window.location.href = '/app.html'; return; }
+    })();
+
+    // Passwort-Stärke
+    document.getElementById('password').addEventListener('input', (e) => {
+      const pw = e.target.value;
+      const el = document.getElementById('password-strength');
+      if (pw.length < 8) { el.textContent = '⚠️ Zu kurz (min. 8 Zeichen)'; el.style.color = 'var(--color-danger)'; }
+      else if (pw.length < 12) { el.textContent = '👍 Ausreichend'; el.style.color = 'var(--color-gold)'; }
+      else { el.textContent = '💪 Stark'; el.style.color = 'var(--color-safe)'; }
+    });
+
+    // Username Verfügbarkeit
+    let usernameTimer;
+    document.getElementById('username').addEventListener('input', (e) => {
+      clearTimeout(usernameTimer);
+      const username = e.target.value.trim();
+      const el = document.getElementById('username-availability');
+      if (username.length < 3) { el.textContent = ''; return; }
+      el.textContent = '⏳ Prüfe...';
+      el.style.color = 'var(--color-muted)';
+      usernameTimer = setTimeout(async () => {
+        const { data } = await GK.supabase.from('user_profiles').select('username').eq('username', username).single();
+        if (data) { el.textContent = '❌ Bereits vergeben'; el.style.color = 'var(--color-danger)'; }
+        else { el.textContent = '✅ Verfügbar'; el.style.color = 'var(--color-safe)'; }
+      }, 500);
+    });
+
+    // Checkboxen → Button aktivieren
+    const checkboxes = document.querySelectorAll('.consent-item input[type="checkbox"]');
+    const registerBtn = document.getElementById('register-btn');
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', () => {
+        registerBtn.disabled = ![...checkboxes].every(c => c.checked);
+      });
+    });
+
+    // Avatar-Auswahl
+    document.querySelectorAll('.avatar-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.avatar-option').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        document.getElementById('avatar-type').value = btn.dataset.avatar;
+      });
+    });
+
+    // Registrierung
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const passwordConfirm = document.getElementById('password-confirm').value;
+      const username = document.getElementById('username').value.trim();
+      const avatarType = document.getElementById('avatar-type').value;
+      const errEl = document.getElementById('register-error');
+      const successEl = document.getElementById('register-success');
+
+      errEl.style.display = 'none';
+      successEl.style.display = 'none';
+
+      if (password !== passwordConfirm) {
+        errEl.textContent = 'Passwörter stimmen nicht überein.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        errEl.textContent = 'Username: nur Buchstaben, Zahlen und _ erlaubt.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      registerBtn.disabled = true;
+      registerBtn.textContent = 'Registriere...';
+
+      try {
+        const { data: authData, error: authError } = await GK.supabase.auth.signUp({
+          email, password,
+          options: { emailRedirectTo: 'https://bergkoenig.app/app.html' }
+        });
+        if (authError) throw authError;
+
+        const { error: profileError } = await GK.supabase.from('user_profiles').insert({
+          id: authData.user.id,
+          username,
+          avatar_type: avatarType,
+          consent_given_at: new Date().toISOString(),
+          consent_version: '1.0'
+        });
+        if (profileError) throw profileError;
+
+        document.getElementById('register-form').style.display = 'none';
+        successEl.textContent = 'Fast geschafft! Bitte bestätige deine E-Mail-Adresse. Wir haben dir einen Link geschickt.';
+        successEl.style.display = 'block';
+      } catch (error) {
+        errEl.textContent = error.message || 'Registrierung fehlgeschlagen.';
+        errEl.style.display = 'block';
+        registerBtn.disabled = false;
+        registerBtn.textContent = 'Berge warten nicht — Registrieren ⛰️';
+      }
+    });
+  </script>
+</body>
+</html>

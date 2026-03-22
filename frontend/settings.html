@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Einstellungen — Gipfelkönig</title>
+  <meta name="theme-color" content="#d4a24c">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div class="auth-page" style="max-width: 600px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <a href="/app.html" class="auth-logo">← Gipfelkönig</a>
+      <button id="logout-btn" class="btn btn-sm" style="font-size: 0.75rem;">Abmelden</button>
+    </div>
+
+    <h1 style="font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1.5rem;">Einstellungen</h1>
+
+    <!-- PROFIL -->
+    <div class="auth-card" style="margin-bottom: 1rem;">
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Mein Profil</h2>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span style="color: var(--color-muted); font-size: 0.85rem;">Gipfelkönig-Name</span>
+        <strong id="current-username">...</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span style="color: var(--color-muted); font-size: 0.85rem;">E-Mail</span>
+        <span id="current-email" style="font-size: 0.85rem;">...</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: var(--color-muted); font-size: 0.85rem;">Avatar</span>
+        <span id="current-avatar" style="font-size: 1.5rem;">🏔️</span>
+      </div>
+    </div>
+
+    <!-- PASSWORT ÄNDERN -->
+    <div class="auth-card" style="margin-bottom: 1rem;">
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Passwort ändern</h2>
+
+      <form id="password-form">
+        <div class="form-group">
+          <label class="form-label" for="new-password">Neues Passwort</label>
+          <input class="form-input" type="password" id="new-password" minlength="8" autocomplete="new-password" placeholder="Mindestens 8 Zeichen">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="confirm-password">Bestätigen</label>
+          <input class="form-input" type="password" id="confirm-password" autocomplete="new-password" placeholder="Nochmal eingeben">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm" id="change-pw-btn">Passwort ändern</button>
+        <p id="pw-message" style="margin-top: 0.5rem; font-size: 0.85rem; display: none;"></p>
+      </form>
+    </div>
+
+    <!-- STRAVA VERBINDUNG -->
+    <div class="auth-card" style="margin-bottom: 1rem;">
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Strava-Verbindung</h2>
+
+      <p style="color: var(--color-muted); font-size: 0.82rem; margin-bottom: 1rem;">
+        Verbinde dein Strava-Konto damit deine GPS-Touren automatisch auf Gipfelbesteigungen geprüft werden.
+        Ohne Strava kannst du Gipfel manuell per GPS-Check-in einchecken.
+      </p>
+
+      <!-- Nicht verbunden -->
+      <div id="strava-not-connected">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-danger);"></span>
+          <span style="font-size: 0.85rem;">Strava nicht verbunden</span>
+        </div>
+        <a href="#" id="connect-strava-btn" class="btn btn-strava btn-block">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+          Mit Strava verbinden
+        </a>
+        <small style="display: block; margin-top: 0.5rem; color: var(--color-muted); font-size: 0.7rem;">
+          Gipfelkönig ist nicht von Strava® betrieben oder empfohlen. Strava® ist eine eingetragene Marke der Strava, Inc.
+        </small>
+      </div>
+
+      <!-- Verbunden -->
+      <div id="strava-connected" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-safe);"></span>
+          <span style="font-size: 0.85rem;">Strava verbunden ✓</span>
+        </div>
+        <p style="color: var(--color-muted); font-size: 0.8rem; margin-bottom: 0.75rem;">
+          Verbunden seit: <span id="strava-connected-since">—</span>
+        </p>
+        <button id="disconnect-strava-btn" class="btn btn-sm" style="color: var(--color-danger); border-color: var(--color-danger);">
+          Strava trennen
+        </button>
+        <small style="display: block; margin-top: 0.5rem; color: var(--color-muted); font-size: 0.75rem;">
+          Bestehende Punkte bleiben erhalten. Manueller Check-in weiterhin möglich.
+        </small>
+      </div>
+    </div>
+
+    <!-- GEFAHRENZONE -->
+    <div class="auth-card" style="border-color: var(--color-danger); margin-bottom: 2rem;">
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--color-danger);">⚠️ Gefahrenzone</h2>
+
+      <p style="color: var(--color-muted); font-size: 0.82rem; margin-bottom: 0.75rem;">
+        Alle Daten werden unwiderruflich gelöscht: Gipfelbesteigungen, Punkte, Badges, Profil.
+      </p>
+      <button id="delete-account-btn" class="btn btn-sm" style="color: var(--color-danger); border-color: var(--color-danger);">
+        Account löschen
+      </button>
+    </div>
+  </div>
+
+  <script src="./js/api.js"></script>
+  <script>
+    const STRAVA_CLIENT_ID = '211591';
+
+    // Route-Schutz
+    let currentUser = null;
+    ;(async () => {
+      const { data: { session } } = await GK.supabase.auth.getSession();
+      if (!session) { window.location.href = '/login.html'; return; }
+      currentUser = session.user;
+      loadProfile();
+      handleStravaCallback();
+    })();
+
+    // Profil laden
+    async function loadProfile() {
+      document.getElementById('current-email').textContent = currentUser.email;
+
+      const { data: profile } = await GK.supabase
+        .from('user_profiles')
+        .select('username, avatar_type, strava_token, strava_connected_at')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (profile) {
+        document.getElementById('current-username').textContent = profile.username || '—';
+
+        const avatarMap = { mountain: '🏔️', eagle: '🦅', ski: '⛷️', climber: '🧗', tree: '🌲', snow: '❄️', deer: '🦌', rock: '🪨' };
+        document.getElementById('current-avatar').textContent = avatarMap[profile.avatar_type] || '🏔️';
+
+        // Strava Status
+        if (profile.strava_token) {
+          document.getElementById('strava-not-connected').style.display = 'none';
+          document.getElementById('strava-connected').style.display = 'block';
+          if (profile.strava_connected_at) {
+            document.getElementById('strava-connected-since').textContent =
+              new Date(profile.strava_connected_at).toLocaleDateString('de-AT');
+          }
+        }
+      }
+    }
+
+    // Strava OAuth starten
+    document.getElementById('connect-strava-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      const state = crypto.randomUUID();
+      sessionStorage.setItem('strava_oauth_state', state);
+      const redirectUri = 'https://bergkoenig.app/settings.html';
+      window.location.href =
+        'https://www.strava.com/oauth/authorize' +
+        '?client_id=' + STRAVA_CLIENT_ID +
+        '&redirect_uri=' + encodeURIComponent(redirectUri) +
+        '&response_type=code' +
+        '&scope=activity:read_all' +
+        '&state=' + state +
+        '&approval_prompt=auto';
+    });
+
+    // Strava OAuth Callback
+    async function handleStravaCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const state = params.get('state');
+      const error = params.get('error');
+
+      if (error) {
+        window.history.replaceState({}, '', '/settings.html');
+        return;
+      }
+      if (!code) return;
+
+      const savedState = sessionStorage.getItem('strava_oauth_state');
+      if (state !== savedState) {
+        alert('Sicherheitsfehler. Bitte versuche es erneut.');
+        window.history.replaceState({}, '', '/settings.html');
+        return;
+      }
+      sessionStorage.removeItem('strava_oauth_state');
+
+      // Code gegen Token tauschen via Edge Function
+      const { data, error: fnError } = await GK.supabase.functions.invoke('strava-exchange-token', {
+        body: { code }
+      });
+
+      if (fnError) {
+        alert('Strava-Verbindung fehlgeschlagen. Bitte erneut versuchen.');
+      } else {
+        document.getElementById('strava-not-connected').style.display = 'none';
+        document.getElementById('strava-connected').style.display = 'block';
+        document.getElementById('strava-connected-since').textContent =
+          new Date().toLocaleDateString('de-AT');
+      }
+
+      window.history.replaceState({}, '', '/settings.html');
+    }
+
+    // Strava trennen
+    document.getElementById('disconnect-strava-btn').addEventListener('click', async () => {
+      if (!confirm('Strava wirklich trennen? Bestehende Punkte bleiben erhalten.')) return;
+
+      // Token aus DB holen und bei Strava deautorisieren
+      const { data: profile } = await GK.supabase
+        .from('user_profiles')
+        .select('strava_token')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (profile?.strava_token) {
+        await fetch('https://www.strava.com/oauth/deauthorize', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + profile.strava_token }
+        }).catch(() => {});
+      }
+
+      // Tokens aus DB löschen
+      await GK.supabase.from('user_profiles').update({
+        strava_id: null,
+        strava_token: null,
+        strava_refresh_token: null,
+        strava_token_expires_at: null,
+        strava_connected_at: null
+      }).eq('id', currentUser.id);
+
+      document.getElementById('strava-connected').style.display = 'none';
+      document.getElementById('strava-not-connected').style.display = 'block';
+    });
+
+    // Passwort ändern
+    document.getElementById('password-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPw = document.getElementById('new-password').value;
+      const confirmPw = document.getElementById('confirm-password').value;
+      const msg = document.getElementById('pw-message');
+
+      if (newPw !== confirmPw) {
+        msg.textContent = 'Passwörter stimmen nicht überein.';
+        msg.style.color = 'var(--color-danger)';
+        msg.style.display = 'block';
+        return;
+      }
+
+      const { error } = await GK.supabase.auth.updateUser({ password: newPw });
+      if (error) {
+        msg.textContent = 'Fehler: ' + error.message;
+        msg.style.color = 'var(--color-danger)';
+      } else {
+        msg.textContent = 'Passwort geändert ✓';
+        msg.style.color = 'var(--color-safe)';
+        document.getElementById('new-password').value = '';
+        document.getElementById('confirm-password').value = '';
+      }
+      msg.style.display = 'block';
+    });
+
+    // Account löschen
+    document.getElementById('delete-account-btn').addEventListener('click', async () => {
+      const step1 = confirm(
+        '⚠️ Account wirklich löschen?\n\n' +
+        'Alle Daten werden unwiderruflich gelöscht:\n' +
+        '• Gipfelbesteigungen & Punkte\n' +
+        '• Badges & Profil\n' +
+        '• Strava-Verbindung\n\n' +
+        'NICHT rückgängig machbar!'
+      );
+      if (!step1) return;
+
+      const { data: profile } = await GK.supabase
+        .from('user_profiles')
+        .select('username')
+        .eq('id', currentUser.id)
+        .single();
+
+      const step2 = prompt('Zur Bestätigung: Gib deinen Gipfelkönig-Namen ein:');
+      if (step2 !== profile?.username) {
+        alert('Falscher Name. Account wurde nicht gelöscht.');
+        return;
+      }
+
+      const { error } = await GK.supabase.functions.invoke('delete-account');
+      if (error) {
+        alert('Fehler beim Löschen. Bitte kontaktiere kontakt@bergkoenig.app');
+        return;
+      }
+
+      await GK.supabase.auth.signOut();
+      window.location.href = '/index.html?deleted=true';
+    });
+
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await GK.supabase.auth.signOut();
+      window.location.href = '/index.html';
+    });
+  </script>
+</body>
+</html>

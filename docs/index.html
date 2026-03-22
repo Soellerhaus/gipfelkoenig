@@ -35,55 +35,25 @@
       <div class="landing-hero-content">
         <div class="landing-hero-label">App · Alpenraum · 2026</div>
         <h1>Gipfel<span>könig</span></h1>
-        <p class="landing-hero-sub">Sammle Gipfel, sammle Höhenmeter. Für Wanderer, Trailrunner und Kletterer — egal wie schnell, Hauptsache oben. Vollautomatisch via Strava oder manuellem GPS Check-in.</p>
+        <p class="landing-hero-sub">Wem gehört der Gipfel? Das erste Besitz-Spiel für echte Alpengipfel. Erklimm Gipfel, sammle Punkte, verteidige deine Krone.</p>
 
         <!-- Meta-Pillen -->
         <div class="landing-meta-row">
+          <span class="meta-pill">50.000+ Gipfel</span>
           <span class="meta-pill">Gesamter Alpenraum</span>
           <span class="meta-pill">Kein App-Download nötig</span>
-          <span class="meta-pill">Alle Smartwatches</span>
-          <span class="meta-pill">Open Data</span>
+          <span class="meta-pill">Mit oder ohne Smartwatch</span>
         </div>
 
-        <!-- Auth Container -->
-        <div class="auth-container" id="auth-container">
-
-          <!-- Login/Register Toggle -->
-          <div class="auth-toggle">
-            <button class="auth-toggle-btn active" data-mode="login">Anmelden</button>
-            <button class="auth-toggle-btn" data-mode="register">Registrieren</button>
-          </div>
-
-          <!-- Email Form -->
-          <form id="auth-form">
-            <div class="form-group" id="username-group" style="display: none;">
-              <label class="form-label" for="username">Benutzername</label>
-              <input class="form-input" type="text" id="username" placeholder="alpinkoenig" autocomplete="username">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="email">E-Mail</label>
-              <input class="form-input" type="email" id="email" placeholder="name@beispiel.at" required autocomplete="email">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="password">Passwort</label>
-              <input class="form-input" type="password" id="password" placeholder="Mindestens 6 Zeichen" required autocomplete="current-password" minlength="6">
-            </div>
-            <button type="submit" class="btn btn-primary btn-block btn-lg" id="auth-submit">
-              Anmelden
-            </button>
-            <p id="auth-error" class="text-danger text-center" style="margin-top: 0.75rem; font-size: 0.85rem; display: none;"></p>
-            <p id="auth-success" class="text-safe text-center" style="margin-top: 0.75rem; font-size: 0.85rem; display: none;"></p>
-          </form>
-
-          <!-- Divider -->
-          <div class="auth-divider">oder</div>
-
-          <!-- Strava OAuth -->
-          <button class="btn btn-strava btn-block" id="strava-connect">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-            Mit Strava verbinden
-          </button>
+        <!-- CTA Buttons -->
+        <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap;">
+          <a href="/register.html" class="btn btn-primary btn-lg">Jetzt registrieren</a>
+          <a href="/login.html" class="btn btn-lg" style="border: 1px solid var(--color-gold); color: var(--color-gold);">Anmelden</a>
         </div>
+
+        <p style="color: var(--color-muted); font-size: 0.75rem; margin-top: 1rem;">
+          Mit Strava-Verbindung: vollautomatisch. Ohne: manueller GPS Check-in auf dem Gipfel.
+        </p>
       </div>
     </div>
 
@@ -113,10 +83,21 @@
     <div class="landing-footer">
       <div class="landing-footer-logo">Gipfelkönig</div>
       <div class="landing-footer-copy">&copy; 2026 &middot; Made in the Alps</div>
+      <div style="margin-top: 0.5rem; font-size: 0.75rem;">
+        <a href="/impressum.html" style="color: var(--color-muted);">Impressum</a> ·
+        <a href="/datenschutz.html" style="color: var(--color-muted);">Datenschutz</a> ·
+        <a href="/nutzungsbedingungen.html" style="color: var(--color-muted);">Nutzungsbedingungen</a>
+      </div>
     </div>
   </div>
 
   <script src="./js/api.js"></script>
-  <script src="./js/auth.js"></script>
+  <script>
+    // Wenn bereits eingeloggt → zur App
+    ;(async () => {
+      const { data: { session } } = await GK.supabase.auth.getSession();
+      if (session) window.location.href = '/app.html';
+    })();
+  </script>
 </body>
 </html>

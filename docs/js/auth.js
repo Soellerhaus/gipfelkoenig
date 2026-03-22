@@ -461,11 +461,11 @@ async function initAppPage() {
     }
   }
 
-  // Strava-Button im Profil
+  // Strava-Button → zu Einstellungen
   const stravaProfileBtn = document.getElementById('strava-profile-btn');
   if (stravaProfileBtn) {
     stravaProfileBtn.addEventListener('click', function () {
-      window.location.href = STRAVA_AUTH_URL;
+      window.location.href = '/settings.html';
     });
   }
 
@@ -474,7 +474,7 @@ async function initAppPage() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async function () {
       await GK.supabase.auth.signOut();
-      window.location.href = 'index.html';
+      window.location.href = '/login.html';
     });
   }
 
@@ -783,11 +783,14 @@ async function importStravaActivities(userId, accessToken) {
   setTimeout(() => window.location.reload(), 3000);
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-  // Prüfen, ob wir auf der Landing-Page oder App-Seite sind
-  if (document.getElementById('auth-form')) {
-    initLandingPage();
-  } else if (document.getElementById('logout-btn') || document.getElementById('user-points')) {
+document.addEventListener('DOMContentLoaded', async function () {
+  // Route-Schutz: app.html braucht Login
+  if (document.getElementById('logout-btn') || document.getElementById('user-points')) {
+    const { data: { session } } = await GK.supabase.auth.getSession();
+    if (!session) {
+      window.location.href = '/login.html';
+      return;
+    }
     initAppPage();
   }
 });

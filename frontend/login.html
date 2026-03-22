@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anmelden — Gipfelkönig</title>
+  <meta name="theme-color" content="#d4a24c">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div class="auth-page">
+    <a href="/index.html" class="auth-logo">Gipfelkönig</a>
+
+    <div class="auth-card">
+      <h1>Anmelden</h1>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label" for="email">E-Mail-Adresse</label>
+          <input class="form-input" type="email" id="email" required autocomplete="email" placeholder="deine@email.at">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">
+            Passwort
+            <a href="/forgot-password.html" class="form-link-right">Vergessen?</a>
+          </label>
+          <input class="form-input" type="password" id="password" required autocomplete="current-password" placeholder="Dein Passwort">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-btn">
+          Anmelden
+        </button>
+
+        <p id="login-error" class="text-danger text-center" style="margin-top: 0.75rem; font-size: 0.85rem; display: none;"></p>
+      </form>
+
+      <p class="auth-alt-link">
+        Noch kein Konto? <a href="/register.html">Jetzt registrieren</a>
+      </p>
+    </div>
+
+    <div class="auth-footer">
+      <a href="/impressum.html">Impressum</a> · <a href="/datenschutz.html">Datenschutz</a>
+    </div>
+  </div>
+
+  <script src="./js/api.js"></script>
+  <script>
+    // Wenn bereits eingeloggt → zur App
+    ;(async () => {
+      const { data: { session } } = await GK.supabase.auth.getSession();
+      if (session) { window.location.href = '/app.html'; return; }
+    })();
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('login-btn');
+      const errEl = document.getElementById('login-error');
+
+      errEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Anmelden...';
+
+      const { error } = await GK.supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        let msg = 'Anmeldung fehlgeschlagen.';
+        if (error.message.includes('Invalid login credentials')) msg = 'E-Mail oder Passwort falsch.';
+        else if (error.message.includes('Email not confirmed')) msg = 'Bitte bestätige zuerst deine E-Mail-Adresse.';
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Anmelden';
+        return;
+      }
+
+      window.location.href = '/app.html';
+    });
+  </script>
+</body>
+</html>
