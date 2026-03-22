@@ -371,32 +371,38 @@ async function loadPeaks() {
     if (data) for (const s of data) safetyMap[s.region_id] = s;
   } catch (e) { /* ignorieren */ }
 
-  // User-Summits laden + König-Status prüfen (nur für User-Peaks)
+  // User-Summits laden + König-Status prüfen (aktuelle Saison + Vorjahr Fallback)
+  const lastSeason = (parseInt(season) - 1).toString();
   const userSummitedPeaks = new Set();
   const userIsKing = new Set();
   if (userId) {
     try {
-      // User-Summits mit Zählung laden
-      const { data } = await GK.supabase.from('summits').select('peak_id').eq('user_id', userId).eq('season', season);
+      // User-Summits aktuelle + letzte Saison
+      const { data } = await GK.supabase.from('summits').select('peak_id, season')
+        .eq('user_id', userId).in('season', [season, lastSeason]);
       if (data) {
         for (const s of data) userSummitedPeaks.add(s.peak_id);
 
-        // Für bestiegene Peaks prüfen ob User König ist (meiste Besteigungen)
+        // Für bestiegene Peaks prüfen ob User König ist
         const userPeakIds = [...userSummitedPeaks].filter(id => peakIds.includes(id));
         if (userPeakIds.length > 0) {
           const { data: allSummits } = await GK.supabase
-            .from('summits').select('peak_id, user_id')
-            .in('peak_id', userPeakIds).eq('season', season);
+            .from('summits').select('peak_id, user_id, season')
+            .in('peak_id', userPeakIds).in('season', [season, lastSeason]);
           if (allSummits) {
-            // Pro Peak zählen wer die meisten hat
-            const counts = {};
+            // Pro Peak: aktuelle Saison bevorzugen, Vorjahr als Fallback
+            const bySeason = {};
             for (const s of allSummits) {
-              if (!counts[s.peak_id]) counts[s.peak_id] = {};
-              counts[s.peak_id][s.user_id] = (counts[s.peak_id][s.user_id] || 0) + 1;
+              if (!bySeason[s.peak_id]) bySeason[s.peak_id] = {};
+              if (!bySeason[s.peak_id][s.season]) bySeason[s.peak_id][s.season] = {};
+              bySeason[s.peak_id][s.season][s.user_id] = (bySeason[s.peak_id][s.season][s.user_id] || 0) + 1;
             }
-            for (const [pid, users] of Object.entries(counts)) {
-              const top = Object.entries(users).sort((a, b) => b[1] - a[1])[0];
-              if (top && top[0] === userId) userIsKing.add(parseInt(pid));
+            for (const [pid, seasons] of Object.entries(bySeason)) {
+              const data = seasons[season] || seasons[lastSeason];
+              if (data) {
+                const top = Object.entries(data).sort((a, b) => b[1] - a[1])[0];
+                if (top && top[0] === userId) userIsKing.add(parseInt(pid));
+              }
             }
           }
         }
