@@ -476,8 +476,31 @@
         for (const fp of foundPeaks) {
           const summitTime = fp.point.time || new Date().toISOString();
           const summitYear = new Date(summitTime).getFullYear().toString();
-          // Punkte = echte Aufstiegs-HM / 100
-          const pts = Math.round(totalElevGain / 100);
+          const basePts = Math.round(totalElevGain / 100);
+
+          // Prüfe ob Saison-Erster oder Personal-Erster
+          const { data: existingSeason } = await GK.supabase
+            .from('summits')
+            .select('id')
+            .eq('peak_id', fp.peak.id)
+            .eq('season', summitYear)
+            .limit(1);
+
+          const { data: existingPersonal } = await GK.supabase
+            .from('summits')
+            .select('id')
+            .eq('peak_id', fp.peak.id)
+            .eq('user_id', currentUser.id)
+            .limit(1);
+
+          const isSeasonFirst = !existingSeason || existingSeason.length === 0;
+          const isPersonalFirst = !existingPersonal || existingPersonal.length === 0;
+
+          // Multiplikatoren anwenden
+          let pts = basePts;
+          if (isSeasonFirst) pts = Math.round(basePts * 3);
+          else if (isPersonalFirst) pts = Math.round(basePts * 1.5);
+          else pts = Math.round(basePts * 0.2); // Wiederholung
 
           const { error: insertError } = await GK.supabase
             .from('summits')
@@ -491,8 +514,8 @@
               elevation_gain: totalElevGain,
               safety_ok: true,
               safety_level: 0,
-              is_season_first: false,
-              is_personal_first: false
+              is_season_first: isSeasonFirst,
+              is_personal_first: isPersonalFirst
             });
 
           if (insertError) {
