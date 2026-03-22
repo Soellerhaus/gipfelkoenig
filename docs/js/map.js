@@ -150,14 +150,18 @@ function buildPopupContent(peak, ownership, summitCount, isSafe) {
     ? '<span style="color: #27ae60;">● Sicher</span>'
     : '<span style="color: #e74c3c;">● Gesperrt</span>';
 
-  // König-Info: aktuelles Jahr oder Vorjahr
+  // König aus ownershipMap (hat user_id, braucht Username-Lookup)
   let kingLine = '';
-  if (ownership && ownership.username) {
-    kingLine = `<div style="font-size: 0.75rem; margin-top: 2px;">👑 ${ownership.username}</div>`;
+  if (ownership && ownership.user_id) {
+    // Username aus Cache holen wenn verfügbar
+    const kingName = GK.map._ownerNames && GK.map._ownerNames[ownership.user_id];
+    if (kingName) {
+      kingLine = `<div style="font-size: 0.78rem; margin-top: 2px; color: #d4a24c;">👑 ${kingName}</div>`;
+    }
   }
 
   return `
-    <div class="peak-popup" style="min-width: 140px; text-align: center;">
+    <div class="peak-popup" style="min-width: 160px; text-align: center;">
       <strong style="font-family: 'Playfair Display', serif; font-size: 1rem;">
         ${peak.name}
       </strong>
@@ -192,6 +196,7 @@ async function openPeakPanel(peakId) {
 
     if (error || !summits || summits.length === 0) {
       // Leerer Gipfel — Trophy-Slots alle leer
+      const desc = peak.description || '';
       content.innerHTML = `
         <div class="peak-top-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml}</div>
         <div class="trophy-grid">
@@ -201,7 +206,8 @@ async function openPeakPanel(peakId) {
           <div class="trophy-slot"><div class="trophy-emoji">💎</div><div class="trophy-label">Selten</div></div>
         </div>
         <div class="peak-history">Noch nie bestiegen — sei der Erste!</div>
-        <div class="peak-bottom-name">${peak.name}</div>`;
+        <div class="peak-bottom-name">${peak.name}</div>
+        ${desc ? '<div class="peak-description">' + desc + '</div>' : ''}`;
       return;
     }
 
@@ -273,11 +279,13 @@ async function openPeakPanel(peakId) {
       historyHtml = parts.join('  ·  ');
     }
 
+    const desc = peak.description || '';
     content.innerHTML = `
       <div class="peak-top-meta">${peak.elevation ? peak.elevation + ' m · ' : ''}${safetyHtml} · ${focusSeason}</div>
       <div class="trophy-grid">${trophyHtml}</div>
       ${historyHtml ? '<div class="peak-history">' + historyHtml + '</div>' : ''}
       <div class="peak-bottom-name">${peak.name}</div>
+      ${desc ? '<div class="peak-description">' + desc + '</div>' : ''}
     `;
 
   } catch (err) {
@@ -358,6 +366,20 @@ async function loadPeaks() {
   const ownershipMap = {};
   if (ownershipResult.data) {
     for (const o of ownershipResult.data) ownershipMap[o.peak_id] = o;
+  }
+
+  // Owner-Namen laden (batch)
+  GK.map._ownerNames = GK.map._ownerNames || {};
+  const ownerIds = [...new Set(ownershipResult.data ? ownershipResult.data.filter(o => o.user_id).map(o => o.user_id) : [])];
+  const missingIds = ownerIds.filter(id => !GK.map._ownerNames[id]);
+  if (missingIds.length > 0) {
+    const { data: profiles } = await GK.supabase.from('user_profiles').select('id, username, display_name').in('id', missingIds);
+    if (profiles) {
+      for (const p of profiles) {
+        const name = p.display_name || p.username || 'Anonym';
+        GK.map._ownerNames[p.id] = name.split(' ')[0];
+      }
+    }
   }
   const safetyMap = {};
   if (safetyResult.data) {

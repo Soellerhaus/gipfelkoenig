@@ -265,13 +265,13 @@
 
 #map {
   width: 100%;
-  height: calc(100% - 155px);
+  height: calc(100% - 200px);
   z-index: 1;
 }
 
 /* Gipfel-Info Panel — immer sichtbar, fixe Größe */
 .peak-info-panel {
-  height: 155px;
+  height: 200px;
   overflow: hidden;
   background: var(--color-bg);
   border-top: 2px solid var(--color-gold);
@@ -364,6 +364,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.peak-description {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  font-style: italic;
+  line-height: 1.4;
+  margin-top: 0.2rem;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 /* === BOTTOM NAVIGATION === */

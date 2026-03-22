@@ -481,14 +481,22 @@ async function initAppPage() {
   // Navigation — Inhaltsbereiche umschalten
   initNavigation();
 
-  // Profil als Startseite — Karte initial ausblenden
+  // Karte als Startseite — app-content ausblenden, Karte zeigen
   const mapContainerInit = document.getElementById('map-section');
-  if (mapContainerInit) mapContainerInit.style.display = 'none';
+  const appContentInit = document.querySelector('.app-content');
+  if (mapContainerInit) mapContainerInit.style.display = 'block';
+  if (appContentInit) appContentInit.style.display = 'none';
 
-  // Alle Sections außer Profil ausblenden
-  document.querySelectorAll('.content-section').forEach(function (s) {
-    s.style.display = (s.id === 'section-profile') ? 'block' : 'none';
+  // Karte-Tab als aktiv markieren
+  document.querySelectorAll('.nav-item').forEach(function (nav) {
+    nav.classList.remove('active');
+    if (nav.getAttribute('data-section') === 'map') nav.classList.add('active');
   });
+
+  // Karte neu berechnen
+  if (GK.map && GK.map.leaflet) {
+    setTimeout(function () { GK.map.leaflet.invalidateSize(); }, 100);
+  }
 }
 
 /**
