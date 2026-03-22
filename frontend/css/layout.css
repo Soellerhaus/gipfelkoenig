@@ -260,22 +260,23 @@
 /* === MAP + INFO LAYOUT === */
 .map-container {
   height: calc(100vh - var(--header-height) - var(--nav-height));
-  display: flex;
-  flex-direction: column;
+  position: relative;
 }
 
 #map {
   width: 100%;
-  flex: 1;
-  min-height: 0;
+  height: 100%;
   z-index: 1;
 }
 
-/* Gipfel-Info Panel — nur so gross wie Inhalt */
+/* Gipfel-Info Panel — schwebt über der Karte unten */
 .peak-info-panel {
-  flex-shrink: 0;
-  overflow: hidden;
-  background: var(--color-bg);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 500;
+  background: rgba(13, 17, 23, 0.95);
   border-top: 2px solid var(--color-gold);
   padding: 0.4rem 0.75rem 0.4rem;
 }
