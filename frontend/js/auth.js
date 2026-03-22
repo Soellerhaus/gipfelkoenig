@@ -256,7 +256,8 @@ async function initAppPage() {
           GK.showToast('Strava verbunden! Deine Gipfel werden im Hintergrund importiert...', 'success');
         }
 
-        // Seitenweisen Import starten (kein Timeout-Problem!)
+        // Import-Status setzen und starten
+        await GK.supabase.from('user_profiles').update({ import_status: 'importing' }).eq('id', benutzer.id);
         console.log('Starte seitenweisen Aktivitäten-Import...');
         startPagedImport(benutzer.id, tokenData.access_token);
 
@@ -638,10 +639,12 @@ async function startPagedImport(userId, stravaToken) {
         if (percentEl) percentEl.textContent = '100%';
         if (messageEl) messageEl.textContent = '✅ ' + totalSummits + ' Gipfel · ' + totalPoints.toLocaleString('de') + ' Punkte';
 
-        // Nach 3 Sekunden Seite neu laden
+        // Import-Status auf done setzen damit er nicht nochmal startet
+        await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
+
+        // Nach 3 Sekunden Bar ausblenden (kein Reload!)
         setTimeout(() => {
           if (bar) bar.style.display = 'none';
-          window.location.reload();
         }, 3000);
         break;
       }
