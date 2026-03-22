@@ -330,8 +330,11 @@ function showNearestPeakInPanel() {
  * Gipfel innerhalb der aktuellen Kartengrenzen laden,
  * Besitz und Sicherheit prüfen und Marker erzeugen.
  */
+let _loadPeaksRunning = false;
 async function loadPeaks() {
   if (!GK.map.leaflet) return;
+  if (_loadPeaksRunning) return; // Verhindere parallele Aufrufe
+  _loadPeaksRunning = true;
 
   const bounds = GK.map.leaflet.getBounds();
   const boundsObj = {
@@ -341,9 +344,10 @@ async function loadPeaks() {
     west: bounds.getWest(),
   };
 
-  // Gipfel vom Backend laden
-  const peaks = await GK.api.getPeaks(boundsObj);
+  // Gipfel vom Backend laden — max 100 für Performance
+  let peaks = await GK.api.getPeaks(boundsObj);
   if (!peaks || peaks.length === 0) return;
+  if (peaks.length > 100) peaks = peaks.slice(0, 100);
 
   const season = getCurrentSeason();
   const today = new Date().toISOString().slice(0, 10);
@@ -435,6 +439,7 @@ async function loadPeaks() {
     marker.peakData = peak;
     markerLayer.addLayer(marker);
   }
+  _loadPeaksRunning = false;
 }
 
 /** Debounced-Version von loadPeaks */

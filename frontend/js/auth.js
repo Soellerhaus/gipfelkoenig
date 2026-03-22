@@ -541,7 +541,10 @@ function initNavigation() {
 
       // Karte neu berechnen wenn sichtbar (Leaflet Bug)
       if (zielId === 'section-map' && GK.map && GK.map.leaflet) {
-        setTimeout(function () { GK.map.leaflet.invalidateSize(); }, 100);
+        setTimeout(function () {
+          GK.map.leaflet.invalidateSize();
+          // Peaks nicht neu laden — sind schon da
+        }, 50);
       }
 
       // Daten laden beim Tab-Wechsel
