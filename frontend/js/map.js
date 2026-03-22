@@ -178,7 +178,9 @@ async function openPeakPanel(peakId) {
   const content = document.getElementById('peak-info-content');
   if (!content) return;
 
-  const peak = GK.map.peaks.get(peakId) || await GK.api.getPeakById(peakId);
+  // Immer frisch laden wegen description-Feld
+  const cachedPeak = GK.map.peaks.get(peakId);
+  const peak = await GK.api.getPeakById(peakId) || cachedPeak;
   if (!peak) return;
 
   content.innerHTML = '<p class="text-muted" style="font-size:0.8rem;">Lade...</p>';
