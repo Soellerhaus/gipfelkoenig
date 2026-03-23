@@ -959,3 +959,9 @@
 .consent-item a {
   color: var(--color-gold);
 }
+
+/* Gipfel des Tages — pulsierender Stern-Marker */
+@keyframes potdPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 15px rgba(255,215,0,0.7); }
+  50% { transform: scale(1.15); box-shadow: 0 0 25px rgba(255,215,0,0.9); }
+}

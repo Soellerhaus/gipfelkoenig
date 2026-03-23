@@ -556,7 +556,7 @@ function initNavigation() {
 
       // Gipfel des Tages nur auf Karte anzeigen
       const potd = document.getElementById('peak-of-day');
-      if (potd) potd.style.display = isMap ? '' : 'none';
+      if (potd) potd.style.display = isMap ? 'block' : 'none';
 
       // Karte neu berechnen wenn sichtbar (Leaflet Bug)
       if (zielId === 'section-map' && GK.map && GK.map.leaflet) {
@@ -853,26 +853,64 @@ async function importStravaActivities(userId, accessToken) {
 // Gipfel des Tages — deterministisch basierend auf Datum
 async function showPeakOfDay() {
   const potdEl = document.getElementById('peak-of-day');
-  const potdName = document.getElementById('potd-name');
-  if (!potdEl || !potdName) return;
+  if (!potdEl) return;
 
-  // Deterministischer Seed basierend auf heutigem Datum
+  // Deterministischer "Zufall" basierend auf Datum
   const today = new Date();
   const seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
 
-  // Lade einen Gipfel basierend auf dem Seed
+  // Lade Peaks in der Nähe der aktuellen Kartenposition
+  const center = GK.map && GK.map.map ? GK.map.map.getCenter() : { lat: 47.35, lng: 10.15 };
+  const range = 0.3; // ~30km Radius
+
   const { data: peaks } = await GK.supabase
     .from('peaks')
     .select('id, name, elevation, lat, lng')
+    .gte('lat', center.lat - range)
+    .lte('lat', center.lat + range)
+    .gte('lng', center.lng - range)
+    .lte('lng', center.lng + range)
     .not('elevation', 'is', null)
-    .order('id');
+    .limit(200);
 
-  if (peaks && peaks.length > 0) {
-    const peak = peaks[seed % peaks.length];
-    potdName.textContent = peak.name + ' (' + peak.elevation + ' m)';
-    potdEl.style.display = 'block';
-    GK.peakOfDayId = peak.id;
-    GK.peakOfDayCoords = [peak.lat, peak.lng];
+  if (!peaks || peaks.length === 0) return;
+
+  // Deterministisch einen Peak auswählen basierend auf Datum
+  const index = seed % peaks.length;
+  const peak = peaks[index];
+
+  // UI aktualisieren
+  document.getElementById('potd-name').textContent = peak.name;
+  document.getElementById('potd-info').textContent = peak.elevation + ' m \u00b7 5\u00d7 Punkte! Antippen \u2192';
+  potdEl.style.display = 'block';
+
+  // Speichere für Klick-Handler
+  GK.peakOfDayId = peak.id;
+  GK.peakOfDayCoords = [peak.lat, peak.lng];
+
+  // Klick-Handler
+  potdEl.onclick = function() {
+    if (GK.map && GK.map.map && GK.peakOfDayCoords) {
+      GK.map.map.setView(GK.peakOfDayCoords, 15);
+      if (typeof openPeakPanel === 'function') openPeakPanel(GK.peakOfDayId);
+    }
+  };
+
+  // Speziellen Marker auf der Karte setzen
+  if (GK.map && GK.map.map) {
+    var starIcon = L.divIcon({
+      className: 'potd-marker',
+      html: '<div style="width:36px;height:36px;background:rgba(255,215,0,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 15px rgba(255,215,0,0.7);animation:potdPulse 2s infinite;">\u2b50</div>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+
+    // Alten Marker entfernen
+    if (GK._potdMarker) GK.map.map.removeLayer(GK._potdMarker);
+
+    GK._potdMarker = L.marker([peak.lat, peak.lng], { icon: starIcon, zIndexOffset: 1000 })
+      .addTo(GK.map.map)
+      .bindPopup('<div style="text-align:center;"><strong>\ud83c\udfb2 Gipfel des Tages</strong><br>' + peak.name + '<br>' + peak.elevation + ' m<br><span style="color:#ffd700;font-weight:bold;">5\u00d7 Punkte!</span></div>');
   }
 }
 

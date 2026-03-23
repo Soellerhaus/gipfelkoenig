@@ -52,10 +52,11 @@
       </div>
     </div>
 
-    <!-- Gipfel des Tages Banner -->
-    <div id="peak-of-day" style="display:none; position:absolute; bottom:170px; left:10px; z-index:600; background:rgba(0,0,0,0.85); border:1px solid rgba(255,215,0,0.5); border-radius:8px; padding:6px 12px; cursor:pointer; max-width:280px;" onclick="if(GK.peakOfDayId){GK.map.map.setView(GK.peakOfDayCoords,14);openPeakPanel(GK.peakOfDayId);}">
-      <span style="font-size:0.75rem;">🎲 <strong style="color:#ffd700;">Gipfel des Tages:</strong> <span id="potd-name" style="color:white;">—</span></span>
-      <div style="font-size:0.65rem;color:#ffd700;">5× Punkte! Antippen zum Anzeigen →</div>
+    <!-- Gipfel des Tages Kachel — oben rechts unter Suchfeld -->
+    <div id="peak-of-day" style="display:none; position:absolute; top:55px; right:10px; z-index:600; background:rgba(0,0,0,0.9); border:1px solid rgba(255,215,0,0.6); border-radius:8px; padding:8px 12px; max-width:220px; cursor:pointer;">
+      <div style="font-size:0.7rem; color:#ffd700; font-weight:bold;">🎲 GIPFEL DES TAGES</div>
+      <div id="potd-name" style="font-size:0.85rem; color:white; font-weight:bold; margin:2px 0;">—</div>
+      <div id="potd-info" style="font-size:0.65rem; color:#ccc;">5× Punkte!</div>
     </div>
 
     <!-- Karte (Fullscreen) -->
