@@ -388,7 +388,7 @@ async function initAppPage() {
         }
         const comboCount = Object.values(byDate).filter(peaks => peaks.size >= 2).length;
 
-        // Frühaufsteher: Gipfel vor 07:00
+        // Frühaufsteher: Tour vor 07:00 gestartet (Proxy: summited_at < 07:00)
         const earlyCount = yearSummits.filter(s => {
           const h = new Date(s.summited_at).getHours();
           return h < 7;
@@ -792,8 +792,8 @@ async function importStravaActivities(userId, accessToken) {
           else if (isPersonalFirst) pts = Math.round(basePts * 2);
           else pts = Math.round(basePts * 0.2);
 
-          // Frühaufsteher Bonus
-          if (info.summitTime.getHours() < 7) pts += 15;
+          // Frühaufsteher Bonus (Tour-Startzeit < 07:00)
+          if (new Date(activity.start_date).getHours() < 7) pts += 15;
 
           await GK.supabase.from('summits').upsert({
             user_id: userId,

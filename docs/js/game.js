@@ -16,9 +16,9 @@ window.GK.game = (() => {
     rare:       { emoji: '💎', label: 'Selten',            description: 'Gipfel mit weniger als 5 Besuchen insgesamt' },
     combo:      { emoji: '🔥', label: 'Combo',             description: '3+ Gipfel an einem Tag' },
     streak:     { emoji: '⚡', label: 'Streak',            description: '7 Tage am Stück aktiv' },
-    early_bird: { emoji: '🌅', label: 'Frühaufsteher',     description: 'Gipfel vor 07:00 Uhr erreicht' },
+    early_bird: { emoji: '🌅', label: 'Frühaufsteher',     description: 'Tour vor 07:00 Uhr gestartet' },
     sunset:     { emoji: '🌄', label: 'Sonnenuntergang',   description: 'Gipfel nach 19:00 Uhr erreicht' },
-    night_owl:  { emoji: '🦉', label: 'Nachtwanderer',     description: 'Gipfel nach 21:00 Uhr erreicht' },
+    night_owl:  { emoji: '🦉', label: 'Nachtwanderer',     description: 'Gipfel nach 20:00 Uhr erreicht' },
   };
 
   // --- Hilfsfunktionen ---

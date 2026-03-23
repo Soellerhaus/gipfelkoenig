@@ -512,8 +512,9 @@
           else if (isPersonalFirst) pts = Math.round(basePts * 2);
           else pts = Math.round(basePts * 0.2); // Wiederholung
 
-          // Frühaufsteher Bonus
-          if (new Date(summitTime).getHours() < 7) pts += 15;
+          // Frühaufsteher Bonus (erste Trackpoint-Zeit = Tour-Start < 07:00)
+          const tourStartTime = points[0] && points[0].time ? new Date(points[0].time) : null;
+          if (tourStartTime && tourStartTime.getHours() < 7) pts += 15;
 
           const { error: insertError } = await GK.supabase
             .from('summits')

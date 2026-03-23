@@ -245,7 +245,7 @@ async function openPeakPanel(peakId) {
     const kingEntry = Object.entries(countByUser).sort((a, b) => b[1] - a[1])[0];
     const pioneer = focusEntries.find(e => e.is_season_first);
     const earlyBird = focusEntries.find(e => new Date(e.summited_at).getHours() < 7);
-    const nightOwl = focusEntries.find(e => new Date(e.summited_at).getHours() >= 21);
+    const nightOwl = focusEntries.find(e => new Date(e.summited_at).getHours() >= 20);
     const isRare = summits.length < 5;
 
     // 4. Slot: Nachtwanderer wenn vorhanden, sonst Selten

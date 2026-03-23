@@ -99,7 +99,7 @@ async function loadFeed() {
         else if (pts > 0) breakdownParts.push('🔄 Wiederholung');
       }
       if (isCombo) breakdownParts.push('🔥 Combo +50%');
-      if (isEarly) breakdownParts.push('🌅 vor 07:00 +15');
+      if (isEarly) breakdownParts.push('🌅 Tour vor 07:00 +15');
 
       // Badges
       let badges = '';
