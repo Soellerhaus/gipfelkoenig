@@ -76,14 +76,15 @@ window.GK.game = (() => {
   // --- Regionen-Mapping ---
 
   const REGION_NAMES = {
-    'AT-08': 'Vorarlberg',
-    'AT-07': 'Tirol',
+    'AT-02': 'Kärnten',
     'AT-05': 'Salzburg',
-    'DE-BY': 'Bayern/Allgäu',
-    'CH-GR': 'Graubünden',
-    'CH-VS': 'Wallis',
-    'IT-32': 'Südtirol',
-    'IT-25': 'Lombardei'
+    'AT-06': 'Steiermark',
+    'AT-07': 'Tirol',
+    'AT-08': 'Vorarlberg',
+    'DE-BY': 'Bayern',
+    'CH':    'Schweiz',
+    'FR':    'Frankreich',
+    'ALPEN': 'Alpenregion'
   };
 
   // --- Rangliste ---
@@ -122,7 +123,8 @@ window.GK.game = (() => {
 
           if (peaks) {
             for (const p of peaks) {
-              if (p.osm_region && REGION_NAMES[p.osm_region]) {
+              // ALPEN-Gipfel zählen bei "Alle Alpen", erscheinen aber nicht als eigener Tab
+              if (p.osm_region && p.osm_region !== 'ALPEN' && REGION_NAMES[p.osm_region]) {
                 userRegions.add(p.osm_region);
               }
             }
