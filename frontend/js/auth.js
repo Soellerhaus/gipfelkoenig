@@ -554,6 +554,10 @@ function initNavigation() {
       }
       item.classList.add('active');
 
+      // Gipfel des Tages nur auf Karte anzeigen
+      const potd = document.getElementById('peak-of-day');
+      if (potd) potd.style.display = isMap ? '' : 'none';
+
       // Karte neu berechnen wenn sichtbar (Leaflet Bug)
       if (zielId === 'section-map' && GK.map && GK.map.leaflet) {
         setTimeout(function () {
@@ -859,7 +863,7 @@ async function showPeakOfDay() {
   // Lade einen Gipfel basierend auf dem Seed
   const { data: peaks } = await GK.supabase
     .from('peaks')
-    .select('id, name, elevation')
+    .select('id, name, elevation, lat, lng')
     .not('elevation', 'is', null)
     .order('id');
 
@@ -868,6 +872,7 @@ async function showPeakOfDay() {
     potdName.textContent = peak.name + ' (' + peak.elevation + ' m)';
     potdEl.style.display = 'block';
     GK.peakOfDayId = peak.id;
+    GK.peakOfDayCoords = [peak.lat, peak.lng];
   }
 }
 

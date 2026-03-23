@@ -87,11 +87,53 @@ window.GK.game = (() => {
     'ALPEN': 'Alpenregion'
   };
 
+  // --- Sub-Regionen (Lat/Lng-Bereiche) ---
+
+  const SUB_REGIONS = [
+    { id: 'kleinwalsertal', name: 'Kleinwalsertal', parent: 'AT-08', latMin: 47.30, latMax: 47.40, lngMin: 10.05, lngMax: 10.22 },
+    { id: 'bregenzerwald', name: 'Bregenzerwald', parent: 'AT-08', latMin: 47.30, latMax: 47.50, lngMin: 9.80, lngMax: 10.05 },
+    { id: 'oberallgaeu', name: 'Oberallgäu', parent: 'DE-BY', latMin: 47.30, latMax: 47.55, lngMin: 10.20, lngMax: 10.50 },
+    { id: 'ostallgaeu', name: 'Ostallgäu', parent: 'DE-BY', latMin: 47.45, latMax: 47.70, lngMin: 10.50, lngMax: 10.90 },
+    { id: 'oberengadin', name: 'Oberengadin', parent: 'CH', latMin: 46.38, latMax: 46.60, lngMin: 9.70, lngMax: 10.10 },
+    { id: 'unterengadin', name: 'Unterengadin', parent: 'CH', latMin: 46.70, latMax: 46.95, lngMin: 10.10, lngMax: 10.50 },
+    { id: 'davos-klosters', name: 'Davos/Klosters', parent: 'CH', latMin: 46.72, latMax: 46.92, lngMin: 9.70, lngMax: 10.10 },
+    { id: 'inntal', name: 'Inntal', parent: 'AT-07', latMin: 47.15, latMax: 47.35, lngMin: 10.80, lngMax: 11.60 },
+    { id: 'stubai', name: 'Stubaital', parent: 'AT-07', latMin: 46.95, latMax: 47.15, lngMin: 11.20, lngMax: 11.50 },
+    { id: 'zillertal', name: 'Zillertal', parent: 'AT-07', latMin: 47.00, latMax: 47.20, lngMin: 11.70, lngMax: 12.10 },
+    { id: 'oetztal', name: 'Ötztal', parent: 'AT-07', latMin: 46.75, latMax: 47.10, lngMin: 10.70, lngMax: 11.10 },
+    { id: 'arlberg', name: 'Arlberg', parent: 'AT-08', latMin: 47.05, latMax: 47.20, lngMin: 10.10, lngMax: 10.35 },
+    { id: 'montafon', name: 'Montafon', parent: 'AT-08', latMin: 46.90, latMax: 47.10, lngMin: 9.85, lngMax: 10.15 },
+    { id: 'pinzgau', name: 'Pinzgau', parent: 'AT-05', latMin: 47.10, latMax: 47.40, lngMin: 12.40, lngMax: 13.00 },
+    { id: 'pongau', name: 'Pongau', parent: 'AT-05', latMin: 47.10, latMax: 47.40, lngMin: 13.00, lngMax: 13.50 },
+    { id: 'berchtesgaden', name: 'Berchtesgaden', parent: 'DE-BY', latMin: 47.45, latMax: 47.70, lngMin: 12.80, lngMax: 13.10 },
+    { id: 'chiemgau', name: 'Chiemgau', parent: 'DE-BY', latMin: 47.55, latMax: 47.80, lngMin: 12.20, lngMax: 12.80 },
+    { id: 'wallis', name: 'Wallis', parent: 'CH', latMin: 45.95, latMax: 46.40, lngMin: 6.80, lngMax: 8.30 },
+    { id: 'berner-oberland', name: 'Berner Oberland', parent: 'CH', latMin: 46.30, latMax: 46.70, lngMin: 7.30, lngMax: 8.20 },
+  ];
+
+  /**
+   * Sub-Region für gegebene Koordinaten ermitteln
+   */
+  function getSubRegion(lat, lng) {
+    for (const sr of SUB_REGIONS) {
+      if (lat >= sr.latMin && lat <= sr.latMax && lng >= sr.lngMin && lng <= sr.lngMax) {
+        return sr;
+      }
+    }
+    return null;
+  }
+
   // --- Rangliste ---
+
+  // Cache für User-Peaks mit Koordinaten (für Sub-Region-Filterung)
+  let cachedUserPeaks = null;
+  let activeRegion = null;
+  let activeSubRegion = null;
 
   /**
    * Regionale Rangliste laden und im DOM rendern.
    * Zeigt nur Regionen in denen der aktuelle User Gipfel hat.
+   * Zweite Reihe: Sub-Regionen basierend auf Lat/Lng-Bereichen.
    */
   async function loadLeaderboard() {
     const container = document.getElementById('section-leaderboard');
@@ -100,12 +142,18 @@ window.GK.game = (() => {
     const season = getCurrentSeason();
     const listEl = document.getElementById('leaderboard-list');
     const tabsEl = document.getElementById('leaderboard-tabs');
+    const subTabsEl = document.getElementById('leaderboard-subtabs');
     if (!listEl || !tabsEl) return;
 
     listEl.innerHTML = '<div class="loading">Lade Rangliste...</div>';
+    activeRegion = null;
+    activeSubRegion = null;
 
-    // Aktuelle User-Regionen ermitteln
+    // Aktuelle User-Regionen und Peaks mit Koordinaten ermitteln
     let userRegions = new Set();
+    let userSubRegions = new Set();
+    cachedUserPeaks = [];
+
     try {
       const user = GK.auth?.user;
       if (user) {
@@ -118,14 +166,20 @@ window.GK.game = (() => {
           const peakIds = [...new Set(userSummits.map(s => s.peak_id))];
           const { data: peaks } = await GK.supabase
             .from('peaks')
-            .select('id, osm_region')
+            .select('id, osm_region, lat, lng')
             .in('id', peakIds);
 
           if (peaks) {
+            cachedUserPeaks = peaks;
             for (const p of peaks) {
-              // ALPEN-Gipfel zählen bei "Alle Alpen", erscheinen aber nicht als eigener Tab
+              // Regionen sammeln
               if (p.osm_region && p.osm_region !== 'ALPEN' && REGION_NAMES[p.osm_region]) {
                 userRegions.add(p.osm_region);
+              }
+              // Sub-Regionen ermitteln
+              if (p.lat && p.lng) {
+                const sr = getSubRegion(p.lat, p.lng);
+                if (sr) userSubRegions.add(sr.id);
               }
             }
           }
@@ -135,7 +189,7 @@ window.GK.game = (() => {
       console.warn('Regionen konnten nicht geladen werden:', err);
     }
 
-    // Tab-Buttons dynamisch erstellen
+    // Tab-Buttons dynamisch erstellen (Reihe 1: Regionen)
     tabsEl.innerHTML = '';
 
     // "Alle Alpen" immer als erster Tab
@@ -143,7 +197,7 @@ window.GK.game = (() => {
     allBtn.className = 'tab active';
     allBtn.dataset.region = 'all';
     allBtn.textContent = 'Alle Alpen';
-    allBtn.addEventListener('click', () => switchTab(null, allBtn));
+    allBtn.addEventListener('click', () => switchRegionTab(null, allBtn));
     tabsEl.appendChild(allBtn);
 
     // Regions-Tabs nur fuer Regionen des Users
@@ -152,28 +206,76 @@ window.GK.game = (() => {
       btn.className = 'tab';
       btn.dataset.region = regionCode;
       btn.textContent = REGION_NAMES[regionCode];
-      btn.addEventListener('click', () => switchTab(regionCode, btn));
+      btn.addEventListener('click', () => switchRegionTab(regionCode, btn));
       tabsEl.appendChild(btn);
     }
+
+    // Sub-Region Tabs initial ausblenden
+    if (subTabsEl) subTabsEl.innerHTML = '';
 
     // Erste Region laden (Alle Alpen)
     await fetchAndRenderLeaderboard(null, season, listEl);
 
-    async function switchTab(region, activeBtn) {
+    /**
+     * Region-Tab wechseln (Reihe 1)
+     */
+    async function switchRegionTab(region, activeBtn) {
       tabsEl.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
       activeBtn.classList.add('active');
+      activeRegion = region;
+      activeSubRegion = null;
+
+      // Sub-Region Tabs für diese Region anzeigen
+      if (subTabsEl) {
+        subTabsEl.innerHTML = '';
+        if (region) {
+          const relevantSubs = SUB_REGIONS.filter(sr => sr.parent === region && userSubRegions.has(sr.id));
+          if (relevantSubs.length > 0) {
+            // "Alle" Button für die Region
+            const allSubBtn = document.createElement('button');
+            allSubBtn.className = 'tab active';
+            allSubBtn.style.cssText = 'font-size:0.7rem;padding:3px 8px;';
+            allSubBtn.textContent = 'Alle ' + REGION_NAMES[region];
+            allSubBtn.addEventListener('click', () => switchSubRegionTab(null, allSubBtn));
+            subTabsEl.appendChild(allSubBtn);
+
+            for (const sr of relevantSubs) {
+              const subBtn = document.createElement('button');
+              subBtn.className = 'tab';
+              subBtn.style.cssText = 'font-size:0.7rem;padding:3px 8px;';
+              subBtn.textContent = sr.name;
+              subBtn.addEventListener('click', () => switchSubRegionTab(sr, subBtn));
+              subTabsEl.appendChild(subBtn);
+            }
+          }
+        }
+      }
+
       await fetchAndRenderLeaderboard(region, season, listEl);
+    }
+
+    /**
+     * Sub-Region-Tab wechseln (Reihe 2)
+     */
+    async function switchSubRegionTab(subRegion, activeBtn) {
+      if (subTabsEl) {
+        subTabsEl.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      }
+      activeBtn.classList.add('active');
+      activeSubRegion = subRegion;
+      await fetchAndRenderLeaderboard(activeRegion, season, listEl, subRegion);
     }
   }
 
   /**
-   * Ranglisten-Daten abrufen und als Zeilen rendern
+   * Ranglisten-Daten abrufen und als Zeilen rendern.
+   * Optional: Sub-Region-Filter basierend auf Lat/Lng-Bereichen.
    */
-  async function fetchAndRenderLeaderboard(region, season, listEl) {
+  async function fetchAndRenderLeaderboard(region, season, listEl, subRegion) {
     listEl.innerHTML = '<div class="loading">Lade Rangliste...</div>';
 
     try {
-      const data = await GK.api.getLeaderboard(region, season, 20);
+      const data = await GK.api.getLeaderboard(region, season, 50);
       listEl.innerHTML = '';
 
       if (!data || data.length === 0) {
@@ -181,7 +283,46 @@ window.GK.game = (() => {
         return;
       }
 
-      data.forEach((entry, idx) => {
+      // Bei Sub-Region: Summits pro User laden und filtern
+      let filteredData = data;
+      if (subRegion) {
+        // Für jeden User prüfen ob er Gipfel in dieser Sub-Region hat
+        const usersWithSubRegionSummits = [];
+        for (const entry of data) {
+          const { data: userSummits } = await GK.supabase
+            .from('summits')
+            .select('peak_id')
+            .eq('user_id', entry.id);
+
+          if (userSummits && userSummits.length > 0) {
+            const peakIds = [...new Set(userSummits.map(s => s.peak_id))];
+            const { data: peaks } = await GK.supabase
+              .from('peaks')
+              .select('id, lat, lng')
+              .in('id', peakIds);
+
+            if (peaks) {
+              const subRegionPeaks = peaks.filter(p =>
+                p.lat && p.lng &&
+                p.lat >= subRegion.latMin && p.lat <= subRegion.latMax &&
+                p.lng >= subRegion.lngMin && p.lng <= subRegion.lngMax
+              );
+              if (subRegionPeaks.length > 0) {
+                entry.sub_summit_count = subRegionPeaks.length;
+                usersWithSubRegionSummits.push(entry);
+              }
+            }
+          }
+        }
+        filteredData = usersWithSubRegionSummits;
+      }
+
+      if (filteredData.length === 0) {
+        listEl.innerHTML = '<div class="empty" style="text-align:center;padding:2rem;color:var(--color-muted);">Noch keine Einträge in dieser Region.</div>';
+        return;
+      }
+
+      filteredData.forEach((entry, idx) => {
         const rank = idx + 1;
         let rankIcon = '';
         if (rank === 1) rankIcon = '👑 ';
@@ -190,6 +331,7 @@ window.GK.game = (() => {
 
         const avatar = entry.avatar_emoji || entry.username?.charAt(0).toUpperCase() || '?';
         const crowns = entry.crown_count || 0;
+        const summitCount = subRegion ? (entry.sub_summit_count || 0) : (entry.summit_count || 0);
 
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0;border-bottom:1px solid var(--color-border);';
@@ -205,7 +347,7 @@ window.GK.game = (() => {
               ${escapeHtml(entry.username || entry.display_name || 'Anonym')}
             </div>
             <div style="font-size:0.7rem;color:var(--color-muted);">
-              ${entry.summit_count || 0} Gipfel${crowns > 0 ? ' · ' + crowns + ' 👑' : ''}
+              ${summitCount} Gipfel${crowns > 0 ? ' · ' + crowns + ' 👑' : ''}
             </div>
           </div>
           <div style="text-align:right;flex-shrink:0;">
@@ -367,8 +509,10 @@ window.GK.game = (() => {
 
   return {
     BADGE_TYPES,
+    SUB_REGIONS,
     getCurrentSeason,
     calculatePoints,
+    getSubRegion,
     loadLeaderboard,
     loadProfile,
   };
