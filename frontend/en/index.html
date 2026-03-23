@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bergkoenig — Collect Peaks. Collect Elevation. For Everyone.</title>
+  <meta name="description" content="Your peak diary for the Alps. Hiking, trail running, climbing — every summit counts.">
+  <meta name="theme-color" content="#d4a24c">
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" type="image/svg+xml" href="../icons/icon.svg">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/layout.css">
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div class="landing">
+
+    <!-- Language Switcher -->
+    <div style="position: absolute; top: 1rem; right: 1rem; z-index: 10; font-size: 0.75rem;">
+      <a href="/index.html" style="color:#888; text-decoration:none;">&#127465;&#127466; Deutsch</a>
+      <span style="color:#555;"> | </span>
+      <span style="color:#ccc;">&#127468;&#127463; English</span>
+    </div>
+
+    <!-- Hero -->
+    <div class="landing-hero">
+      <!-- Mountain Silhouette -->
+      <svg class="mountain-silhouette" viewBox="0 0 800 600" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0 600 L200 200 L350 350 L500 100 L650 280 L800 50 L800 600 Z" fill="white"/>
+      </svg>
+
+      <div class="landing-hero-content">
+        <div class="landing-hero-label">App &middot; Alps &middot; 2026</div>
+        <h1>Berg<span>k&ouml;nig</span></h1>
+        <p class="landing-hero-sub">Who owns the summit? The first ownership game for real Alpine peaks. Climb peaks, collect points, defend your crown.</p>
+
+        <!-- Meta Pills -->
+        <div class="landing-meta-row">
+          <span class="meta-pill">50,000+ Peaks</span>
+          <span class="meta-pill">Entire Alpine Region</span>
+          <span class="meta-pill">No App Download Needed</span>
+          <span class="meta-pill">With or Without Smartwatch</span>
+        </div>
+
+        <!-- CTA Buttons -->
+        <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap;">
+          <a href="/register.html" class="btn btn-primary btn-lg">Register Now</a>
+          <a href="/login.html" class="btn btn-lg" style="border: 1px solid var(--color-gold); color: var(--color-gold);">Sign In</a>
+        </div>
+
+        <div style="margin-top: 1.5rem; padding: 0.75rem 1rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#FC4C02"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+            <div>
+              <div style="font-size: 0.85rem; color: var(--color-text);">Compatible with Strava</div>
+              <div style="font-size: 0.7rem; color: var(--color-muted);">Connect your Strava account after registration in Settings — fully automatic summit detection.</div>
+            </div>
+          </div>
+          <div style="font-size: 0.65rem; color: var(--color-muted); margin-top: 0.4rem;">Also usable without Strava — manual GPS check-in at the summit.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <div class="landing-features">
+      <div class="section-label">The Game</div>
+      <div class="landing-features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">&#9876;&#65039;</div>
+          <div class="feature-title">Crown System</div>
+          <div class="feature-desc">Collect peaks and become King or Queen. Every summit counts — whether hiked, ran, or climbed.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128737;&#65039;</div>
+          <div class="feature-title">Safety</div>
+          <div class="feature-desc">Built-in avalanche protection. At danger level 3+, peaks are automatically locked.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#127956;&#65039;</div>
+          <div class="feature-title">Alpine Region</div>
+          <div class="feature-desc">From Kleinwalsertal to the Dolomites. Thousands of real peaks are waiting to be collected.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="landing-footer">
+      <div class="landing-footer-logo brand-name">Berg<span class="brand-king">k&ouml;nig</span></div>
+      <div class="landing-footer-copy">&copy; 2026 &middot; Made in the Alps</div>
+      <div style="margin-top: 0.5rem; font-size: 0.75rem;">
+        <a href="/en/imprint.html" style="color: var(--color-muted);">Imprint</a> &middot;
+        <a href="/en/privacy.html" style="color: var(--color-muted);">Privacy Policy</a> &middot;
+        <a href="/en/terms.html" style="color: var(--color-muted);">Terms of Service</a> &middot;
+        <a href="/en/participation.html" style="color: var(--color-muted);">Participation Terms</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    // If already logged in → redirect to app
+    ;(async () => {
+      const { data: { session } } = await GK.supabase.auth.getSession();
+      if (session) window.location.href = '/app.html';
+    })();
+  </script>
+</body>
+</html>
