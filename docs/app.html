@@ -180,6 +180,26 @@
 
         <!-- Letzte Besteigungen entfernt — sind im Feed-Tab -->
 
+        <!-- Los-System -->
+        <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: rgba(255,215,0,0.3);">
+          <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem;">🎟️ Deine Lose</h4>
+          <div id="raffle-tickets" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0;">
+            <div style="text-align:center; padding:8px; background:rgba(255,215,0,0.1); border-radius:6px;">
+              <div id="tickets-total" style="font-size:1.5rem; font-weight:bold; color:#ffd700;">0</div>
+              <div style="font-size:0.7rem; color:#888;">GESAMT</div>
+            </div>
+            <div style="text-align:center; padding:8px; background:rgba(255,255,255,0.05); border-radius:6px;">
+              <div id="tickets-breakdown" style="font-size:0.75rem; color:#ccc; text-align:left;">
+                <div>⛰️ <span id="tickets-gipfel">0</span>× Gipfel</div>
+                <div>⭐ <span id="tickets-pionier">0</span>× Pionier</div>
+                <div>👑 <span id="tickets-koenig">0</span>× König</div>
+                <div>🔥 <span id="tickets-streak">0</span>× Streak</div>
+              </div>
+            </div>
+          </div>
+          <p style="font-size:0.7rem; color:#888; text-align:center;">Nächste Verlosung: Saisonende 2026</p>
+        </div>
+
         <!-- Spielregeln v2 -->
         <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: var(--color-gold);">
           <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--color-gold);">⚔️ So funktioniert Bergkönig</h4>
@@ -198,7 +218,14 @@
             <p style="margin-bottom: 0.25rem;">🌅 <strong style="color: var(--color-text);">Frühaufsteher</strong> (Tour vor 07:00 gestartet) = +15</p>
             <p style="margin-bottom: 0.25rem;">🔥 <strong style="color: var(--color-text);">Combo</strong> (2+ Gipfel/Tag) = +50% pro Extra</p>
             <p style="margin-bottom: 0.25rem;">👑 <strong style="color: var(--color-text);">König:</strong> Meiste Besteigungen = Krone</p>
-            <p>🛡️ <strong style="color: var(--color-text);">Sicherheit:</strong> Lawinenwarnstufe 3+ = keine Punkte</p>
+            <p style="margin-bottom: 0.5rem;">🛡️ <strong style="color: var(--color-text);">Sicherheit:</strong> Lawinenwarnstufe 3+ = keine Punkte</p>
+            <h4 style="margin-top:12px; color:#ffd700;">Lose & Gewinne</h4>
+            <div>🎟️ <strong>Jeder Gipfel</strong> = 1 Los</div>
+            <div>⭐ <strong>Pionier</strong> = 3 Lose</div>
+            <div>👑 <strong>König</strong> = 5 Lose pro Krone</div>
+            <div>🔥 <strong>Streak</strong> = 1 Los pro Woche</div>
+            <div>🎲 <strong>Gipfel des Tages</strong> = 3 Lose</div>
+            <div style="margin-top:8px; font-size:0.75rem; color:#888;">Mehr Lose = höhere Gewinnchance bei der Saisonend-Verlosung!</div>
           </div>
         </div>
 

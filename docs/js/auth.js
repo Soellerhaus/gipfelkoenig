@@ -286,7 +286,7 @@ async function initAppPage() {
   if (profil) {
     const { data: summits } = await GK.supabase
       .from('summits')
-      .select('peak_id, points, summited_at, season')
+      .select('peak_id, points, summited_at, season, is_season_first')
       .eq('user_id', benutzer.id)
       .order('summited_at', { ascending: false });
 
@@ -450,6 +450,22 @@ async function initAppPage() {
       if (trophyHtml) {
         badgesGrid.innerHTML = trophyHtml;
       }
+    }
+
+    // Lose berechnen
+    if (summits && summits.length > 0) {
+      const gipfelLose = summits.length; // 1 Los pro Gipfel
+      const pionierLose = summits.filter(s => s.is_season_first).length * 3; // 3 Lose pro Pionier
+      const koenigLose = 0; // TODO: Kronen zählen
+      const streakLose = 0; // TODO: Streak berechnen
+      const total = gipfelLose + pionierLose + koenigLose + streakLose;
+
+      const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+      setEl('tickets-total', total);
+      setEl('tickets-gipfel', gipfelLose);
+      setEl('tickets-pionier', pionierLose);
+      setEl('tickets-koenig', koenigLose);
+      setEl('tickets-streak', streakLose);
     }
   }
 

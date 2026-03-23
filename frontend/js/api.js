@@ -189,20 +189,29 @@ GK.api.getOwnership = async function (peakId, season) {
  */
 GK.api.getLeaderboard = async function (region, season, limit) {
   try {
-    // Saison-basierte Rangliste aus user_season_stats
-    const { data: seasonData, error: seasonError } = await supabaseClient
-      .from('user_season_stats')
-      .select('user_id, total_points, summit_count')
-      .eq('season', season)
-      .gt('total_points', 0)
-      .order('total_points', { ascending: false })
-      .limit(limit || 50);
+    // Direkt aus summits-Tabelle berechnen (user_season_stats existiert nicht)
+    const { data: summits, error: summitsError } = await supabaseClient
+      .from('summits')
+      .select('user_id, points, peak_id, is_season_first')
+      .eq('season', season);
 
-    if (seasonError) throw seasonError;
-    if (!seasonData || seasonData.length === 0) return [];
+    if (summitsError) throw summitsError;
+    if (!summits || summits.length === 0) return [];
+
+    // Gruppiere nach User
+    const userStats = {};
+    summits.forEach(s => {
+      if (!userStats[s.user_id]) {
+        userStats[s.user_id] = { points: 0, peaks: new Set(), tours: 0, pioneers: 0 };
+      }
+      userStats[s.user_id].points += (s.points || 0);
+      userStats[s.user_id].peaks.add(s.peak_id);
+      userStats[s.user_id].tours++;
+      if (s.is_season_first) userStats[s.user_id].pioneers++;
+    });
 
     // User-Profile dazu laden (mit avatar_type)
-    const userIds = seasonData.map(s => s.user_id);
+    const userIds = Object.keys(userStats);
     const { data: profiles, error: profileError } = await supabaseClient
       .from('user_profiles')
       .select('id, username, display_name, avatar_type')
@@ -215,18 +224,22 @@ GK.api.getLeaderboard = async function (region, season, limit) {
       for (const p of profiles) profileMap.set(p.id, p);
     }
 
-    // Zusammenführen
-    const result = seasonData.map(s => {
-      const profile = profileMap.get(s.user_id) || {};
-      return {
-        id: s.user_id,
-        username: profile.username,
-        display_name: profile.display_name,
-        avatar_type: profile.avatar_type,
-        total_points: s.total_points,
-        summit_count: s.summit_count,
-      };
-    });
+    // Zusammenführen und sortieren
+    const result = userIds
+      .map(uid => {
+        const profile = profileMap.get(uid) || {};
+        return {
+          id: uid,
+          username: profile.username,
+          display_name: profile.display_name,
+          avatar_type: profile.avatar_type,
+          total_points: userStats[uid].points,
+          summit_count: userStats[uid].peaks.size,
+          tour_count: userStats[uid].tours,
+        };
+      })
+      .sort((a, b) => b.total_points - a.total_points)
+      .slice(0, limit || 50);
 
     return result;
   } catch (err) {

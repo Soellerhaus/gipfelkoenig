@@ -446,18 +446,21 @@ window.GK.game = (() => {
    * Benutzer-Statistiken aus der Datenbank laden
    */
   async function fetchUserStats(userId) {
-    const { data, error } = await GK.supabase
-      .from('user_season_stats')
-      .select('total_points, summit_count')
+    // Direkt aus summits-Tabelle berechnen (user_season_stats existiert nicht)
+    const { data: summits, error } = await GK.supabase
+      .from('summits')
+      .select('points, peak_id')
       .eq('user_id', userId)
-      .eq('season', getCurrentSeason())
-      .single();
+      .eq('season', getCurrentSeason());
 
     if (error) {
       console.warn('Benutzerstatistik nicht gefunden:', error.message);
       return { total_points: 0, summit_count: 0 };
     }
-    return data;
+
+    const total_points = (summits || []).reduce((sum, s) => sum + (s.points || 0), 0);
+    const summit_count = new Set((summits || []).map(s => s.peak_id)).size;
+    return { total_points, summit_count };
   }
 
   /**
