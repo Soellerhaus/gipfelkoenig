@@ -899,7 +899,7 @@ async function showPeakOfDay() {
   nameEl.textContent = peak.name + (peak.elevation ? ' (' + peak.elevation + ' m)' : '');
   const infoEl = document.getElementById('potd-info');
   if (infoEl) infoEl.textContent = '5× Punkte!';
-  el.style.display = '';
+  el.style.display = 'block';
 
   // Klick-Handler
   el.onclick = () => {
