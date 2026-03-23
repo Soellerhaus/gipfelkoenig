@@ -858,10 +858,10 @@ let _lastPotdRegionKey = null;
 async function showPeakOfDay() {
   const el = document.getElementById('peak-of-day');
   const nameEl = document.getElementById('potd-name');
-  if (!el || !nameEl || !GK.map || !GK.map.map) return;
+  if (!el || !nameEl || !GK.map || !GK.map.leaflet) return;
 
-  const center = GK.map.map.getCenter();
-  const bounds = GK.map.map.getBounds();
+  const center = GK.map.leaflet.getCenter();
+  const bounds = GK.map.leaflet.getBounds();
 
   // Sub-Region-Key: Kartenmitte gerundet auf 0.5° Raster
   const regionKey = Math.round(center.lat * 2) + Math.round(center.lng * 2) * 1000;
@@ -904,7 +904,7 @@ async function showPeakOfDay() {
   // Klick-Handler
   el.onclick = () => {
     if (GK.peakOfDayId && GK.peakOfDayCoords) {
-      GK.map.map.setView(GK.peakOfDayCoords, 15);
+      GK.map.leaflet.setView(GK.peakOfDayCoords, 15);
       if (typeof openPeakPanel === 'function') openPeakPanel(GK.peakOfDayId);
       else if (typeof window.openPeakPanel === 'function') window.openPeakPanel(GK.peakOfDayId);
     }
@@ -912,7 +912,7 @@ async function showPeakOfDay() {
 
   // Stern-Marker auf Karte
   if (GK.map._potdMarker) {
-    GK.map.map.removeLayer(GK.map._potdMarker);
+    GK.map.leaflet.removeLayer(GK.map._potdMarker);
   }
   GK.map._potdMarker = L.marker([peak.lat, peak.lng], {
     icon: L.divIcon({
