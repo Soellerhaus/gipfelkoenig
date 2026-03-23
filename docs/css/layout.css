@@ -755,20 +755,20 @@
     overflow-x: auto;
   }
   .trophy-slot {
-    padding: 5px 10px;
-    gap: 3px;
+    padding: 3px 8px;
+    gap: 2px;
     min-width: 0;
     flex-shrink: 1;
   }
   .trophy-slot .trophy-emoji {
-    font-size: 1.4rem;
+    font-size: 1rem;
   }
   .trophy-slot .trophy-label {
-    font-size: 1rem;
+    font-size: 0.7rem;
   }
   .trophy-slot .trophy-user {
-    font-size: 1rem;
-    max-width: 85px;
+    font-size: 0.7rem;
+    max-width: 70px;
   }
   .trophy-extra {
     display: none !important;
