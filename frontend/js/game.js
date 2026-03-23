@@ -87,44 +87,9 @@ window.GK.game = (() => {
     'ALPEN': 'Alpenregion'
   };
 
-  // --- Sub-Regionen (Lat/Lng-Bereiche) ---
-
-  const SUB_REGIONS = [
-    { id: 'kleinwalsertal', name: 'Kleinwalsertal', parent: 'AT-08', latMin: 47.30, latMax: 47.40, lngMin: 10.05, lngMax: 10.22 },
-    { id: 'bregenzerwald', name: 'Bregenzerwald', parent: 'AT-08', latMin: 47.30, latMax: 47.50, lngMin: 9.80, lngMax: 10.05 },
-    { id: 'oberallgaeu', name: 'Oberallgäu', parent: 'DE-BY', latMin: 47.30, latMax: 47.55, lngMin: 10.20, lngMax: 10.50 },
-    { id: 'ostallgaeu', name: 'Ostallgäu', parent: 'DE-BY', latMin: 47.45, latMax: 47.70, lngMin: 10.50, lngMax: 10.90 },
-    { id: 'oberengadin', name: 'Oberengadin', parent: 'CH', latMin: 46.38, latMax: 46.60, lngMin: 9.70, lngMax: 10.10 },
-    { id: 'unterengadin', name: 'Unterengadin', parent: 'CH', latMin: 46.70, latMax: 46.95, lngMin: 10.10, lngMax: 10.50 },
-    { id: 'davos-klosters', name: 'Davos/Klosters', parent: 'CH', latMin: 46.72, latMax: 46.92, lngMin: 9.70, lngMax: 10.10 },
-    { id: 'inntal', name: 'Inntal', parent: 'AT-07', latMin: 47.15, latMax: 47.35, lngMin: 10.80, lngMax: 11.60 },
-    { id: 'stubai', name: 'Stubaital', parent: 'AT-07', latMin: 46.95, latMax: 47.15, lngMin: 11.20, lngMax: 11.50 },
-    { id: 'zillertal', name: 'Zillertal', parent: 'AT-07', latMin: 47.00, latMax: 47.20, lngMin: 11.70, lngMax: 12.10 },
-    { id: 'oetztal', name: 'Ötztal', parent: 'AT-07', latMin: 46.75, latMax: 47.10, lngMin: 10.70, lngMax: 11.10 },
-    { id: 'arlberg', name: 'Arlberg', parent: 'AT-08', latMin: 47.05, latMax: 47.20, lngMin: 10.10, lngMax: 10.35 },
-    { id: 'montafon', name: 'Montafon', parent: 'AT-08', latMin: 46.90, latMax: 47.10, lngMin: 9.85, lngMax: 10.15 },
-    { id: 'pinzgau', name: 'Pinzgau', parent: 'AT-05', latMin: 47.10, latMax: 47.40, lngMin: 12.40, lngMax: 13.00 },
-    { id: 'pongau', name: 'Pongau', parent: 'AT-05', latMin: 47.10, latMax: 47.40, lngMin: 13.00, lngMax: 13.50 },
-    { id: 'berchtesgaden', name: 'Berchtesgaden', parent: 'DE-BY', latMin: 47.45, latMax: 47.70, lngMin: 12.80, lngMax: 13.10 },
-    { id: 'chiemgau', name: 'Chiemgau', parent: 'DE-BY', latMin: 47.55, latMax: 47.80, lngMin: 12.20, lngMax: 12.80 },
-    { id: 'wallis', name: 'Wallis', parent: 'CH', latMin: 45.95, latMax: 46.40, lngMin: 6.80, lngMax: 8.30 },
-    { id: 'berner-oberland', name: 'Berner Oberland', parent: 'CH', latMin: 46.30, latMax: 46.70, lngMin: 7.30, lngMax: 8.20 },
-  ];
-
-  // SUB_REGIONS global verfügbar machen (für Gipfel des Tages in auth.js)
-  window.SUB_REGIONS = SUB_REGIONS;
-
-  /**
-   * Sub-Region für gegebene Koordinaten ermitteln
-   */
-  function getSubRegion(lat, lng) {
-    for (const sr of SUB_REGIONS) {
-      if (lat >= sr.latMin && lat <= sr.latMax && lng >= sr.lngMin && lng <= sr.lngMax) {
-        return sr;
-      }
-    }
-    return null;
-  }
+  // Sub-Regionen werden aus regions.js geladen (ALPINE_SUB_REGIONS)
+  // Abwärtskompatibilität: SUB_REGIONS als Alias
+  const SUB_REGIONS = window.ALPINE_SUB_REGIONS || [];
 
   // --- Rangliste ---
 
@@ -181,7 +146,7 @@ window.GK.game = (() => {
               }
               // Sub-Regionen ermitteln
               if (p.lat && p.lng) {
-                const sr = getSubRegion(p.lat, p.lng);
+                const sr = window.getSubRegion(p.lat, p.lng);
                 if (sr) userSubRegions.add(sr.id);
               }
             }
@@ -513,9 +478,11 @@ window.GK.game = (() => {
   return {
     BADGE_TYPES,
     SUB_REGIONS,
+    ALPINE_SUB_REGIONS: SUB_REGIONS,
     getCurrentSeason,
     calculatePoints,
-    getSubRegion,
+    getSubRegion: window.getSubRegion,
+    getSubRegionsForParent: window.getSubRegionsForParent,
     loadLeaderboard,
     loadProfile,
   };
