@@ -5,24 +5,29 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Punkte-Berechnung: 1 Punkt pro 100 HM Gipfelhöhe
+// Punkte-Berechnung: HM/100 + km×1 + Gipfel-Bonus
 function calculatePoints(
-  elevation: number,
+  elevationGain: number,
+  distanceKm: number,
   isPersonalFirst: boolean,
   isSeasonFirst: boolean,
   combo: boolean,
-  osmRegion: string
+  isEarly: boolean
 ): number {
-  let points = Math.round((elevation || 1000) / 100)
+  // Basis: HM/100 + km×1 + Gipfel-Bonus
+  let basePts = Math.round((elevationGain || 0) / 100) + Math.round(distanceKm || 0) + 10
 
-  if (isSeasonFirst) points *= 3
-  else if (isPersonalFirst) points *= 1.5
-  else points *= 0.2 // Wiederholung
+  // Multiplikatoren
+  let pts = basePts
+  if (isSeasonFirst) pts = Math.round(basePts * 3)
+  else if (isPersonalFirst) pts = Math.round(basePts * 2)
+  else pts = Math.round(basePts * 0.2)
 
-  if (combo) points += 5
-  if (osmRegion === 'AT-08') points += 1 // Heimat-Bonus
+  // Boni
+  if (isEarly) pts += 15
+  if (combo) pts += Math.round(basePts * 0.5)
 
-  return Math.round(points)
+  return Math.round(pts)
 }
 
 // Aktuelle Saison berechnen
@@ -205,12 +210,17 @@ serve(async (req) => {
       const isSeasonFirst = (seasonCount || 0) === 0
 
       // Punkte berechnen
+      const elevGain = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0
+      const distKm = activity.distance ? Math.round(activity.distance / 1000) : 0
+      const isEarly = summitTime.getHours() < 7
+
       const points = calculatePoints(
-        peak.elevation,
+        elevGain,
+        distKm,
         isPersonalFirst,
         isSeasonFirst,
         isCombo,
-        peak.osm_region
+        isEarly
       )
 
       // Summit speichern
@@ -222,6 +232,8 @@ serve(async (req) => {
         strava_activity_id: activity_id.toString(),
         checkin_method: 'strava',
         points,
+        elevation_gain: elevGain,
+        distance: distKm * 1000,
         is_season_first: isSeasonFirst,
         is_personal_first: isPersonalFirst,
         safety_ok: true,

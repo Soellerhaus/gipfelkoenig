@@ -52,6 +52,11 @@
       </div>
     </div>
 
+    <!-- Gipfel des Tages Banner -->
+    <div id="peak-of-day" style="display:none; position:absolute; top:60px; left:10px; right:10px; z-index:600; background:rgba(255,215,0,0.15); border:1px solid rgba(255,215,0,0.4); border-radius:10px; padding:8px 12px; text-align:center;">
+      <span style="font-size:0.8rem;">🎲 <strong>Gipfel des Tages:</strong> <span id="potd-name">—</span> · <span style="color:#ffd700;font-weight:700;">5× Punkte!</span></span>
+    </div>
+
     <!-- Karte (Fullscreen) -->
     <div class="map-container" id="map-section">
       <div id="map"></div>
@@ -114,6 +119,10 @@
               <div style="font-family: var(--font-display); font-size: 1.3rem; color: var(--color-gold);" id="season-hm">0</div>
               <div class="text-muted" style="font-size: 0.7rem;">HM</div>
             </div>
+            <div style="display:none;">
+              <div style="font-family: var(--font-display); font-size: 1.3rem; color: var(--color-gold);" id="streak-display">0</div>
+              <div class="text-muted" style="font-size: 0.7rem;">🔥 Streak</div>
+            </div>
           </div>
           <div style="text-align: center; margin-top: 6px;">
             <span style="font-size: 0.75rem; color: var(--color-muted);">Platz </span>
@@ -167,7 +176,7 @@
           <div style="font-size: 0.78rem; color: var(--color-muted); line-height: 1.6;">
             <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Basis-Punkte</strong></p>
             <p style="margin-bottom: 0.25rem;">↗ <strong style="color: var(--color-text);">HM-Punkte:</strong> Aufstieg HM / 100</p>
-            <p style="margin-bottom: 0.25rem;">📏 <strong style="color: var(--color-text);">km-Punkte:</strong> Distanz km × 2</p>
+            <p style="margin-bottom: 0.25rem;">📏 <strong style="color: var(--color-text);">km-Punkte:</strong> Distanz km × 1</p>
             <p style="margin-bottom: 0.25rem;">⛰️ <strong style="color: var(--color-text);">Gipfel erreicht:</strong> +10 fix</p>
             <p style="margin-bottom: 0.5rem;">🏠 <strong style="color: var(--color-text);">Hütte/Scharte/Pass:</strong> +5 fix</p>
             <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Multiplikatoren</strong></p>

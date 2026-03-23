@@ -479,6 +479,20 @@ async function initAppPage() {
     });
   }
 
+  // Gipfel des Tages laden
+  showPeakOfDay();
+
+  // Streak berechnen und anzeigen
+  if (benutzer && benutzer.id) {
+    calculateStreak(benutzer.id).then(function(streak) {
+      const streakEl = document.getElementById('streak-display');
+      if (streakEl && streak > 0) {
+        streakEl.textContent = streak + ' Wo.';
+        streakEl.parentElement.style.display = '';
+      }
+    });
+  }
+
   // Navigation — Inhaltsbereiche umschalten
   initNavigation();
 
@@ -744,7 +758,38 @@ async function importStravaActivities(userId, accessToken) {
         // Gefundene Gipfel speichern
         for (const [peakId, info] of foundPeaks) {
           const season = info.summitTime.getFullYear().toString();
-          const points = Math.round((info.peak.elevation || 1000) * 0.2 + (info.peak.osm_region === 'AT-08' ? 100 : 0));
+          const elevGain = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0;
+          const distKm = activity.distance ? Math.round(activity.distance / 1000) : 0;
+
+          // Basis: HM/100 + km×1 + Gipfel-Bonus
+          let basePts = Math.round(elevGain / 100) + distKm + 10;
+
+          // Prüfe Saison-Erster und Personal-Erster
+          const { data: existingSeason } = await GK.supabase
+            .from('summits')
+            .select('id')
+            .eq('peak_id', peakId)
+            .eq('season', season)
+            .limit(1);
+
+          const { data: existingPersonal } = await GK.supabase
+            .from('summits')
+            .select('id')
+            .eq('peak_id', peakId)
+            .eq('user_id', userId)
+            .limit(1);
+
+          const isSeasonFirst = !existingSeason || existingSeason.length === 0;
+          const isPersonalFirst = !existingPersonal || existingPersonal.length === 0;
+
+          // Multiplikatoren
+          let pts = basePts;
+          if (isSeasonFirst) pts = Math.round(basePts * 3);
+          else if (isPersonalFirst) pts = Math.round(basePts * 2);
+          else pts = Math.round(basePts * 0.2);
+
+          // Frühaufsteher Bonus
+          if (info.summitTime.getHours() < 7) pts += 15;
 
           await GK.supabase.from('summits').upsert({
             user_id: userId,
@@ -753,9 +798,12 @@ async function importStravaActivities(userId, accessToken) {
             season: season,
             strava_activity_id: activity.id.toString(),
             checkin_method: 'strava',
-            points: points,
+            points: pts,
+            elevation_gain: elevGain,
+            distance: distKm * 1000,
             safety_ok: true,
-            elevation_gain: activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : null
+            is_season_first: isSeasonFirst,
+            is_personal_first: isPersonalFirst
           }, { onConflict: 'user_id,peak_id,summited_at', ignoreDuplicates: true });
 
           totalSummits++;
@@ -796,6 +844,71 @@ async function importStravaActivities(userId, accessToken) {
 
   // Seite neu laden um die Daten anzuzeigen
   setTimeout(() => window.location.reload(), 3000);
+}
+
+// Gipfel des Tages — deterministisch basierend auf Datum
+async function showPeakOfDay() {
+  const potdEl = document.getElementById('peak-of-day');
+  const potdName = document.getElementById('potd-name');
+  if (!potdEl || !potdName) return;
+
+  // Deterministischer Seed basierend auf heutigem Datum
+  const today = new Date();
+  const seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
+
+  // Lade einen Gipfel basierend auf dem Seed
+  const { data: peaks } = await GK.supabase
+    .from('peaks')
+    .select('id, name, elevation')
+    .not('elevation', 'is', null)
+    .order('id');
+
+  if (peaks && peaks.length > 0) {
+    const peak = peaks[seed % peaks.length];
+    potdName.textContent = peak.name + ' (' + peak.elevation + ' m)';
+    potdEl.style.display = 'block';
+    GK.peakOfDayId = peak.id;
+  }
+}
+
+// Streak berechnen — Wochen-Streak
+async function calculateStreak(userId) {
+  const { data: summits } = await GK.supabase
+    .from('summits')
+    .select('summited_at')
+    .eq('user_id', userId)
+    .order('summited_at', { ascending: false });
+
+  if (!summits || summits.length === 0) return 0;
+
+  const now = new Date();
+  const getWeekNumber = function(d) {
+    const start = new Date(d.getFullYear(), 0, 1);
+    const diff = d - start;
+    return Math.floor(diff / (7 * 24 * 60 * 60 * 1000));
+  };
+
+  // Eindeutige Wochen mit Besteigungen sammeln
+  const activeWeeks = new Set();
+  for (const s of summits) {
+    const d = new Date(s.summited_at);
+    const weekKey = d.getFullYear() + '-' + getWeekNumber(d);
+    activeWeeks.add(weekKey);
+  }
+
+  // Aufeinanderfolgende Wochen rückwärts von aktueller Woche zählen
+  let streak = 0;
+  for (let i = 0; i < 52; i++) {
+    const checkDate = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+    const weekKey = checkDate.getFullYear() + '-' + getWeekNumber(checkDate);
+    if (activeWeeks.has(weekKey)) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
 }
 
 document.addEventListener('DOMContentLoaded', async function () {

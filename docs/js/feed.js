@@ -17,7 +17,7 @@ async function loadFeed() {
   try {
     const { data: summits, error } = await GK.supabase
       .from('summits')
-      .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first, elevation_gain')
+      .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first, elevation_gain, distance')
       .order('summited_at', { ascending: false })
       .limit(30);
 
@@ -81,12 +81,25 @@ async function loadFeed() {
 
       // Punkte-Breakdown berechnen
       const pts = s.points || 0;
+      const hmVal = s.elevation_gain ? Math.round(s.elevation_gain / 100) : 0;
+      const kmVal = s.distance ? Math.round(s.distance / 1000) : 0;
       let breakdownParts = [];
-      if (s.is_season_first) breakdownParts.push('⭐ Saison-Erster ×3');
-      else if (s.is_personal_first) breakdownParts.push('🆕 Erstbesteigung ×1.5');
-      else if (pts > 0) breakdownParts.push('🔄 Wiederholung');
-      if (isCombo) breakdownParts.push('🔥 Combo +500');
-      if (isEarly) breakdownParts.push('🌅 vor 07:00');
+      // Basis-Formel anzeigen
+      if (s.elevation_gain || s.distance) {
+        let basisStr = '↗ ' + (s.elevation_gain || 0) + ' HM';
+        if (kmVal > 0) basisStr += ' · ' + kmVal + ' km';
+        basisStr += ' · ' + hmVal + '+' + kmVal + '+10 Basis';
+        if (s.is_season_first) basisStr += ' × 3 Pionier';
+        else if (s.is_personal_first) basisStr += ' × 2 Erstbesuch';
+        else basisStr += ' × 0.2 Wdh';
+        breakdownParts.push(basisStr);
+      } else {
+        if (s.is_season_first) breakdownParts.push('⭐ Saison-Erster ×3');
+        else if (s.is_personal_first) breakdownParts.push('🆕 Erstbesteigung ×2');
+        else if (pts > 0) breakdownParts.push('🔄 Wiederholung');
+      }
+      if (isCombo) breakdownParts.push('🔥 Combo +50%');
+      if (isEarly) breakdownParts.push('🌅 vor 07:00 +15');
 
       // Badges
       let badges = '';
@@ -118,7 +131,7 @@ async function loadFeed() {
               ${badges}
             </div>
             <div style="font-size:0.75rem;color:var(--color-muted);margin-top:2px;">
-              ${peak.elevation ? peak.elevation + ' m · ' : ''}${s.elevation_gain ? '↗ ' + s.elevation_gain + ' HM · ' : ''}${zeit} Uhr
+              ${peak.elevation ? peak.elevation + ' m · ' : ''}${s.elevation_gain ? '↗ ' + s.elevation_gain + ' HM · ' : ''}${s.distance ? Math.round(s.distance/1000) + ' km · ' : ''}${zeit} Uhr
             </div>
             ${breakdownParts.length > 0 ? `<div style="font-size:0.65rem;color:var(--color-muted);margin-top:2px;font-family:var(--font-mono);">${breakdownParts.join(' + ')}</div>` : ''}
           </div>

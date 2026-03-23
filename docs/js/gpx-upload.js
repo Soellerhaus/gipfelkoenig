@@ -1,5 +1,5 @@
 // =============================================================================
-// Gipfelkönig — GPX Upload Modul (gpx-upload.js)
+// Bergkönig — GPX Upload Modul (gpx-upload.js)
 // Parst GPX-Dateien im Browser und erkennt Gipfel anhand GPS-Koordinaten.
 // =============================================================================
 
