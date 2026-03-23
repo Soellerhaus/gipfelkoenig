@@ -549,11 +549,23 @@ async function initMap() {
   }
 
   // Gipfel laden — nicht blockierend, Panel danach füllen
-  loadPeaks().then(() => showNearestPeakInPanel());
+  loadPeaks().then(() => {
+    showNearestPeakInPanel();
+    if (typeof showPeakOfDay === 'function') showPeakOfDay();
+  });
 
   // Bei Kartenverschiebung und Zoom Gipfel neu laden (mit Debounce)
   map.on('moveend', loadPeaksDebounced);
   map.on('zoomend', loadPeaksDebounced);
+
+  // Gipfel des Tages bei Kartenverschiebung aktualisieren (debounced 2s)
+  let potdTimer;
+  map.on('moveend', () => {
+    clearTimeout(potdTimer);
+    potdTimer = setTimeout(() => {
+      if (typeof showPeakOfDay === 'function') showPeakOfDay();
+    }, 2000);
+  });
 
   console.log('Karte initialisiert.');
 }
