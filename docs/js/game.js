@@ -91,12 +91,19 @@ window.GK.game = (() => {
   // Abwärtskompatibilität: SUB_REGIONS als Alias
   const SUB_REGIONS = window.ALPINE_SUB_REGIONS || [];
 
+  // --- Avatar-Emojis ---
+  const AVATAR_EMOJIS = {
+    'mountain': '🏔️', 'eagle': '🦅', 'ski': '⛷️', 'climber': '🧗',
+    'tree': '🌲', 'snow': '❄️', 'deer': '🦌', 'rock': '🪨'
+  };
+
   // --- Rangliste ---
 
   // Cache für User-Peaks mit Koordinaten (für Sub-Region-Filterung)
   let cachedUserPeaks = null;
   let activeRegion = null;
   let activeSubRegion = null;
+  let activeSeason = getCurrentSeason();
 
   /**
    * Regionale Rangliste laden und im DOM rendern.
@@ -107,11 +114,34 @@ window.GK.game = (() => {
     const container = document.getElementById('section-leaderboard');
     if (!container) return;
 
-    const season = getCurrentSeason();
+    const season = activeSeason;
     const listEl = document.getElementById('leaderboard-list');
     const tabsEl = document.getElementById('leaderboard-tabs');
     const subTabsEl = document.getElementById('leaderboard-subtabs');
     if (!listEl || !tabsEl) return;
+
+    // Saison-Wähler einrichten
+    const seasonSelector = document.getElementById('season-selector');
+    if (seasonSelector) {
+      seasonSelector.querySelectorAll('.season-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          seasonSelector.querySelectorAll('.season-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.border = '1px solid rgba(201,168,76,0.3)';
+            b.style.background = 'rgba(255,255,255,0.05)';
+            b.style.color = 'var(--color-muted)';
+            b.style.fontWeight = '400';
+          });
+          btn.classList.add('active');
+          btn.style.border = '1px solid var(--color-gold)';
+          btn.style.background = 'rgba(201,168,76,0.2)';
+          btn.style.color = 'var(--color-gold)';
+          btn.style.fontWeight = '700';
+          activeSeason = btn.dataset.season;
+          await loadLeaderboard();
+        });
+      });
+    }
 
     listEl.innerHTML = '<div class="loading">Lade Rangliste...</div>';
     activeRegion = null;
@@ -297,7 +327,7 @@ window.GK.game = (() => {
         else if (rank === 2) rankIcon = '🥈 ';
         else if (rank === 3) rankIcon = '🥉 ';
 
-        const avatar = entry.avatar_emoji || entry.username?.charAt(0).toUpperCase() || '?';
+        const avatar = (entry.avatar_type ? AVATAR_EMOJIS[entry.avatar_type] : null) || entry.username?.charAt(0).toUpperCase() || '?';
         const crowns = entry.crown_count || 0;
         const summitCount = subRegion ? (entry.sub_summit_count || 0) : (entry.summit_count || 0);
 

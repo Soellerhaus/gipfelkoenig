@@ -194,12 +194,21 @@ async function initAppPage() {
 
   const benutzer = sitzung.session.user;
 
+  // Avatar-Emoji Mapping
+  const AVATAR_EMOJIS = {
+    'mountain': '🏔️', 'eagle': '🦅', 'ski': '⛷️', 'climber': '🧗',
+    'tree': '🌲', 'snow': '❄️', 'deer': '🦌', 'rock': '🪨'
+  };
+
   // Benutzerprofil laden und in der Kopfzeile anzeigen
   const profil = await GK.api.getUserProfile(benutzer.id);
   if (profil) {
     const nameEl = document.getElementById('user-avatar');
     const punkteEl = document.getElementById('user-points');
-    if (nameEl) nameEl.textContent = (profil.username || 'B').charAt(0).toUpperCase();
+    if (nameEl) {
+      const avatarEmoji = profil.avatar_type ? AVATAR_EMOJIS[profil.avatar_type] : null;
+      nameEl.textContent = avatarEmoji || (profil.username || 'B').charAt(0).toUpperCase();
+    }
     if (punkteEl) punkteEl.textContent = (profil.total_points || 0).toLocaleString('de') + ' Pkt';
 
     // Laufenden Import erkennen (bei Seiten-Reload während Import)
@@ -457,7 +466,9 @@ async function initAppPage() {
         profilAvatar.style.backgroundSize = 'cover';
         profilAvatar.textContent = '';
       } else {
-        profilAvatar.textContent = (profil.username || 'B').charAt(0).toUpperCase();
+        const avatarEmoji = profil.avatar_type ? AVATAR_EMOJIS[profil.avatar_type] : null;
+        profilAvatar.textContent = avatarEmoji || (profil.username || 'B').charAt(0).toUpperCase();
+        if (avatarEmoji) profilAvatar.style.fontSize = '1.8rem';
       }
     }
   }

@@ -189,27 +189,46 @@ GK.api.getOwnership = async function (peakId, season) {
  */
 GK.api.getLeaderboard = async function (region, season, limit) {
   try {
-    const { data, error } = await supabaseClient
-      .from('user_profiles')
-      .select('id, username, display_name, total_points')
+    // Saison-basierte Rangliste aus user_season_stats
+    const { data: seasonData, error: seasonError } = await supabaseClient
+      .from('user_season_stats')
+      .select('user_id, total_points, summit_count')
+      .eq('season', season)
       .gt('total_points', 0)
       .order('total_points', { ascending: false })
-      .limit(limit || 10);
+      .limit(limit || 50);
 
-    if (error) throw error;
+    if (seasonError) throw seasonError;
+    if (!seasonData || seasonData.length === 0) return [];
 
-    // Gipfel-Anzahl pro User berechnen
-    if (data) {
-      for (const user of data) {
-        const { count } = await supabaseClient
-          .from('summits')
-          .select('peak_id', { count: 'exact', head: true })
-          .eq('user_id', user.id);
-        user.summit_count = count || 0;
-      }
+    // User-Profile dazu laden (mit avatar_type)
+    const userIds = seasonData.map(s => s.user_id);
+    const { data: profiles, error: profileError } = await supabaseClient
+      .from('user_profiles')
+      .select('id, username, display_name, avatar_type')
+      .in('id', userIds);
+
+    if (profileError) throw profileError;
+
+    const profileMap = new Map();
+    if (profiles) {
+      for (const p of profiles) profileMap.set(p.id, p);
     }
 
-    return data;
+    // Zusammenführen
+    const result = seasonData.map(s => {
+      const profile = profileMap.get(s.user_id) || {};
+      return {
+        id: s.user_id,
+        username: profile.username,
+        display_name: profile.display_name,
+        avatar_type: profile.avatar_type,
+        total_points: s.total_points,
+        summit_count: s.summit_count,
+      };
+    });
+
+    return result;
   } catch (err) {
     console.error('Fehler beim Laden der Bestenliste:', err);
     return [];

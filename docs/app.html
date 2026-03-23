@@ -90,6 +90,11 @@
       <!-- Rangliste (regional) -->
       <section class="content-section" id="section-leaderboard">
         <div class="section-title">Rangliste</div>
+        <div id="season-selector" style="display:flex; gap:8px; justify-content:center; margin-bottom:12px;">
+          <button class="season-btn" data-season="2024" style="padding:6px 16px;border-radius:8px;border:1px solid rgba(201,168,76,0.3);background:rgba(255,255,255,0.05);color:var(--color-muted);font-size:0.8rem;cursor:pointer;">2024</button>
+          <button class="season-btn" data-season="2025" style="padding:6px 16px;border-radius:8px;border:1px solid rgba(201,168,76,0.3);background:rgba(255,255,255,0.05);color:var(--color-muted);font-size:0.8rem;cursor:pointer;">2025</button>
+          <button class="season-btn active" data-season="2026" style="padding:6px 16px;border-radius:8px;border:1px solid var(--color-gold);background:rgba(201,168,76,0.2);color:var(--color-gold);font-size:0.8rem;font-weight:700;cursor:pointer;">2026</button>
+        </div>
         <div id="leaderboard-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.25rem;">
           <!-- Region-Tabs werden dynamisch von game.js erstellt -->
         </div>

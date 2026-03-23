@@ -378,22 +378,27 @@ async function loadMySummits(season) {
     const breakdownHtml = entries.map(e => {
       const d = new Date(e.summited_at);
       const datum = d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const zeit = d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
-      const hm = e.elevation_gain ? `↗${e.elevation_gain} HM` : '';
-      const km = e.distance_km ? `${e.distance_km} km` : '';
+      const hm = e.elevation_gain || 0;
+      const km = e.distance_km || 0;
       const pts = e.points || 0;
 
-      // Multiplikator bestimmen
-      let multi = '';
-      if (e.is_season_first) multi = '×3 Pionier';
-      else if (e.is_personal_first) multi = '×2 Erstbesuch';
-      else multi = '×0.2 Whg.';
+      // Basis-Punkte berechnen
+      const hmPts = Math.round(hm / 100);
+      const kmPts = Math.round(km * 1);
+      const basePts = hmPts + kmPts;
 
-      const separator = ' · ';
-      const parts = [datum, zeit].concat(hm ? [hm] : []).concat(km ? [km] : []);
+      // Multiplikator bestimmen
+      let multiLabel = '';
+      let multiValue = 1;
+      if (e.is_season_first) { multiLabel = '×3 Pionier'; multiValue = 3; }
+      else if (e.is_personal_first) { multiLabel = '×2 Erstbesuch'; multiValue = 2; }
+      else { multiLabel = '×0.2 Whg.'; multiValue = 0.2; }
+
+      const hmStr = hm ? `↗${hm} HM` : '';
 
       return `<div style="font-size:0.72rem;color:var(--color-muted);padding:4px 0;border-bottom:1px solid rgba(201,168,76,0.08);font-family:var(--font-mono);">
-        ${parts.join(separator)} · <span style="color:var(--color-gold);">${pts} Pkt</span> <span style="opacity:0.6;">${multi}</span>
+        <div>${datum}${hmStr ? ' · ' + hmStr : ''}</div>
+        <div>${hmPts} HM + ${kmPts} km = ${basePts} Basis <span style="opacity:0.6;">${multiLabel}</span> = <span style="color:var(--color-gold);">${pts} Pkt</span></div>
       </div>`;
     }).join('');
 
