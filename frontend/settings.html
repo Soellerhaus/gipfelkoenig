@@ -535,6 +535,7 @@
               checkin_method: 'manual',
               points: pts,
               elevation_gain: totalElevGain,
+              distance: totalDistKm > 0 ? Math.round(totalDistKm * 10) / 10 : null,
               safety_ok: true,
               safety_level: 0,
               is_season_first: isSeasonFirst,
@@ -552,8 +553,12 @@
         bar.style.width = '100%';
         if (saved > 0) {
           const peakList = foundPeaks.filter(fp => !errors.some(e => e.startsWith(fp.peak.name))).map(fp => fp.peak.name).join(', ');
-          msg.textContent = '✓ ' + saved + ' Gipfel · ↗ ' + totalElevGain + ' HM · ' + totalDistKm + ' km · ' + (Math.round(totalElevGain/100) + Math.round(totalDistKm) + 10) + ' Basis-Pkt — ' + peakList;
+          msg.textContent = '✓ ' + saved + ' Gipfel · ↗ ' + totalElevGain + ' HM · ' + totalDistKm + ' km — ' + peakList;
           msg.style.color = 'var(--color-safe)';
+          // total_points in user_profiles aktualisieren
+          const { data: allS } = await GK.supabase.from('summits').select('points').eq('user_id', currentUser.id);
+          const tp = allS ? allS.reduce((s, r) => s + (r.points || 0), 0) : 0;
+          await GK.supabase.from('user_profiles').update({ total_points: tp }).eq('id', currentUser.id);
         } else {
           msg.textContent = 'Fehler beim Speichern: ' + errors.join('; ');
           msg.style.color = 'var(--color-danger)';
