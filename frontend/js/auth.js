@@ -6,6 +6,103 @@
 window.GK = window.GK || {};
 
 // ---------------------------------------------------------------------------
+// Jahres-Wähler für Profil-Saison
+// ---------------------------------------------------------------------------
+window.currentProfileSeason = new Date().getFullYear();
+window._allSummitsCache = null;
+window._currentUserId = null;
+
+window.switchProfileSeason = function(delta) {
+  const newYear = window.currentProfileSeason + delta;
+  const currentYear = new Date().getFullYear();
+  if (newYear < 2020 || newYear > currentYear) return;
+  window.currentProfileSeason = newYear;
+
+  const label = document.getElementById('profile-season-label');
+  if (label) label.textContent = 'SAISON ' + newYear;
+
+  // Reload profile stats for this year
+  loadProfileForSeason(newYear);
+};
+
+async function loadProfileForSeason(year) {
+  const summits = window._allSummitsCache;
+  if (!summits) return;
+
+  const yearStr = year.toString();
+  const seasonSummits = summits.filter(s => s.season === yearStr);
+  const seasonPts = seasonSummits.reduce((sum, s) => sum + (s.points || 0), 0);
+  const seasonUnique = new Set(seasonSummits.map(s => s.peak_id)).size;
+
+  const el = (id) => document.getElementById(id);
+
+  // Haupt-Stats aktualisieren
+  if (el('stat-points')) el('stat-points').textContent = seasonPts.toLocaleString('de');
+  if (el('stat-summits')) el('stat-summits').textContent = seasonUnique;
+  if (el('stat-crowns')) el('stat-crowns').textContent = '0';
+  if (el('season-summits')) el('season-summits').textContent = seasonUnique;
+  if (el('season-points')) el('season-points').textContent = seasonPts.toLocaleString('de');
+
+  // HM berechnen
+  const peakIds = [...new Set(seasonSummits.map(s => s.peak_id))];
+  let seasonHM = 0;
+  for (const pid of peakIds) {
+    const p = await GK.api.getPeakById(pid);
+    if (p && p.elevation) {
+      const sCount = seasonSummits.filter(s => s.peak_id === pid).length;
+      seasonHM += p.elevation * sCount;
+    }
+  }
+  if (el('season-hm')) el('season-hm').textContent = seasonHM.toLocaleString('de');
+
+  // Trophäen aktualisieren
+  const trophySeason = el('trophy-season');
+  if (trophySeason) trophySeason.textContent = yearStr;
+
+  if (el('trophy-koenig')) el('trophy-koenig').textContent = '0';
+
+  const pioneerCount = seasonSummits.filter(s => s.is_season_first).length;
+  if (el('trophy-pionier')) el('trophy-pionier').textContent = pioneerCount;
+
+  const byDate = {};
+  for (const s of seasonSummits) {
+    const date = s.summited_at.slice(0, 10);
+    if (!byDate[date]) byDate[date] = new Set();
+    byDate[date].add(s.peak_id);
+  }
+  const comboCount = Object.values(byDate).filter(peaks => peaks.size >= 2).length;
+  if (el('trophy-combo')) el('trophy-combo').textContent = comboCount;
+
+  const earlyCount = seasonSummits.filter(s => {
+    const h = new Date(s.summited_at).getHours();
+    return h < 7;
+  }).length;
+  if (el('trophy-frueh')) el('trophy-frueh').textContent = earlyCount;
+
+  if (el('trophy-gipfel')) el('trophy-gipfel').textContent = seasonUnique;
+
+  let yearHM = 0;
+  for (const s of seasonSummits) {
+    if (s.elevation_gain) yearHM += s.elevation_gain;
+  }
+  if (el('trophy-hm')) el('trophy-hm').textContent = yearHM.toLocaleString('de');
+
+  // Lose berechnen für diese Saison
+  const gipfelLose = seasonSummits.length;
+  const pionierLose = seasonSummits.filter(s => s.is_season_first).length * 3;
+  const koenigLose = 0;
+  const streakLose = 0;
+  const total = gipfelLose + pionierLose + koenigLose + streakLose;
+
+  const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+  setEl('tickets-total', total);
+  setEl('tickets-gipfel', gipfelLose);
+  setEl('tickets-pionier', pionierLose);
+  setEl('tickets-koenig', koenigLose);
+  setEl('tickets-streak', streakLose);
+}
+
+// ---------------------------------------------------------------------------
 // Strava OAuth — Platzhalter-Konfiguration
 // ---------------------------------------------------------------------------
 const STRAVA_CLIENT_ID = '211591';
@@ -286,33 +383,16 @@ async function initAppPage() {
   if (profil) {
     const { data: summits } = await GK.supabase
       .from('summits')
-      .select('peak_id, points, summited_at, season, is_season_first')
+      .select('peak_id, points, summited_at, season, is_season_first, elevation_gain')
       .eq('user_id', benutzer.id)
       .order('summited_at', { ascending: false });
 
     if (summits) {
-      const totalPoints = summits.reduce((sum, s) => sum + (s.points || 0), 0);
-      const uniquePeaks = new Set(summits.map(s => s.peak_id)).size;
+      // Cache für Jahres-Wechsel
+      window._allSummitsCache = summits;
+      window._currentUserId = benutzer.id;
 
-      const statPoints = document.getElementById('stat-points');
-      const statSummits = document.getElementById('stat-summits');
-      const statCrowns = document.getElementById('stat-crowns');
-
-      if (statPoints) statPoints.textContent = totalPoints.toLocaleString('de');
-      if (statSummits) statSummits.textContent = uniquePeaks;
-      if (statCrowns) statCrowns.textContent = '0';
-
-      // Saison-Statistik
-      const currentSeason = new Date().getFullYear().toString();
-      const seasonSummits = summits.filter(s => s.season === currentSeason);
-      const seasonPts = seasonSummits.reduce((sum, s) => sum + (s.points || 0), 0);
-      const seasonUnique = new Set(seasonSummits.map(s => s.peak_id)).size;
-      const el = (id) => document.getElementById(id);
-      if (el('season-summits')) el('season-summits').textContent = seasonUnique;
-      if (el('season-points')) el('season-points').textContent = seasonPts.toLocaleString('de');
-      if (el('profile-season-year')) el('profile-season-year').textContent = currentSeason;
-
-      // Letzte 5 Besteigungen
+      // Letzte 5 Besteigungen (jahresunabhängig)
       const recentContainer = document.getElementById('profile-recent-summits');
       if (recentContainer && summits.length > 0) {
         const recent = summits.slice(0, 5);
@@ -334,7 +414,7 @@ async function initAppPage() {
         }).join('');
       }
 
-      // Rang berechnen
+      // Rang berechnen (jahresunabhängig)
       const { data: allProfiles } = await GK.supabase
         .from('user_profiles')
         .select('id, total_points, username')
@@ -347,89 +427,11 @@ async function initAppPage() {
         if (rankDetail) rankDetail.textContent = 'von ' + allProfiles.length + ' Bergfreunden';
       }
 
-      // HM berechnen (Summe aller Gipfelhöhen)
-      const peakIdsAll = [...new Set(summits.map(s => s.peak_id))];
-      let totalHM = 0;
-      const seasonPeakIds = new Set(seasonSummits.map(s => s.peak_id));
-      let seasonHM = 0;
-      for (const pid of peakIdsAll) {
-        const p = await GK.api.getPeakById(pid);
-        if (p && p.elevation) {
-          const count = summits.filter(s => s.peak_id === pid).length;
-          totalHM += p.elevation * count;
-          const sCount = seasonSummits.filter(s => s.peak_id === pid).length;
-          if (sCount > 0) seasonHM += p.elevation * sCount;
-        }
-      }
-      if (el('season-hm')) el('season-hm').textContent = seasonHM.toLocaleString('de');
-    }
-
-    // Trophäen in die neuen Grid-Kacheln schreiben
-    if (summits && summits.length > 0) {
-      const currentYear = new Date().getFullYear();
-      const yearStr = currentYear.toString();
-      const yearSummits = summits.filter(s => s.season === yearStr);
-
-      // Saison-Label setzen
-      const trophySeason = document.getElementById('trophy-season');
-      if (trophySeason) trophySeason.textContent = yearStr;
-
-      // König: Kronen zählen (TODO: echte Kronen-Logik)
-      const koenigEl = document.getElementById('trophy-koenig');
-      if (koenigEl) koenigEl.textContent = '0';
-
-      // Pionier: Saison-Erste
-      const pioneerCount = yearSummits.filter(s => s.is_season_first).length;
-      const pionierEl = document.getElementById('trophy-pionier');
-      if (pionierEl) pionierEl.textContent = pioneerCount;
-
-      // Combo: Tage mit 2+ Gipfeln
-      const byDate = {};
-      for (const s of yearSummits) {
-        const date = s.summited_at.slice(0, 10);
-        if (!byDate[date]) byDate[date] = new Set();
-        byDate[date].add(s.peak_id);
-      }
-      const comboCount = Object.values(byDate).filter(peaks => peaks.size >= 2).length;
-      const comboEl = document.getElementById('trophy-combo');
-      if (comboEl) comboEl.textContent = comboCount;
-
-      // Frühaufsteher
-      const earlyCount = yearSummits.filter(s => {
-        const h = new Date(s.summited_at).getHours();
-        return h < 7;
-      }).length;
-      const fruehEl = document.getElementById('trophy-frueh');
-      if (fruehEl) fruehEl.textContent = earlyCount;
-
-      // Unique Gipfel
-      const uniquePeaks = new Set(yearSummits.map(s => s.peak_id)).size;
-      const gipfelEl = document.getElementById('trophy-gipfel');
-      if (gipfelEl) gipfelEl.textContent = uniquePeaks;
-
-      // HM — aus elevation_gain der Summits summieren
-      let yearHM = 0;
-      for (const s of yearSummits) {
-        if (s.elevation_gain) yearHM += s.elevation_gain;
-      }
-      const hmEl = document.getElementById('trophy-hm');
-      if (hmEl) hmEl.textContent = yearHM.toLocaleString('de');
-    }
-
-    // Lose berechnen
-    if (summits && summits.length > 0) {
-      const gipfelLose = summits.length; // 1 Los pro Gipfel
-      const pionierLose = summits.filter(s => s.is_season_first).length * 3; // 3 Lose pro Pionier
-      const koenigLose = 0; // TODO: Kronen zählen
-      const streakLose = 0; // TODO: Streak berechnen
-      const total = gipfelLose + pionierLose + koenigLose + streakLose;
-
-      const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-      setEl('tickets-total', total);
-      setEl('tickets-gipfel', gipfelLose);
-      setEl('tickets-pionier', pionierLose);
-      setEl('tickets-koenig', koenigLose);
-      setEl('tickets-streak', streakLose);
+      // Saison-Stats für aktuelles Jahr laden
+      const currentYear = window.currentProfileSeason || new Date().getFullYear();
+      const label = document.getElementById('profile-season-label');
+      if (label) label.textContent = 'SAISON ' + currentYear;
+      await loadProfileForSeason(currentYear);
     }
   }
 
