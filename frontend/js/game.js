@@ -111,6 +111,9 @@ window.GK.game = (() => {
     { id: 'berner-oberland', name: 'Berner Oberland', parent: 'CH', latMin: 46.30, latMax: 46.70, lngMin: 7.30, lngMax: 8.20 },
   ];
 
+  // SUB_REGIONS global verfügbar machen (für Gipfel des Tages in auth.js)
+  window.SUB_REGIONS = SUB_REGIONS;
+
   /**
    * Sub-Region für gegebene Koordinaten ermitteln
    */

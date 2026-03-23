@@ -851,17 +851,17 @@ async function importStravaActivities(userId, accessToken) {
 }
 
 // Gipfel des Tages — deterministisch basierend auf Datum
+// Gipfel des Tages — deterministisch basierend auf Datum, pro Sub-Region
 async function showPeakOfDay() {
   const potdEl = document.getElementById('peak-of-day');
   if (!potdEl) return;
 
-  // Deterministischer "Zufall" basierend auf Datum
   const today = new Date();
   const seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
 
-  // Lade Peaks in der Nähe der aktuellen Kartenposition
+  // Lade Peaks in der Nähe der Kartenposition
   const center = GK.map && GK.map.map ? GK.map.map.getCenter() : { lat: 47.35, lng: 10.15 };
-  const range = 0.3; // ~30km Radius
+  const range = 0.5;
 
   const { data: peaks } = await GK.supabase
     .from('peaks')
@@ -871,46 +871,74 @@ async function showPeakOfDay() {
     .gte('lng', center.lng - range)
     .lte('lng', center.lng + range)
     .not('elevation', 'is', null)
-    .limit(200);
+    .gt('elevation', 1000)
+    .limit(500);
 
   if (!peaks || peaks.length === 0) return;
 
-  // Deterministisch einen Peak auswählen basierend auf Datum
-  const index = seed % peaks.length;
-  const peak = peaks[index];
+  // Finde Sub-Region der aktuellen Kartenposition
+  let currentSubRegion = null;
+  const subRegions = (typeof window.SUB_REGIONS !== 'undefined') ? window.SUB_REGIONS :
+    (GK.game && GK.game.SUB_REGIONS ? GK.game.SUB_REGIONS : null);
+  if (subRegions) {
+    for (const sr of subRegions) {
+      if (center.lat >= sr.latMin && center.lat <= sr.latMax &&
+          center.lng >= sr.lngMin && center.lng <= sr.lngMax) {
+        currentSubRegion = sr;
+        break;
+      }
+    }
+  }
 
-  // UI aktualisieren
+  // Filtere Peaks in der Sub-Region (wenn vorhanden)
+  let regionPeaks = peaks;
+  if (currentSubRegion) {
+    regionPeaks = peaks.filter(p =>
+      p.lat >= currentSubRegion.latMin && p.lat <= currentSubRegion.latMax &&
+      p.lng >= currentSubRegion.lngMin && p.lng <= currentSubRegion.lngMax
+    );
+    if (regionPeaks.length === 0) regionPeaks = peaks;
+  }
+
+  // Deterministisch auswählen (Seed + Sub-Region-ID für verschiedene Gipfel pro Region)
+  const regionSeed = currentSubRegion ?
+    seed + currentSubRegion.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) :
+    seed;
+  const index = regionSeed % regionPeaks.length;
+  const peak = regionPeaks[index];
+
+  // UI
+  const regionLabel = currentSubRegion ? currentSubRegion.name : '';
   document.getElementById('potd-name').textContent = peak.name;
-  document.getElementById('potd-info').textContent = peak.elevation + ' m \u00b7 5\u00d7 Punkte! Antippen \u2192';
+  document.getElementById('potd-info').textContent =
+    peak.elevation + ' m' + (regionLabel ? ' · ' + regionLabel : '') + ' · 5× Punkte!';
   potdEl.style.display = 'block';
 
-  // Speichere für Klick-Handler
   GK.peakOfDayId = peak.id;
   GK.peakOfDayCoords = [peak.lat, peak.lng];
 
   // Klick-Handler
-  potdEl.onclick = function() {
+  potdEl.onclick = () => {
     if (GK.map && GK.map.map && GK.peakOfDayCoords) {
       GK.map.map.setView(GK.peakOfDayCoords, 15);
-      if (typeof openPeakPanel === 'function') openPeakPanel(GK.peakOfDayId);
+      setTimeout(() => {
+        if (typeof window.openPeakPanel === 'function') window.openPeakPanel(GK.peakOfDayId);
+      }, 500);
     }
   };
 
-  // Speziellen Marker auf der Karte setzen
+  // Stern-Marker auf der Karte
   if (GK.map && GK.map.map) {
-    var starIcon = L.divIcon({
-      className: 'potd-marker',
-      html: '<div style="width:36px;height:36px;background:rgba(255,215,0,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 15px rgba(255,215,0,0.7);animation:potdPulse 2s infinite;">\u2b50</div>',
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
-    });
-
-    // Alten Marker entfernen
     if (GK._potdMarker) GK.map.map.removeLayer(GK._potdMarker);
-
+    const starIcon = L.divIcon({
+      className: 'potd-marker',
+      html: '<div style="width:32px;height:32px;background:rgba(255,215,0,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 15px rgba(255,215,0,0.7);animation:potdPulse 2s infinite;">⭐</div>',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
     GK._potdMarker = L.marker([peak.lat, peak.lng], { icon: starIcon, zIndexOffset: 1000 })
       .addTo(GK.map.map)
-      .bindPopup('<div style="text-align:center;"><strong>\ud83c\udfb2 Gipfel des Tages</strong><br>' + peak.name + '<br>' + peak.elevation + ' m<br><span style="color:#ffd700;font-weight:bold;">5\u00d7 Punkte!</span></div>');
+      .bindPopup('<div style="text-align:center;"><strong>🎲 Gipfel des Tages</strong><br>' + peak.name + ' · ' + peak.elevation + ' m<br><span style="color:#ffd700;font-weight:bold;">5× Punkte!</span></div>');
   }
 }
 

@@ -302,6 +302,9 @@ async function openPeakPanel(peakId) {
   }
 }
 
+// openPeakPanel global verfügbar machen (für Gipfel des Tages Klick aus auth.js)
+window.openPeakPanel = openPeakPanel;
+
 /**
  * Nächsten Gipfel zur Kartenmitte finden und im Panel anzeigen.
  */
