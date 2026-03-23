@@ -205,8 +205,8 @@ async function openPeakPanel(peakId) {
         <div class="trophy-grid">
           <div class="trophy-slot"><span class="trophy-emoji">👑</span><span class="trophy-label">König</span></div>
           <div class="trophy-slot"><span class="trophy-emoji">⭐</span><span class="trophy-label">Pionier</span></div>
-          <div class="trophy-slot"><span class="trophy-emoji">🌅</span><span class="trophy-label">Früh</span></div>
-          <div class="trophy-slot"><span class="trophy-emoji">💎</span><span class="trophy-label">Selten</span></div>
+          <div class="trophy-slot trophy-extra"><span class="trophy-emoji">🌅</span><span class="trophy-label">Früh</span></div>
+          <div class="trophy-slot trophy-extra"><span class="trophy-emoji">💎</span><span class="trophy-label">Selten</span></div>
         </div>
         <div class="peak-history">Noch nie bestiegen — sei der Erste!</div>
         <div class="peak-bottom-name">${peak.name}${peak.elevation ? ' <span class="peak-elev">' + peak.elevation + ' m</span>' : ''}</div>
@@ -254,14 +254,14 @@ async function openPeakPanel(peakId) {
       : { emoji: '💎', label: 'Selten', earned: isRare, user: isRare ? '✓' : '—', detail: '' };
 
     const trophies = [
-      { emoji: '👑', label: 'König ' + focusSeason, earned: !!kingEntry, user: kingEntry ? userName(kingEntry[0]) : '—', detail: kingEntry ? kingEntry[1] + '×' : '' },
-      { emoji: '⭐', label: 'Pionier', earned: !!pioneer, user: pioneer ? userName(pioneer.user_id) : '—', detail: '' },
-      { emoji: '🌅', label: 'Früh', earned: !!earlyBird, user: earlyBird ? userName(earlyBird.user_id) : '—', detail: '' },
-      slot4,
+      { emoji: '👑', label: 'König ' + focusSeason, earned: !!kingEntry, user: kingEntry ? userName(kingEntry[0]) : '—', detail: kingEntry ? kingEntry[1] + '×' : '', extra: false },
+      { emoji: '⭐', label: 'Pionier', earned: !!pioneer, user: pioneer ? userName(pioneer.user_id) : '—', detail: '', extra: false },
+      { emoji: '🌅', label: 'Früh', earned: !!earlyBird, user: earlyBird ? userName(earlyBird.user_id) : '—', detail: '', extra: true },
+      Object.assign(slot4, { extra: true }),
     ];
 
     const trophyHtml = trophies.map(t => `
-      <div class="trophy-slot${t.earned ? ' earned' : ''}">
+      <div class="trophy-slot${t.earned ? ' earned' : ''}${t.extra ? ' trophy-extra' : ''}">
         <span class="trophy-emoji">${t.emoji}</span>
         <span class="trophy-label">${t.label}</span>
         ${t.earned && t.user !== '✓' && t.user !== '—' ? '<span class="trophy-user">' + t.user + (t.detail ? ' ' + t.detail : '') + '</span>' : ''}

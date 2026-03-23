@@ -770,6 +770,9 @@
     font-size: 1rem;
     max-width: 85px;
   }
+  .trophy-extra {
+    display: none !important;
+  }
   .peak-bottom-name {
     font-size: 1.4rem;
     margin-top: 0.2rem;
