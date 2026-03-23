@@ -32,6 +32,10 @@
     <header class="app-header">
       <div class="app-header-logo brand-name">Berg<span class="brand-king">könig</span></div>
       <div class="app-header-user">
+        <span id="notification-bell" style="cursor:pointer;font-size:1.2rem;margin-right:8px;position:relative;">
+          🔔
+          <span id="notif-count" style="display:none;position:absolute;top:-5px;right:-8px;background:#e53e3e;color:white;border-radius:50%;font-size:0.6rem;width:16px;height:16px;line-height:16px;text-align:center;">0</span>
+        </span>
         <span class="app-header-points" id="user-points">0 Pkt</span>
         <div class="app-header-avatar" id="user-avatar">?</div>
       </div>
@@ -71,19 +75,18 @@
       <section class="content-section" id="section-summits">
         <div class="section-title">Meine Gipfel</div>
         <div class="season-filter" id="season-filter"></div>
-        <div class="peak-grid" id="my-peaks-grid">
-          <p class="text-muted" style="font-size: 0.9rem; grid-column: 1/-1;">Noch keine Gipfel gesammelt. Raus auf den Berg — egal wie!</p>
+        <div id="my-peaks-grid">
+          <p class="text-muted" style="font-size: 0.9rem;">Noch keine Gipfel gesammelt. Raus auf den Berg — egal wie!</p>
         </div>
       </section>
 
-      <!-- Rangliste -->
+      <!-- Rangliste (regional) -->
       <section class="content-section" id="section-leaderboard">
         <div class="section-title">Rangliste</div>
-        <div class="tabs" id="leaderboard-tabs">
-          <button class="tab active" data-region="AT-08">Kleinwalsertal</button>
-          <button class="tab" data-region="all">Alle Alpen</button>
+        <div id="leaderboard-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.75rem;">
+          <!-- Tabs werden dynamisch von game.js erstellt -->
         </div>
-        <div class="leaderboard-list" id="leaderboard-list" style="margin-top: 1rem;">
+        <div class="leaderboard-list" id="leaderboard-list" style="margin-top: 0.5rem;">
           <p class="text-muted" style="font-size: 0.9rem;">Lade Rangliste...</p>
         </div>
       </section>
@@ -158,16 +161,25 @@
 
         <!-- Letzte Besteigungen entfernt — sind im Feed-Tab -->
 
-        <!-- Spielregeln -->
+        <!-- Spielregeln v2 -->
         <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: var(--color-gold);">
           <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--color-gold);">⚔️ So funktioniert Bergkönig</h4>
-          <div style="font-size: 0.78rem; color: var(--color-muted); line-height: 1.5;">
-            <p style="margin-bottom: 0.4rem;">👑 <strong style="color: var(--color-text);">Werde König.</strong> Meiste Besteigungen = Krone.</p>
-            <p style="margin-bottom: 0.4rem;">⭐ <strong style="color: var(--color-text);">Sei der Erste.</strong> Pionier-Bonus: 3× Punkte.</p>
-            <p style="margin-bottom: 0.4rem;">🔥 <strong style="color: var(--color-text);">Combos.</strong> 2+ Gipfel am Tag = Bonus.</p>
-            <p style="margin-bottom: 0.4rem;">⛰️ <strong style="color: var(--color-text);">Gipfel-Punkte.</strong> 1 Pkt pro 100m Höhe. ×3 Erster, ×1.5 Neu, ×0.2 Wiederholung.</p>
-            <p style="margin-bottom: 0.4rem;">🏠 <strong style="color: var(--color-text);">Hütten, Scharten & Pässe.</strong> Je 2 Punkte fix — auch die zählen!</p>
-            <p>🛡️ <strong style="color: var(--color-text);">Sicherheit.</strong> Lawinenwarnstufe 3+ = keine Punkte.</p>
+          <div style="font-size: 0.78rem; color: var(--color-muted); line-height: 1.6;">
+            <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Basis-Punkte</strong></p>
+            <p style="margin-bottom: 0.25rem;">↗ <strong style="color: var(--color-text);">HM-Punkte:</strong> Aufstieg HM / 100</p>
+            <p style="margin-bottom: 0.25rem;">📏 <strong style="color: var(--color-text);">km-Punkte:</strong> Distanz km × 2</p>
+            <p style="margin-bottom: 0.25rem;">⛰️ <strong style="color: var(--color-text);">Gipfel erreicht:</strong> +10 fix</p>
+            <p style="margin-bottom: 0.5rem;">🏠 <strong style="color: var(--color-text);">Hütte/Scharte/Pass:</strong> +5 fix</p>
+            <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Multiplikatoren</strong></p>
+            <p style="margin-bottom: 0.25rem;">⭐ <strong style="color: var(--color-text);">Pionier</strong> (Saison-Erster) = ×3</p>
+            <p style="margin-bottom: 0.25rem;">🆕 <strong style="color: var(--color-text);">Erstbesuch</strong> (persönlich) = ×2</p>
+            <p style="margin-bottom: 0.25rem;">🔄 <strong style="color: var(--color-text);">Wiederholung</strong> = ×0.2 (abnehmend)</p>
+            <p style="margin-bottom: 0.5rem;">⚡ <strong style="color: var(--color-text);">Streak:</strong> Jede Woche aktiv = ×1.1 bis ×2.0</p>
+            <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Boni</strong></p>
+            <p style="margin-bottom: 0.25rem;">🌅 <strong style="color: var(--color-text);">Frühaufsteher</strong> (vor 07:00) = +15</p>
+            <p style="margin-bottom: 0.25rem;">🔥 <strong style="color: var(--color-text);">Combo</strong> (2+ Gipfel/Tag) = +50% pro Extra</p>
+            <p style="margin-bottom: 0.25rem;">👑 <strong style="color: var(--color-text);">König:</strong> Meiste Besteigungen = Krone</p>
+            <p>🛡️ <strong style="color: var(--color-text);">Sicherheit:</strong> Lawinenwarnstufe 3+ = keine Punkte</p>
           </div>
         </div>
 

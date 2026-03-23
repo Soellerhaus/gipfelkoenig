@@ -254,8 +254,9 @@ async function performCheckin() {
 // ---------------------------------------------------------------------------
 
 /**
- * Besteigungen des aktuellen Benutzers laden und als Karten anzeigen.
- * @param {string} [season] - Saison (Standard: aktuelle Saison)
+ * Besteigungen des aktuellen Benutzers laden und als spielerische Kacheln anzeigen.
+ * Klick auf Kachel expandiert Punkte-Breakdown pro Besteigung.
+ * @param {string} [season] - Saison (Standard: alle)
  */
 async function loadMySummits(season) {
   const userId = await getLoggedInUserId();
@@ -264,14 +265,13 @@ async function loadMySummits(season) {
     return;
   }
 
-  const targetSeason = season || null; // Alle Saisons wenn nicht angegeben
+  const targetSeason = season || null;
 
-  // Besteigungen vom Backend laden (alle oder gefiltert)
+  // Besteigungen vom Backend laden
   let summits;
   if (targetSeason) {
     summits = await GK.api.getSummits(userId, targetSeason);
   } else {
-    // Alle Saisons laden
     const { data, error } = await GK.supabase
       .from('summits')
       .select('*')
@@ -280,19 +280,15 @@ async function loadMySummits(season) {
     summits = error ? [] : data;
   }
 
-  // Container im DOM finden
   const container = document.getElementById('my-peaks-grid');
   if (!container) return;
 
-  // Leerer Zustand
   if (!summits || summits.length === 0) {
-    container.innerHTML = `
-      <p class="empty-state">Noch keine Besteigungen in der Saison ${targetSeason}.</p>
-    `;
+    container.innerHTML = `<p class="empty-state">Noch keine Besteigungen${targetSeason ? ' in der Saison ' + targetSeason : ''}.</p>`;
     return;
   }
 
-  // Peaks-Daten laden für Namen und Höhe
+  // Peak-Daten laden
   const peakIds = [...new Set(summits.map(s => s.peak_id))];
   const peakMap = new Map();
   for (const pid of peakIds) {
@@ -319,101 +315,111 @@ async function loadMySummits(season) {
     if (peaks.size >= 2) comboDates.add(date);
   }
 
-  // Sortieren: meiste Besteigungen zuerst, dann nach letztem Datum
+  // Sortieren: neuestes zuerst
   const sortedGroups = [...grouped.entries()].sort((a, b) => {
-    const lastA = new Date(a[1][0].summited_at).getTime();
-    const lastB = new Date(b[1][0].summited_at).getTime();
-    return lastB - lastA;
+    return new Date(b[1][0].summited_at).getTime() - new Date(a[1][0].summited_at).getTime();
   });
 
-  // Statistiken berechnen
+  // Statistiken
   const totalPeaks = sortedGroups.length;
   const totalSummits = summits.length;
   const totalPoints = summits.reduce((s, e) => s + (e.points || 0), 0);
-  const kronCount = sortedGroups.filter(([pid]) => {
-    // Vereinfacht: Wenn User der einzige ist, ist er Koenig
-    return true; // Wird spaeter mit Ownership geprueft
-  }).length;
 
-  // Header mit Gesamt-Stats
+  // Header Stats
   const statsHtml = `
     <div style="display:flex;gap:12px;margin-bottom:1rem;flex-wrap:wrap;">
-      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px;text-align:center;">
-        <div style="font-size:1.5rem;font-weight:700;color:var(--color-gold);">${totalPeaks}</div>
-        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;">Gipfel</div>
+      <div style="flex:1;min-width:80px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:12px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalPeaks}</div>
+        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Gipfel</div>
       </div>
-      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px;text-align:center;">
-        <div style="font-size:1.5rem;font-weight:700;color:var(--color-gold);">${totalSummits}</div>
-        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;">Touren</div>
+      <div style="flex:1;min-width:80px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:12px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalSummits}</div>
+        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Touren</div>
       </div>
-      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px;text-align:center;">
-        <div style="font-size:1.5rem;font-weight:700;color:var(--color-gold);">${totalPoints.toLocaleString('de')}</div>
-        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;">Punkte</div>
+      <div style="flex:1;min-width:80px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:12px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalPoints.toLocaleString('de')}</div>
+        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Punkte</div>
       </div>
     </div>
   `;
 
-  // Spielerische Karten pro Gipfel
+  // Spielerische Kacheln pro Gipfel
   const cardsHtml = sortedGroups.map(([peakId, entries]) => {
     const peak = peakMap.get(peakId);
     const peakName = peak ? peak.name : 'Unbekannter Gipfel';
     const elevation = peak ? peak.elevation : null;
     const count = entries.length;
     const totalPts = entries.reduce((s, e) => s + (e.points || 0), 0);
-    const lastEntry = entries[0];
-    const lastDatum = new Date(lastEntry.summited_at).toLocaleDateString('de-AT', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    });
 
-    // Fruehaufsteher pruefen (vor 07:00)
-    const hasEarly = entries.some(e => {
-      const h = new Date(e.summited_at).getHours();
-      return h < 7;
-    });
-
-    // Badges sammeln
+    // Fruehaufsteher pruefen
+    const hasEarly = entries.some(e => new Date(e.summited_at).getHours() < 7);
     const hasPionier = entries.some(e => e.is_season_first);
     const hasCombo = entries.some(e => comboDates.has(e.summited_at.slice(0, 10)));
 
-    // Rang-Farbe basierend auf Besteigungen
-    let rankColor = 'rgba(201,168,76,0.15)';
-    let rankBorder = 'rgba(201,168,76,0.3)';
+    // Rang-Icon und CSS-Klasse
     let rankIcon = '▲';
-    if (count >= 10) { rankColor = 'rgba(255,215,0,0.15)'; rankBorder = 'rgba(255,215,0,0.5)'; rankIcon = '👑'; }
-    else if (count >= 5) { rankColor = 'rgba(192,192,192,0.15)'; rankBorder = 'rgba(192,192,192,0.4)'; rankIcon = '🏔️'; }
-    else if (count >= 2) { rankIcon = '⛰️'; }
+    let rankClass = '';
+    if (count >= 10) { rankIcon = '👑'; rankClass = 'diamond'; }
+    else if (count >= 5) { rankIcon = '🏔️'; rankClass = 'gold'; }
+    else if (count >= 2) { rankIcon = '⛰️'; rankClass = 'silver'; }
 
     // Badge-Pills
     let badgeHtml = '';
-    if (count >= 10) badgeHtml += `<span style="background:rgba(255,215,0,0.2);color:#ffd700;padding:2px 6px;border-radius:4px;font-size:0.7rem;">👑 König</span> `;
-    if (hasPionier) badgeHtml += `<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:2px 6px;border-radius:4px;font-size:0.7rem;">⭐ Pionier</span> `;
-    if (hasEarly) badgeHtml += `<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:2px 6px;border-radius:4px;font-size:0.7rem;">🌅 Früh</span> `;
-    if (hasCombo) badgeHtml += `<span style="background:rgba(201,168,76,0.15);color:var(--color-gold);padding:2px 6px;border-radius:4px;font-size:0.7rem;">🔥 Combo</span> `;
-    if (count === 1) badgeHtml += `<span style="background:rgba(147,112,219,0.15);color:#9370db;padding:2px 6px;border-radius:4px;font-size:0.7rem;">💎 Selten</span> `;
+    if (count >= 10) badgeHtml += '<span class="badge-pill" style="background:rgba(255,215,0,0.2);color:#ffd700;">👑 König</span>';
+    if (hasPionier) badgeHtml += '<span class="badge-pill" style="background:rgba(201,168,76,0.15);color:var(--color-gold);">⭐ Pionier</span>';
+    if (hasEarly) badgeHtml += '<span class="badge-pill" style="background:rgba(100,200,255,0.15);color:#64c8ff;">🌅 Früh</span>';
+    if (hasCombo) badgeHtml += '<span class="badge-pill" style="background:rgba(255,100,0,0.15);color:#ff6400;">🔥 Combo</span>';
+    if (count === 1) badgeHtml += '<span class="badge-pill" style="background:rgba(147,112,219,0.15);color:#9370db;">💎 Selten</span>';
 
-    // Fortschrittsbalken (visuell: wie viele Besteigungen bis Koenig)
-    const progress = Math.min(count / 10, 1);
-    const progressWidth = Math.round(progress * 100);
+    // Fortschrittsbalken (count/10)
+    const progressWidth = Math.round(Math.min(count / 10, 1) * 100);
+
+    // Breakdown pro Besteigung (versteckt, per Klick sichtbar)
+    const breakdownHtml = entries.map(e => {
+      const d = new Date(e.summited_at);
+      const datum = d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const zeit = d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+      const hm = e.elevation_gain ? `↗${e.elevation_gain} HM` : '';
+      const km = e.distance_km ? `${e.distance_km} km` : '';
+      const pts = e.points || 0;
+
+      // Multiplikator bestimmen
+      let multi = '';
+      if (e.is_season_first) multi = '×3 Pionier';
+      else if (e.is_personal_first) multi = '×2 Erstbesuch';
+      else multi = '×0.2 Whg.';
+
+      const separator = ' · ';
+      const parts = [datum, zeit].concat(hm ? [hm] : []).concat(km ? [km] : []);
+
+      return `<div style="font-size:0.72rem;color:var(--color-muted);padding:4px 0;border-bottom:1px solid rgba(201,168,76,0.08);font-family:var(--font-mono);">
+        ${parts.join(separator)} · <span style="color:var(--color-gold);">${pts} Pkt</span> <span style="opacity:0.6;">${multi}</span>
+      </div>`;
+    }).join('');
+
+    const cardId = 'peak-card-' + peakId;
 
     return `
-      <div style="background:${rankColor};border:1px solid ${rankBorder};border-radius:10px;padding:12px;margin-bottom:8px;position:relative;overflow:hidden;">
-        <div style="position:absolute;bottom:0;left:0;width:${progressWidth}%;height:3px;background:var(--color-gold);border-radius:0 3px 0 10px;"></div>
+      <div class="peak-card ${rankClass}" id="${cardId}" onclick="document.getElementById('${cardId}').classList.toggle('expanded')">
+        <div class="progress-bar" style="width:${progressWidth}%;"></div>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div style="flex:1;">
-            <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;">
-              ${rankIcon} ${peakName}
-            </div>
-            <div style="font-size:0.75rem;color:var(--color-muted);margin:2px 0;">
-              ${elevation ? elevation + ' m · ' : ''}${count}× bestiegen · ${lastDatum}
+            <div class="peak-name">${rankIcon} ${peakName}</div>
+            <div class="peak-meta">
+              ${elevation ? elevation + ' m · ' : ''}${count}× bestiegen
             </div>
             <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;">
               ${badgeHtml}
             </div>
           </div>
-          <div style="text-align:right;min-width:60px;">
-            <div style="font-size:1.3rem;font-weight:700;color:var(--color-gold);font-family:var(--font-mono);">${totalPts.toLocaleString('de')}</div>
-            <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;">Punkte</div>
+          <div style="text-align:right;min-width:55px;">
+            <div class="peak-points">${totalPts.toLocaleString('de')}</div>
+            <div style="font-size:0.6rem;color:var(--color-muted);text-transform:uppercase;">Punkte</div>
           </div>
+        </div>
+        <div class="breakdown">
+          <div style="font-size:0.7rem;color:var(--color-gold);margin-bottom:6px;font-weight:600;">Alle Besteigungen</div>
+          ${breakdownHtml}
         </div>
       </div>
     `;

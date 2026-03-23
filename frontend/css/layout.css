@@ -451,8 +451,36 @@
 /* === PEAK GRID === */
 .peak-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+/* === PEAK CARDS (spielerisch) === */
+.peak-card {
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.2);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.peak-card:hover { border-color: var(--color-gold); }
+.peak-card.gold { border-color: rgba(255,215,0,0.5); background: rgba(255,215,0,0.08); }
+.peak-card.silver { border-color: rgba(192,192,192,0.4); background: rgba(192,192,192,0.08); }
+.peak-card.diamond { border-color: rgba(185,242,255,0.5); background: rgba(185,242,255,0.08); box-shadow: 0 0 15px rgba(185,242,255,0.1); }
+.peak-card .progress-bar { position: absolute; bottom: 0; left: 0; height: 3px; background: var(--color-gold); border-radius: 0 3px 0 12px; transition: width 0.3s; }
+.peak-card .peak-name { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; }
+.peak-card .peak-meta { font-size: 0.75rem; color: var(--color-muted); margin: 2px 0; }
+.peak-card .peak-points { font-size: 1.4rem; font-weight: 700; color: var(--color-gold); font-family: var(--font-mono); }
+.peak-card .badge-pill { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; display: inline-block; margin: 2px; }
+.peak-card .breakdown { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(201,168,76,0.15); }
+.peak-card.expanded .breakdown { display: block; }
+
+@media (max-width: 600px) {
+  .peak-card .peak-name { font-size: 1rem; }
+  .peak-card .peak-points { font-size: 1.2rem; }
 }
 
 /* === LEADERBOARD LIST === */

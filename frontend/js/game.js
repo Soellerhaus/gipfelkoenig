@@ -73,59 +73,93 @@ window.GK.game = (() => {
     return Math.round(points);
   }
 
+  // --- Regionen-Mapping ---
+
+  const REGION_NAMES = {
+    'AT-08': 'Vorarlberg',
+    'AT-07': 'Tirol',
+    'AT-05': 'Salzburg',
+    'DE-BY': 'Bayern/Allgäu',
+    'CH-GR': 'Graubünden',
+    'CH-VS': 'Wallis',
+    'IT-32': 'Südtirol',
+    'IT-25': 'Lombardei'
+  };
+
   // --- Rangliste ---
 
   /**
-   * Rangliste laden und im DOM rendern
-   * Wird in #section-leaderboard angezeigt
+   * Regionale Rangliste laden und im DOM rendern.
+   * Zeigt nur Regionen in denen der aktuelle User Gipfel hat.
    */
   async function loadLeaderboard() {
     const container = document.getElementById('section-leaderboard');
     if (!container) return;
 
     const season = getCurrentSeason();
+    const listEl = document.getElementById('leaderboard-list');
+    const tabsEl = document.getElementById('leaderboard-tabs');
+    if (!listEl || !tabsEl) return;
 
-    // Tab-Konfiguration: Region-Filter
-    const tabs = [
-      { id: 'tab-kleinwalsertal', label: 'Kleinwalsertal', region: 'kleinwalsertal' },
-      { id: 'tab-alle',           label: 'Alle Alpen',     region: null },
-    ];
+    listEl.innerHTML = '<div class="loading">Lade Rangliste...</div>';
 
-    // Tab-Leiste rendern
-    let tabBar = container.querySelector('.leaderboard-tabs');
-    if (!tabBar) {
-      tabBar = document.createElement('div');
-      tabBar.className = 'leaderboard-tabs';
-      tabs.forEach((tab, idx) => {
-        const btn = document.createElement('button');
-        btn.id = tab.id;
-        btn.className = 'leaderboard-tab' + (idx === 0 ? ' active' : '');
-        btn.textContent = tab.label;
-        btn.addEventListener('click', () => switchTab(tab.region, btn));
-        tabBar.appendChild(btn);
-      });
-      container.prepend(tabBar);
+    // Aktuelle User-Regionen ermitteln
+    let userRegions = new Set();
+    try {
+      const user = GK.auth?.user;
+      if (user) {
+        const { data: userSummits } = await GK.supabase
+          .from('summits')
+          .select('peak_id')
+          .eq('user_id', user.id);
+
+        if (userSummits && userSummits.length > 0) {
+          const peakIds = [...new Set(userSummits.map(s => s.peak_id))];
+          const { data: peaks } = await GK.supabase
+            .from('peaks')
+            .select('id, osm_region')
+            .in('id', peakIds);
+
+          if (peaks) {
+            for (const p of peaks) {
+              if (p.osm_region && REGION_NAMES[p.osm_region]) {
+                userRegions.add(p.osm_region);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Regionen konnten nicht geladen werden:', err);
     }
 
-    // Inhaltsbereich
-    let listEl = container.querySelector('.leaderboard-list');
-    if (!listEl) {
-      listEl = document.createElement('div');
-      listEl.className = 'leaderboard-list';
-      container.appendChild(listEl);
+    // Tab-Buttons dynamisch erstellen
+    tabsEl.innerHTML = '';
+
+    // "Alle Alpen" immer als erster Tab
+    const allBtn = document.createElement('button');
+    allBtn.className = 'tab active';
+    allBtn.dataset.region = 'all';
+    allBtn.textContent = 'Alle Alpen';
+    allBtn.addEventListener('click', () => switchTab(null, allBtn));
+    tabsEl.appendChild(allBtn);
+
+    // Regions-Tabs nur fuer Regionen des Users
+    for (const regionCode of userRegions) {
+      const btn = document.createElement('button');
+      btn.className = 'tab';
+      btn.dataset.region = regionCode;
+      btn.textContent = REGION_NAMES[regionCode];
+      btn.addEventListener('click', () => switchTab(regionCode, btn));
+      tabsEl.appendChild(btn);
     }
 
-    // Erste Region laden
-    await fetchAndRenderLeaderboard(tabs[0].region, season, listEl);
+    // Erste Region laden (Alle Alpen)
+    await fetchAndRenderLeaderboard(null, season, listEl);
 
-    /**
-     * Tab wechseln und Daten neu laden
-     */
     async function switchTab(region, activeBtn) {
-      // Aktiven Tab markieren
-      tabBar.querySelectorAll('.leaderboard-tab').forEach(b => b.classList.remove('active'));
+      tabsEl.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
       activeBtn.classList.add('active');
-
       await fetchAndRenderLeaderboard(region, season, listEl);
     }
   }
@@ -137,22 +171,45 @@ window.GK.game = (() => {
     listEl.innerHTML = '<div class="loading">Lade Rangliste...</div>';
 
     try {
-      const data = await GK.api.getLeaderboard(region, season, 10);
+      const data = await GK.api.getLeaderboard(region, season, 20);
       listEl.innerHTML = '';
 
       if (!data || data.length === 0) {
-        listEl.innerHTML = '<div class="empty">Noch keine Einträge für diese Saison.</div>';
+        listEl.innerHTML = '<div class="empty" style="text-align:center;padding:2rem;color:var(--color-muted);">Noch keine Einträge für diese Saison.</div>';
         return;
       }
 
       data.forEach((entry, idx) => {
+        const rank = idx + 1;
+        let rankIcon = '';
+        if (rank === 1) rankIcon = '👑 ';
+        else if (rank === 2) rankIcon = '🥈 ';
+        else if (rank === 3) rankIcon = '🥉 ';
+
+        const avatar = entry.avatar_emoji || entry.username?.charAt(0).toUpperCase() || '?';
+        const crowns = entry.crown_count || 0;
+
         const row = document.createElement('div');
-        row.className = 'leaderboard-row';
+        row.style.cssText = 'display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0;border-bottom:1px solid var(--color-border);';
         row.innerHTML = `
-          <span class="rank">${idx + 1}</span>
-          <span class="name">${escapeHtml(entry.username || entry.display_name || 'Anonym')}</span>
-          <span class="points">${(entry.total_points || 0).toLocaleString('de')} Pkt.</span>
-          <span class="summits">${entry.summit_count || 0} Gipfel</span>
+          <div style="min-width:28px;text-align:center;font-weight:700;font-family:var(--font-mono);font-size:0.85rem;color:${rank <= 3 ? 'var(--color-gold)' : 'var(--color-muted)'};">
+            ${rankIcon}${rank}
+          </div>
+          <div style="width:32px;height:32px;background:var(--color-bg-hover);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;">
+            ${avatar}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:0.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${escapeHtml(entry.username || entry.display_name || 'Anonym')}
+            </div>
+            <div style="font-size:0.7rem;color:var(--color-muted);">
+              ${entry.summit_count || 0} Gipfel${crowns > 0 ? ' · ' + crowns + ' 👑' : ''}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:1rem;font-weight:700;color:var(--color-gold);font-family:var(--font-mono);">${(entry.total_points || 0).toLocaleString('de')}</div>
+            <div style="font-size:0.6rem;color:var(--color-muted);">Pkt</div>
+          </div>
         `;
         listEl.appendChild(row);
       });
