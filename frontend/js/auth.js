@@ -364,92 +364,56 @@ async function initAppPage() {
       if (el('season-hm')) el('season-hm').textContent = seasonHM.toLocaleString('de');
     }
 
-    // Trophäen aus Summits-Daten berechnen (pro Jahr, 3 Jahre zurück)
-    const badgesGrid = document.getElementById('badges-grid');
-    if (badgesGrid && summits && summits.length > 0) {
+    // Trophäen in die neuen Grid-Kacheln schreiben
+    if (summits && summits.length > 0) {
       const currentYear = new Date().getFullYear();
-      const years = [currentYear, currentYear - 1, currentYear - 2];
+      const yearStr = currentYear.toString();
+      const yearSummits = summits.filter(s => s.season === yearStr);
 
-      // Alle Peak-Daten laden für Trophäen-Berechnung
-      const allPeakIds = [...new Set(summits.map(s => s.peak_id))];
-      const peakCache = new Map();
-      for (const pid of allPeakIds) {
-        const p = await GK.api.getPeakById(pid);
-        if (p) peakCache.set(pid, p);
+      // Saison-Label setzen
+      const trophySeason = document.getElementById('trophy-season');
+      if (trophySeason) trophySeason.textContent = yearStr;
+
+      // König: Kronen zählen (TODO: echte Kronen-Logik)
+      const koenigEl = document.getElementById('trophy-koenig');
+      if (koenigEl) koenigEl.textContent = '0';
+
+      // Pionier: Saison-Erste
+      const pioneerCount = yearSummits.filter(s => s.is_season_first).length;
+      const pionierEl = document.getElementById('trophy-pionier');
+      if (pionierEl) pionierEl.textContent = pioneerCount;
+
+      // Combo: Tage mit 2+ Gipfeln
+      const byDate = {};
+      for (const s of yearSummits) {
+        const date = s.summited_at.slice(0, 10);
+        if (!byDate[date]) byDate[date] = new Set();
+        byDate[date].add(s.peak_id);
       }
+      const comboCount = Object.values(byDate).filter(peaks => peaks.size >= 2).length;
+      const comboEl = document.getElementById('trophy-combo');
+      if (comboEl) comboEl.textContent = comboCount;
 
-      let trophyHtml = '';
+      // Frühaufsteher
+      const earlyCount = yearSummits.filter(s => {
+        const h = new Date(s.summited_at).getHours();
+        return h < 7;
+      }).length;
+      const fruehEl = document.getElementById('trophy-frueh');
+      if (fruehEl) fruehEl.textContent = earlyCount;
 
-      for (const year of years) {
-        const yearStr = year.toString();
-        const yearSummits = summits.filter(s => s.season === yearStr);
-        if (yearSummits.length === 0) continue;
+      // Unique Gipfel
+      const uniquePeaks = new Set(yearSummits.map(s => s.peak_id)).size;
+      const gipfelEl = document.getElementById('trophy-gipfel');
+      if (gipfelEl) gipfelEl.textContent = uniquePeaks;
 
-        // Pionier: Erst-Besteigungen der Saison
-        const pioneerCount = yearSummits.filter(s => s.is_season_first).length;
-
-        // Combo: Tage mit 2+ Gipfeln
-        const byDate = {};
-        for (const s of yearSummits) {
-          const date = s.summited_at.slice(0, 10);
-          if (!byDate[date]) byDate[date] = new Set();
-          byDate[date].add(s.peak_id);
-        }
-        const comboCount = Object.values(byDate).filter(peaks => peaks.size >= 2).length;
-
-        // Frühaufsteher: Tour vor 07:00 gestartet (Proxy: summited_at < 07:00)
-        const earlyCount = yearSummits.filter(s => {
-          const h = new Date(s.summited_at).getHours();
-          return h < 7;
-        }).length;
-
-        // Sammler: Unique Gipfel
-        const uniquePeaks = new Set(yearSummits.map(s => s.peak_id)).size;
-
-        // Gesamt-Besteigungen + HM
-        const yearPts = yearSummits.reduce((sum, s) => sum + (s.points || 0), 0);
-        let yearHM = 0;
-        for (const s of yearSummits) {
-          const p = peakCache.get(s.peak_id);
-          if (p && p.elevation) yearHM += p.elevation;
-        }
-
-        trophyHtml += `
-          <div style="margin-bottom: 1rem;">
-            <div style="font-family: var(--font-display); font-size: 1rem; color: var(--color-gold); margin-bottom: 6px;">${year}</div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px;">
-              <div class="card" style="padding: 8px; text-align: center;">
-                <div style="font-size: 1.2rem;">⛰️</div>
-                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${uniquePeaks}</div>
-                <div class="text-muted" style="font-size: 0.65rem;">Gipfel</div>
-              </div>
-              ${pioneerCount > 0 ? `<div class="card" style="padding: 8px; text-align: center;">
-                <div style="font-size: 1.2rem;">🌟</div>
-                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${pioneerCount}</div>
-                <div class="text-muted" style="font-size: 0.65rem;">Pionier</div>
-              </div>` : ''}
-              ${comboCount > 0 ? `<div class="card" style="padding: 8px; text-align: center;">
-                <div style="font-size: 1.2rem;">⚔️</div>
-                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${comboCount}</div>
-                <div class="text-muted" style="font-size: 0.65rem;">Combo</div>
-              </div>` : ''}
-              ${earlyCount > 0 ? `<div class="card" style="padding: 8px; text-align: center;">
-                <div style="font-size: 1.2rem;">🌅</div>
-                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${earlyCount}</div>
-                <div class="text-muted" style="font-size: 0.65rem;">Frühaufsteher</div>
-              </div>` : ''}
-              <div class="card" style="padding: 8px; text-align: center;">
-                <div style="font-size: 1.2rem;">📊</div>
-                <div style="font-size: 1rem; font-weight: 700; color: var(--color-gold);">${yearHM.toLocaleString('de')}</div>
-                <div class="text-muted" style="font-size: 0.65rem;">HM</div>
-              </div>
-            </div>
-          </div>`;
+      // HM — aus elevation_gain der Summits summieren
+      let yearHM = 0;
+      for (const s of yearSummits) {
+        if (s.elevation_gain) yearHM += s.elevation_gain;
       }
-
-      if (trophyHtml) {
-        badgesGrid.innerHTML = trophyHtml;
-      }
+      const hmEl = document.getElementById('trophy-hm');
+      if (hmEl) hmEl.textContent = yearHM.toLocaleString('de');
     }
 
     // Lose berechnen

@@ -494,6 +494,7 @@
         for (const fp of foundPeaks) {
           const summitTime = fp.point.time || new Date().toISOString();
           const summitYear = new Date(summitTime).getFullYear().toString();
+          console.log('DEBUG GPX:', { totalElevGain, totalDistKm, basePts: Math.round(totalElevGain / 100) + Math.round(totalDistKm) + 10 });
           const basePts = Math.round(totalElevGain / 100) + Math.round(totalDistKm) + 10;
 
           // Prüfe ob Saison-Erster oder Personal-Erster

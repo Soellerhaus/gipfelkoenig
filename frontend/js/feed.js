@@ -11,141 +11,78 @@ window.GK = window.GK || {};
 async function loadFeed() {
   const container = document.getElementById('feed-list');
   if (!container) return;
-
-  container.innerHTML = '<p class="text-muted" style="font-size: 0.85rem;">Lade Feed...</p>';
+  container.innerHTML = '<p style="color:#888;">Lade Feed...</p>';
 
   try {
     const { data: summits, error } = await GK.supabase
       .from('summits')
-      .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first, elevation_gain, distance')
+      .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first, elevation_gain')
       .order('summited_at', { ascending: false })
       .limit(30);
 
-    if (error || !summits || summits.length === 0) {
-      container.innerHTML = '<p class="text-muted">Noch keine Aktivitaeten.</p>';
-      return;
-    }
+    if (error) { console.error('Feed error:', error); container.innerHTML = '<p style="color:#888;">Feed konnte nicht geladen werden.</p>'; return; }
+    if (!summits || summits.length === 0) { container.innerHTML = '<p style="color:#888;">Noch keine Aktivitäten.</p>'; return; }
 
-    // User-Namen und Peak-Daten batch laden
+    // Batch: User-Profile laden
     const userIds = [...new Set(summits.map(s => s.user_id))];
+    const { data: profiles } = await GK.supabase.from('user_profiles').select('id, username, avatar_type').in('id', userIds);
+    const profileMap = {};
+    (profiles || []).forEach(p => profileMap[p.id] = p);
+
+    // Batch: Peak-Daten laden
     const peakIds = [...new Set(summits.map(s => s.peak_id))];
+    const { data: peaks } = await GK.supabase.from('peaks').select('id, name, elevation').in('id', peakIds);
+    const peakMap = {};
+    (peaks || []).forEach(p => peakMap[p.id] = p);
 
-    const userNames = {};
-    for (const uid of userIds) {
-      const profil = await GK.api.getUserProfile(uid);
-      userNames[uid] = profil ? (profil.username || 'Anonym') : 'Anonym';
-    }
-
-    const peakData = {};
-    for (const pid of peakIds) {
-      const peak = await GK.api.getPeakById(pid);
-      peakData[pid] = peak || { name: 'Unbekannt', elevation: 0 };
-    }
-
-    // Combo-Tage erkennen (2+ Gipfel am selben Tag vom selben User)
-    const byUserDate = {};
-    for (const s of summits) {
-      const key = s.user_id + '_' + s.summited_at.slice(0, 10);
-      if (!byUserDate[key]) byUserDate[key] = new Set();
-      byUserDate[key].add(s.peak_id);
-    }
-    const comboDates = new Set();
-    for (const [key, peaks] of Object.entries(byUserDate)) {
-      if (peaks.size >= 2) comboDates.add(key);
-    }
-
-    // Feed-HTML erstellen
+    const AVATARS = { mountain:'🏔️', eagle:'🦅', ski:'⛷️', climber:'🧗', tree:'🌲', snow:'❄️', deer:'🦌', rock:'🪨' };
     let html = '';
     let lastDate = '';
 
     for (const s of summits) {
       const d = new Date(s.summited_at);
-      const datum = d.toLocaleDateString('de-AT', {
-        day: '2-digit', month: 'long', year: 'numeric'
-      });
-      const zeit = d.toLocaleTimeString('de-AT', {
-        hour: '2-digit', minute: '2-digit'
-      });
+      const datum = d.toLocaleDateString('de-AT', { day:'2-digit', month:'long', year:'numeric' });
+      const profile = profileMap[s.user_id] || {};
+      const peak = peakMap[s.peak_id] || { name:'Unbekannt', elevation:0 };
+      const avatar = AVATARS[profile.avatar_type] || '⛰️';
+      const username = profile.username || 'Anonym';
       const hour = d.getHours();
-      const userName = userNames[s.user_id];
-      const peak = peakData[s.peak_id];
-      const comboKey = s.user_id + '_' + s.summited_at.slice(0, 10);
-      const isCombo = comboDates.has(comboKey);
-      const isEarly = hour < 7;
 
-      // Datums-Trenner
       if (datum !== lastDate) {
-        html += `<div style="font-size:0.75rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;margin:1rem 0 0.3rem;font-family:var(--font-mono);">${datum}</div>`;
+        html += '<div style="font-size:0.75rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin:16px 0 6px;font-family:monospace;">' + datum + '</div>';
         lastDate = datum;
       }
 
-      // Punkte-Breakdown berechnen
-      const pts = s.points || 0;
-      const hmVal = s.elevation_gain ? Math.round(s.elevation_gain / 100) : 0;
-      const kmVal = s.distance ? Math.round(s.distance / 1000) : 0;
-      let breakdownParts = [];
-      // Basis-Formel anzeigen
-      if (s.elevation_gain || s.distance) {
-        let basisStr = '↗ ' + (s.elevation_gain || 0) + ' HM';
-        if (kmVal > 0) basisStr += ' · ' + kmVal + ' km';
-        basisStr += ' · ' + hmVal + '+' + kmVal + '+10 Basis';
-        if (s.is_season_first) basisStr += ' × 3 Pionier';
-        else if (s.is_personal_first) basisStr += ' × 2 Erstbesuch';
-        else basisStr += ' × 0.2 Wdh';
-        breakdownParts.push(basisStr);
-      } else {
-        if (s.is_season_first) breakdownParts.push('⭐ Saison-Erster ×3');
-        else if (s.is_personal_first) breakdownParts.push('🆕 Erstbesteigung ×2');
-        else if (pts > 0) breakdownParts.push('🔄 Wiederholung');
-      }
-      if (isCombo) breakdownParts.push('🔥 Combo +50%');
-      if (isEarly) breakdownParts.push('🌅 Tour vor 07:00 +15');
-
       // Badges
       let badges = '';
-      if (s.is_season_first) badges += '<span style="background:rgba(255,215,0,0.15);color:#ffd700;padding:1px 5px;border-radius:3px;font-size:0.65rem;margin-left:3px;">⭐ Pionier</span>';
-      if (s.is_personal_first) badges += '<span style="background:rgba(201,168,76,0.1);color:var(--color-gold);padding:1px 5px;border-radius:3px;font-size:0.65rem;margin-left:3px;">🆕 Neu</span>';
-      if (isCombo) badges += '<span style="background:rgba(255,100,0,0.15);color:#ff6400;padding:1px 5px;border-radius:3px;font-size:0.65rem;margin-left:3px;">🔥 Combo</span>';
-      if (isEarly) badges += '<span style="background:rgba(100,200,255,0.15);color:#64c8ff;padding:1px 5px;border-radius:3px;font-size:0.65rem;margin-left:3px;">🌅 Früh</span>';
+      if (s.is_season_first) badges += '<span style="background:rgba(255,215,0,0.2);color:#ffd700;font-size:0.65rem;padding:2px 6px;border-radius:4px;margin-right:4px;">⭐ Pionier</span>';
+      if (s.is_personal_first) badges += '<span style="background:rgba(100,149,237,0.2);color:cornflowerblue;font-size:0.65rem;padding:2px 6px;border-radius:4px;margin-right:4px;">🆕 Neu</span>';
+      if (hour < 7) badges += '<span style="background:rgba(255,165,0,0.2);color:orange;font-size:0.65rem;padding:2px 6px;border-radius:4px;margin-right:4px;">🌅 Früh</span>';
 
-      // Punkte-Farbe
-      let ptsColor = 'var(--color-gold)';
-      if (pts >= 100) ptsColor = '#ffd700';
-      else if (pts <= 0) ptsColor = 'var(--color-muted)';
+      // Punkte-Breakdown
+      const hm = s.elevation_gain || 0;
+      const hmPts = Math.round(hm / 100);
+      let breakdownText = hmPts + ' HM';
+      if (s.is_season_first) breakdownText += ' ×3 Pionier';
+      else if (s.is_personal_first) breakdownText += ' ×2 Erst';
+      else breakdownText += ' Basis';
 
-      // Aktivitaets-Icon
-      let icon = '⛰️';
-      if (s.is_season_first) icon = '⭐';
-      else if (isCombo) icon = '🔥';
-      else if (isEarly) icon = '🌅';
-
-      html += `
-        <div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.6rem 0;border-bottom:1px solid var(--color-border);">
-          <div style="width:36px;height:36px;background:var(--color-bg-hover);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;color:var(--color-gold);flex-shrink:0;">
-            ${userName.charAt(0).toUpperCase()}
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:0.9rem;">
-              <strong>${userName}</strong> hat
-              <strong style="color:var(--color-gold);">${peak.name}</strong> bestiegen
-              ${badges}
-            </div>
-            <div style="font-size:0.75rem;color:var(--color-muted);margin-top:2px;">
-              ${peak.elevation ? peak.elevation + ' m · ' : ''}${s.elevation_gain ? '↗ ' + s.elevation_gain + ' HM · ' : ''}${s.distance ? Math.round(s.distance/1000) + ' km · ' : ''}${zeit} Uhr
-            </div>
-            ${breakdownParts.length > 0 ? `<div style="font-size:0.65rem;color:var(--color-muted);margin-top:2px;font-family:var(--font-mono);">${breakdownParts.join(' + ')}</div>` : ''}
-          </div>
-          <div style="text-align:right;flex-shrink:0;min-width:50px;">
-            <div style="font-size:1.1rem;font-weight:700;color:${ptsColor};font-family:var(--font-mono);">+${pts}</div>
-            <div style="font-size:0.6rem;color:var(--color-muted);">Pkt</div>
-          </div>
-        </div>`;
+      html += '<div style="display:flex;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">';
+      html += '<span style="font-size:1.3rem;margin-right:10px;margin-top:2px;">' + avatar + '</span>';
+      html += '<div style="flex:1;">';
+      html += '<div><strong style="color:white;">' + username + '</strong> hat <strong style="color:#ffd700;">' + peak.name + '</strong> bestiegen ' + badges + '</div>';
+      html += '<div style="font-size:0.75rem;color:#888;margin-top:2px;">' + (peak.elevation || '?') + ' m · ↗' + hm + ' HM</div>';
+      html += '</div>';
+      html += '<div style="text-align:right;min-width:50px;">';
+      html += '<div style="font-size:1.2rem;font-weight:bold;color:#ffd700;">+' + (s.points || 0) + '</div>';
+      html += '<div style="font-size:0.6rem;color:#888;">Pkt</div>';
+      html += '</div></div>';
     }
 
     container.innerHTML = html;
   } catch (err) {
-    console.error('Fehler beim Laden des Feeds:', err);
-    container.innerHTML = '<p class="text-muted">Feed konnte nicht geladen werden.</p>';
+    console.error('Feed Fehler:', err);
+    container.innerHTML = '<p style="color:#888;">Feed-Fehler: ' + err.message + '</p>';
   }
 }
 
