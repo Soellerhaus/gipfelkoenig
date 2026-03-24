@@ -265,7 +265,8 @@
     }
 
     // Strava OAuth starten
-    document.getElementById('connect-strava-btn').addEventListener('click', (e) => {
+    var stravaBtn = document.getElementById('connect-strava-btn');
+    if (stravaBtn) stravaBtn.addEventListener('click', (e) => {
       e.preventDefault();
       const state = crypto.randomUUID();
       sessionStorage.setItem('strava_oauth_state', state);
@@ -319,7 +320,7 @@
     }
 
     // Strava trennen
-    document.getElementById('disconnect-strava-btn').addEventListener('click', async () => {
+    var _dsb = document.getElementById('disconnect-strava-btn'); if (_dsb) _dsb.addEventListener('click', async () => {
       if (!confirm('Strava wirklich trennen? Bestehende Punkte bleiben erhalten.')) return;
 
       // Token aus DB holen und bei Strava deautorisieren
@@ -408,7 +409,7 @@
     }
 
     // Suunto trennen
-    document.getElementById('disconnect-suunto-btn').addEventListener('click', async () => {
+    var _dsub = document.getElementById('disconnect-suunto-btn'); if (_dsub) _dsub.addEventListener('click', async () => {
       if (!confirm('Suunto wirklich trennen? Bestehende Punkte bleiben erhalten.')) return;
 
       // Tokens aus DB löschen
@@ -702,57 +703,25 @@
       }
     });
 
-    // Globale Variable für komprimiertes Bild
-    var compressedSettingsFile = null;
-
-    // Bild komprimieren via Canvas
-    function compressImage(file) {
-      return new Promise(function(resolve) {
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-          var img = new Image();
-          img.onload = function() {
-            var canvas = document.createElement('canvas');
-            var maxDim = 800;
-            var w = img.width, h = img.height;
-            if (w > maxDim || h > maxDim) {
-              if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
-              else { w = Math.round(w * maxDim / h); h = maxDim; }
-            }
-            canvas.width = w;
-            canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            canvas.toBlob(function(blob) {
-              resolve(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
-            }, 'image/jpeg', 0.8);
-          };
-          img.src = ev.target.result;
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // Profilbild — Vorschau
+    // Profilbild — Vorschau (direkt, ohne Komprimierung im Preview)
+    var selectedAvatarFile = null;
     document.getElementById('avatar-file-settings').addEventListener('change', function(e) {
       var file = e.target.files[0];
       var preview = document.getElementById('avatar-preview-settings');
       var saveBtn = document.getElementById('save-avatar-btn');
-      if (!file) { preview.classList.remove('visible'); saveBtn.style.display = 'none'; compressedSettingsFile = null; return; }
-      compressImage(file).then(function(compressed) {
-        compressedSettingsFile = compressed;
-        var r = new FileReader();
-        r.onload = function(ev) {
-          preview.src = ev.target.result;
-          preview.classList.add('visible');
-          saveBtn.style.display = 'inline-block';
-        };
-        r.readAsDataURL(compressed);
-      });
+      var msgEl = document.getElementById('avatar-message');
+      if (!file) { preview.classList.remove('visible'); saveBtn.style.display = 'none'; selectedAvatarFile = null; return; }
+      selectedAvatarFile = file;
+      // Vorschau direkt anzeigen
+      preview.src = URL.createObjectURL(file);
+      preview.classList.add('visible');
+      saveBtn.style.display = 'inline-block';
+      if (msgEl) { msgEl.style.display = 'none'; }
     });
 
-    // Profilbild — Speichern
+    // Profilbild — Speichern (komprimiert beim Upload)
     document.getElementById('save-avatar-btn').addEventListener('click', async () => {
-      if (!compressedSettingsFile) return;
+      if (!selectedAvatarFile) { alert('Bitte zuerst ein Foto auswählen.'); return; }
       // Session sicherstellen
       if (!currentUser) {
         const { data: { session } } = await GK.supabase.auth.getSession();
@@ -763,11 +732,35 @@
       const saveBtn = document.getElementById('save-avatar-btn');
       saveBtn.disabled = true;
       saveBtn.textContent = 'Wird hochgeladen...';
+      msg.style.display = 'block';
+      msg.textContent = 'Bild wird komprimiert...';
+      msg.style.color = 'var(--color-muted)';
+
+      // Komprimieren via Canvas
+      var uploadFile = selectedAvatarFile;
+      try {
+        var bitmap = await createImageBitmap(selectedAvatarFile);
+        var canvas = document.createElement('canvas');
+        var maxDim = 800;
+        var w = bitmap.width, h = bitmap.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+        var blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.8));
+        uploadFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+        msg.textContent = 'Wird hochgeladen...';
+      } catch(compErr) {
+        console.warn('Komprimierung fehlgeschlagen, lade Original hoch:', compErr);
+        msg.textContent = 'Wird hochgeladen (Original)...';
+      }
 
       try {
         const path = currentUser.id + '/avatar.jpg';
         const { data: uploadData, error: uploadError } = await GK.supabase.storage
-          .from('avatars').upload(path, compressedSettingsFile, { upsert: true });
+          .from('avatars').upload(path, uploadFile, { upsert: true });
         if (uploadError) throw uploadError;
 
         const { data: urlData } = GK.supabase.storage.from('avatars').getPublicUrl(path);
