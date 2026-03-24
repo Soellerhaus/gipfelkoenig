@@ -168,23 +168,54 @@
       });
     });
 
-    // Profilbild-Vorschau
-    document.getElementById('avatar-file').addEventListener('change', (e) => {
+    // Bild komprimieren (max 2MB, Canvas resize)
+    async function compressImage(file, maxSizeBytes = 2 * 1024 * 1024) {
+      if (file.size <= maxSizeBytes) return file;
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let w = img.width, h = img.height;
+          // Schrittweise verkleinern bis unter 2MB
+          let quality = 0.8;
+          let scale = 1;
+          function tryCompress() {
+            canvas.width = w * scale;
+            canvas.height = h * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+              if (blob.size <= maxSizeBytes || quality <= 0.1) {
+                resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+              } else {
+                quality -= 0.15;
+                if (quality <= 0.3) scale *= 0.75;
+                tryCompress();
+              }
+            }, 'image/jpeg', quality);
+          }
+          tryCompress();
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // Profilbild-Vorschau (mit Auto-Komprimierung)
+    document.getElementById('avatar-file').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       const preview = document.getElementById('avatar-preview');
       if (!file) { preview.classList.remove('visible'); return; }
-      if (file.size > 2 * 1024 * 1024) {
-        alert('Datei zu groß! Max. 2 MB.');
-        e.target.value = '';
-        preview.classList.remove('visible');
-        return;
-      }
+      const compressed = await compressImage(file);
+      // Komprimierte Datei als DataTransfer ersetzen
+      const dt = new DataTransfer();
+      dt.items.add(compressed);
+      e.target.files = dt.files;
       const reader = new FileReader();
       reader.onload = (ev) => {
         preview.src = ev.target.result;
         preview.classList.add('visible');
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressed);
     });
 
     // Avatar-Auswahl
