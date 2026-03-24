@@ -681,6 +681,9 @@
           const { data: allS } = await GK.supabase.from('summits').select('points').eq('user_id', currentUser.id);
           const tp = allS ? allS.reduce((s, r) => s + (r.points || 0), 0) : 0;
           await GK.supabase.from('user_profiles').update({ total_points: tp }).eq('id', currentUser.id);
+          // Animations
+          if (window.showConfetti) showConfetti();
+          if (window.showPointsAnimation) showPointsAnimation(tp);
         } else {
           msg.textContent = 'Fehler beim Speichern: ' + errors.join('; ');
           msg.style.color = 'var(--color-danger)';
@@ -786,5 +789,6 @@
       window.location.href = '/index.html';
     });
   </script>
+  <script src="/js/animations.js"></script>
 </body>
 </html>
