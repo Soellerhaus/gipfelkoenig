@@ -59,45 +59,55 @@
       </form>
     </div>
 
-    <!-- STRAVA VERBINDUNG -->
+    <!-- SUUNTO VERBINDUNG (erster Partner!) -->
     <div class="auth-card" style="margin-bottom: 1rem;">
-      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Strava-Verbindung</h2>
-
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+        <img src="/img/suunto-logo.png" alt="Suunto" style="height: 20px;">
+        <span style="color: #4CAF50; font-size: 0.7rem; font-weight: bold;">✓ Partner</span>
+      </div>
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Suunto-Verbindung</h2>
       <p style="color: var(--color-muted); font-size: 0.82rem; margin-bottom: 1rem;">
-        Verbinde dein Strava-Konto damit deine GPS-Touren automatisch auf Gipfelbesteigungen geprüft werden.
-        Ohne Strava kannst du Gipfel manuell per GPS-Check-in einchecken.
+        Verbinde dein Suunto-Konto damit deine GPS-Touren automatisch auf Gipfelbesteigungen geprüft werden.
       </p>
-
-      <!-- Nicht verbunden -->
-      <div id="strava-not-connected">
+      <div id="suunto-not-connected-top">
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
           <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-danger);"></span>
-          <span style="font-size: 0.85rem;">Strava nicht verbunden</span>
+          <span style="font-size: 0.85rem;">Suunto nicht verbunden</span>
         </div>
-        <a href="#" id="connect-strava-btn" class="btn btn-strava btn-block">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-          Mit Strava verbinden
+        <a href="#" id="connect-suunto-btn" class="btn btn-block" style="background: #E1261C; color: #fff; border-color: #E1261C; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          Mit Suunto verbinden
         </a>
-        <small style="display: block; margin-top: 0.5rem; color: var(--color-muted); font-size: 0.7rem;">
-          Bergkönig ist nicht von Strava® betrieben oder empfohlen. Strava® ist eine eingetragene Marke der Strava, Inc.
-        </small>
       </div>
-
-      <!-- Verbunden -->
-      <div id="strava-connected" style="display: none;">
+      <div id="suunto-connected-top" style="display: none;">
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
           <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-safe);"></span>
-          <span style="font-size: 0.85rem;">Strava verbunden ✓</span>
+          <span style="font-size: 0.85rem;">Suunto verbunden ✓</span>
         </div>
         <p style="color: var(--color-muted); font-size: 0.8rem; margin-bottom: 0.75rem;">
-          Verbunden seit: <span id="strava-connected-since">—</span>
+          Verbunden seit: <span id="suunto-connected-since-top">—</span>
         </p>
-        <button id="disconnect-strava-btn" class="btn btn-sm" style="color: var(--color-danger); border-color: var(--color-danger);">
-          Strava trennen
+        <button id="disconnect-suunto-btn-top" class="btn btn-sm" style="color: var(--color-danger); border-color: var(--color-danger);">
+          Suunto trennen
         </button>
-        <small style="display: block; margin-top: 0.5rem; color: var(--color-muted); font-size: 0.75rem;">
-          Bestehende Punkte bleiben erhalten. Manueller Check-in weiterhin möglich.
-        </small>
+      </div>
+    </div>
+
+    <!-- STRAVA (noch nicht genehmigt — ausgegraut) -->
+    <div class="auth-card" style="margin-bottom: 1rem; opacity: 0.5;">
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.5rem;">Strava-Verbindung</h2>
+      <p style="color: var(--color-muted); font-size: 0.82rem;">
+        Strava-Integration wird beantragt. Bald verfügbar!
+      </p>
+      <div id="strava-not-connected">
+        <button class="btn btn-block" disabled style="opacity:0.5; background: #fc4c02; color: white; border: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+          Strava verbinden (bald verfügbar)
+        </button>
+      </div>
+      <div id="strava-connected" style="display: none;">
+        <span style="font-size: 0.85rem;">Strava verbunden ✓</span>
+        <p style="color: var(--color-muted); font-size: 0.8rem;">Verbunden seit: <span id="strava-connected-since">—</span></p>
+        <button id="disconnect-strava-btn" class="btn btn-sm" style="color: var(--color-danger); border-color: var(--color-danger);">Strava trennen</button>
       </div>
     </div>
 
@@ -145,44 +155,7 @@
       <button class="btn btn-sm btn-block" disabled style="opacity:0.5;">Garmin verbinden (in Kürze verfügbar)</button>
     </div>
 
-    <!-- SUUNTO VERBINDUNG -->
-    <div class="auth-card" style="margin-bottom: 1rem;">
-      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">⌚ Suunto-Verbindung</h2>
-
-      <p style="color: var(--color-muted); font-size: 0.82rem; margin-bottom: 1rem;">
-        Verbinde dein Suunto-Konto damit deine GPS-Touren automatisch auf Gipfelbesteigungen geprüft werden.
-        Ohne Suunto kannst du Gipfel manuell per GPS-Check-in einchecken.
-      </p>
-
-      <!-- Nicht verbunden -->
-      <div id="suunto-not-connected">
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
-          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-danger);"></span>
-          <span style="font-size: 0.85rem;">Suunto nicht verbunden</span>
-        </div>
-        <a href="#" id="connect-suunto-btn" class="btn btn-block" style="background: #e45d22; color: #fff; border-color: #e45d22; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12a4 4 0 0 1 8 0" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          Mit Suunto verbinden
-        </a>
-      </div>
-
-      <!-- Verbunden -->
-      <div id="suunto-connected" style="display: none;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
-          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-safe);"></span>
-          <span style="font-size: 0.85rem;">Suunto verbunden ✓</span>
-        </div>
-        <p style="color: var(--color-muted); font-size: 0.8rem; margin-bottom: 0.75rem;">
-          Verbunden seit: <span id="suunto-connected-since">—</span>
-        </p>
-        <button id="disconnect-suunto-btn" class="btn btn-sm" style="color: var(--color-danger); border-color: var(--color-danger);">
-          Suunto trennen
-        </button>
-        <small style="display: block; margin-top: 0.5rem; color: var(--color-muted); font-size: 0.75rem;">
-          Bestehende Punkte bleiben erhalten. Manueller Check-in weiterhin möglich.
-        </small>
-      </div>
-    </div>
+    <!-- Suunto Section wurde nach oben verschoben -->
 
     <!-- LINKS -->
     <div style="text-align: center; margin-bottom: 1rem; font-size: 0.8rem;">
