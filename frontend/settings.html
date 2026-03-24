@@ -692,69 +692,66 @@
       }
     });
 
-    // Bild komprimieren (max 2MB)
-    async function compressImage(file, maxSizeBytes = 2 * 1024 * 1024) {
-      if (file.size <= maxSizeBytes) return file;
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let w = img.width, h = img.height;
-          let quality = 0.8, scale = 1;
-          function tryCompress() {
-            canvas.width = w * scale;
-            canvas.height = h * scale;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob((blob) => {
-              if (blob.size <= maxSizeBytes || quality <= 0.1) {
-                resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
-              } else {
-                quality -= 0.15;
-                if (quality <= 0.3) scale *= 0.75;
-                tryCompress();
-              }
-            }, 'image/jpeg', quality);
-          }
-          tryCompress();
+    // Globale Variable für komprimiertes Bild
+    var compressedSettingsFile = null;
+
+    // Bild komprimieren via Canvas
+    function compressImage(file) {
+      return new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          var img = new Image();
+          img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var maxDim = 800;
+            var w = img.width, h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+              else { w = Math.round(w * maxDim / h); h = maxDim; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.toBlob(function(blob) {
+              resolve(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
+            }, 'image/jpeg', 0.8);
+          };
+          img.src = ev.target.result;
         };
-        img.src = URL.createObjectURL(file);
+        reader.readAsDataURL(file);
       });
     }
 
-    // Profilbild — Vorschau (mit Auto-Komprimierung)
-    document.getElementById('avatar-file-settings').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      const preview = document.getElementById('avatar-preview-settings');
-      const saveBtn = document.getElementById('save-avatar-btn');
-      if (!file) { preview.classList.remove('visible'); saveBtn.style.display = 'none'; return; }
-      const compressed = await compressImage(file);
-      const dt = new DataTransfer();
-      dt.items.add(compressed);
-      e.target.files = dt.files;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        preview.src = ev.target.result;
-        preview.classList.add('visible');
-        saveBtn.style.display = 'inline-block';
-      };
-      reader.readAsDataURL(compressed);
+    // Profilbild — Vorschau
+    document.getElementById('avatar-file-settings').addEventListener('change', function(e) {
+      var file = e.target.files[0];
+      var preview = document.getElementById('avatar-preview-settings');
+      var saveBtn = document.getElementById('save-avatar-btn');
+      if (!file) { preview.classList.remove('visible'); saveBtn.style.display = 'none'; compressedSettingsFile = null; return; }
+      compressImage(file).then(function(compressed) {
+        compressedSettingsFile = compressed;
+        var r = new FileReader();
+        r.onload = function(ev) {
+          preview.src = ev.target.result;
+          preview.classList.add('visible');
+          saveBtn.style.display = 'inline-block';
+        };
+        r.readAsDataURL(compressed);
+      });
     });
 
     // Profilbild — Speichern
     document.getElementById('save-avatar-btn').addEventListener('click', async () => {
-      const file = document.getElementById('avatar-file-settings').files[0];
-      if (!file) return;
+      if (!compressedSettingsFile) return;
       const msg = document.getElementById('avatar-message');
       const saveBtn = document.getElementById('save-avatar-btn');
       saveBtn.disabled = true;
       saveBtn.textContent = 'Wird hochgeladen...';
 
       try {
-        const ext = file.name.split('.').pop().toLowerCase();
-        const path = currentUser.id + '/avatar.' + ext;
+        const path = currentUser.id + '/avatar.jpg';
         const { data: uploadData, error: uploadError } = await GK.supabase.storage
-          .from('avatars').upload(path, file, { upsert: true });
+          .from('avatars').upload(path, compressedSettingsFile, { upsert: true });
         if (uploadError) throw uploadError;
 
         const { data: urlData } = GK.supabase.storage.from('avatars').getPublicUrl(path);
