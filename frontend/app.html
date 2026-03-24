@@ -109,7 +109,14 @@
       <!-- Profil / Dashboard -->
       <section class="content-section" id="section-profile">
 
-        <!-- Saison oben -->
+        <!-- Profil-Header OBEN -->
+        <div class="profile-header" style="margin-bottom: 0.75rem;">
+          <div class="profile-avatar" id="profile-avatar">?</div>
+          <h2 id="profile-name">Laden...</h2>
+          <p class="text-muted" id="profile-username">@...</p>
+        </div>
+
+        <!-- Saison darunter -->
         <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: var(--color-gold);">
           <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:8px;">
             <button onclick="switchProfileSeason(-1)" style="background:none; border:1px solid var(--color-gold); color:var(--color-gold); border-radius:4px; padding:2px 8px; cursor:pointer; font-size:0.8rem;">&#9668;</button>
@@ -146,13 +153,6 @@
           <!-- Hidden elements for backward compatibility -->
           <div id="season-summits" style="display:none;">0</div>
           <div id="season-points" style="display:none;">0</div>
-        </div>
-
-        <!-- Profil-Header -->
-        <div class="profile-header" style="margin-bottom: 0.75rem;">
-          <div class="profile-avatar" id="profile-avatar">?</div>
-          <h2 id="profile-name">Laden...</h2>
-          <p class="text-muted" id="profile-username">@...</p>
         </div>
 
         <!-- Trophäen — stylisches Grid -->
