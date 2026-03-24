@@ -753,6 +753,12 @@
     // Profilbild — Speichern
     document.getElementById('save-avatar-btn').addEventListener('click', async () => {
       if (!compressedSettingsFile) return;
+      // Session sicherstellen
+      if (!currentUser) {
+        const { data: { session } } = await GK.supabase.auth.getSession();
+        if (!session) { alert('Bitte zuerst einloggen!'); return; }
+        currentUser = session.user;
+      }
       const msg = document.getElementById('avatar-message');
       const saveBtn = document.getElementById('save-avatar-btn');
       saveBtn.disabled = true;
