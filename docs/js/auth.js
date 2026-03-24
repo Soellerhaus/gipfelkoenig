@@ -303,8 +303,13 @@ async function initAppPage() {
     const nameEl = document.getElementById('user-avatar');
     const punkteEl = document.getElementById('user-points');
     if (nameEl) {
-      const avatarEmoji = profil.avatar_type ? AVATAR_EMOJIS[profil.avatar_type] : null;
-      nameEl.textContent = avatarEmoji || (profil.username || 'B').charAt(0).toUpperCase();
+      if (profil.avatar_url) {
+        nameEl.innerHTML = '<img src="' + profil.avatar_url + '" alt="Avatar">';
+        nameEl.classList.add('has-image');
+      } else {
+        const avatarEmoji = profil.avatar_type ? AVATAR_EMOJIS[profil.avatar_type] : null;
+        nameEl.textContent = avatarEmoji || (profil.username || 'B').charAt(0).toUpperCase();
+      }
     }
     if (punkteEl) punkteEl.textContent = (profil.total_points || 0).toLocaleString('de') + ' Pkt';
 
@@ -444,9 +449,8 @@ async function initAppPage() {
     if (profilUsername) profilUsername.textContent = '@' + (profil.username || '');
     if (profilAvatar) {
       if (profil.avatar_url) {
-        profilAvatar.style.backgroundImage = 'url(' + profil.avatar_url + ')';
-        profilAvatar.style.backgroundSize = 'cover';
-        profilAvatar.textContent = '';
+        profilAvatar.innerHTML = '<img src="' + profil.avatar_url + '" alt="Avatar">';
+        profilAvatar.classList.add('has-image');
       } else {
         const avatarEmoji = profil.avatar_type ? AVATAR_EMOJIS[profil.avatar_type] : null;
         profilAvatar.textContent = avatarEmoji || (profil.username || 'B').charAt(0).toUpperCase();

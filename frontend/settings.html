@@ -41,6 +41,23 @@
       </div>
     </div>
 
+    <!-- PROFILBILD ÄNDERN -->
+    <div class="auth-card" style="margin-bottom: 1rem;">
+      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Profilbild ändern</h2>
+      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem;">
+        <div class="avatar-current" id="avatar-current-display">🏔️</div>
+        <div>
+          <p style="color: var(--color-muted); font-size: 0.82rem; margin-bottom: 0.5rem;">Lade ein eigenes Profilbild hoch oder nutze den Emoji-Avatar.</p>
+          <label class="avatar-upload-label" for="avatar-file-settings">📷 Neues Foto wählen</label>
+          <input type="file" id="avatar-file-settings" accept="image/png,image/jpeg,image/webp" style="display:none;">
+        </div>
+      </div>
+      <img id="avatar-preview-settings" class="avatar-upload-preview" alt="Vorschau" style="margin-bottom: 0.5rem;">
+      <p class="avatar-upload-hint">Max. 2 MB — PNG, JPG oder WebP</p>
+      <button id="save-avatar-btn" class="btn btn-primary btn-sm" style="margin-top: 0.5rem; display: none;">Profilbild speichern</button>
+      <p id="avatar-message" style="margin-top: 0.5rem; font-size: 0.85rem; display: none;"></p>
+    </div>
+
     <!-- PASSWORT ÄNDERN -->
     <div class="auth-card" style="margin-bottom: 1rem;">
       <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Passwort ändern</h2>
@@ -199,7 +216,7 @@
 
       const { data: profile } = await GK.supabase
         .from('user_profiles')
-        .select('username, avatar_type, strava_token, strava_connected_at, suunto_token, suunto_connected_at')
+        .select('username, avatar_type, avatar_url, strava_token, strava_connected_at, suunto_token, suunto_connected_at')
         .eq('id', currentUser.id)
         .single();
 
@@ -207,7 +224,23 @@
         document.getElementById('current-username').textContent = profile.username || '—';
 
         const avatarMap = { mountain: '🏔️', eagle: '🦅', ski: '⛷️', climber: '🧗', tree: '🌲', snow: '❄️', deer: '🦌', rock: '🪨' };
-        document.getElementById('current-avatar').textContent = avatarMap[profile.avatar_type] || '🏔️';
+        const emojiAvatar = avatarMap[profile.avatar_type] || '🏔️';
+
+        // Avatar in "Mein Profil" anzeigen
+        const currentAvatarEl = document.getElementById('current-avatar');
+        if (profile.avatar_url) {
+          currentAvatarEl.innerHTML = '<img src="' + profile.avatar_url + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" alt="Avatar">';
+        } else {
+          currentAvatarEl.textContent = emojiAvatar;
+        }
+
+        // Avatar in "Profilbild ändern" anzeigen
+        const avatarCurrentDisplay = document.getElementById('avatar-current-display');
+        if (profile.avatar_url) {
+          avatarCurrentDisplay.innerHTML = '<img src="' + profile.avatar_url + '" alt="Avatar">';
+        } else {
+          avatarCurrentDisplay.textContent = emojiAvatar;
+        }
 
         // Strava Status
         if (profile.strava_token) {
@@ -657,6 +690,70 @@
         msg.textContent = 'Fehler: ' + err.message;
         msg.style.color = 'var(--color-danger)';
       }
+    });
+
+    // Profilbild — Vorschau
+    document.getElementById('avatar-file-settings').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const preview = document.getElementById('avatar-preview-settings');
+      const saveBtn = document.getElementById('save-avatar-btn');
+      if (!file) { preview.classList.remove('visible'); saveBtn.style.display = 'none'; return; }
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Datei zu groß! Max. 2 MB.');
+        e.target.value = '';
+        preview.classList.remove('visible');
+        saveBtn.style.display = 'none';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        preview.src = ev.target.result;
+        preview.classList.add('visible');
+        saveBtn.style.display = 'inline-block';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Profilbild — Speichern
+    document.getElementById('save-avatar-btn').addEventListener('click', async () => {
+      const file = document.getElementById('avatar-file-settings').files[0];
+      if (!file) return;
+      const msg = document.getElementById('avatar-message');
+      const saveBtn = document.getElementById('save-avatar-btn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Wird hochgeladen...';
+
+      try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const path = currentUser.id + '/avatar.' + ext;
+        const { data: uploadData, error: uploadError } = await GK.supabase.storage
+          .from('avatars').upload(path, file, { upsert: true });
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = GK.supabase.storage.from('avatars').getPublicUrl(path);
+        const { error: updateError } = await GK.supabase.from('user_profiles')
+          .update({ avatar_url: urlData.publicUrl })
+          .eq('id', currentUser.id);
+        if (updateError) throw updateError;
+
+        // UI aktualisieren
+        const avatarCurrentDisplay = document.getElementById('avatar-current-display');
+        avatarCurrentDisplay.innerHTML = '<img src="' + urlData.publicUrl + '" alt="Avatar">';
+        const currentAvatarEl = document.getElementById('current-avatar');
+        currentAvatarEl.innerHTML = '<img src="' + urlData.publicUrl + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" alt="Avatar">';
+
+        msg.textContent = 'Profilbild gespeichert ✓';
+        msg.style.color = 'var(--color-safe)';
+        msg.style.display = 'block';
+        document.getElementById('avatar-preview-settings').classList.remove('visible');
+        saveBtn.style.display = 'none';
+      } catch (err) {
+        msg.textContent = 'Fehler: ' + (err.message || 'Upload fehlgeschlagen');
+        msg.style.color = 'var(--color-danger)';
+        msg.style.display = 'block';
+      }
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Profilbild speichern';
     });
 
     // Logout

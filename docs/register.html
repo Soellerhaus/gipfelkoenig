@@ -48,7 +48,17 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Wähle deinen Berg-Avatar</label>
+          <label class="form-label">Profilbild (optional)</label>
+          <div class="avatar-upload">
+            <label class="avatar-upload-label" for="avatar-file">📷 Foto hochladen</label>
+            <input type="file" id="avatar-file" accept="image/png,image/jpeg,image/webp" style="display:none;">
+            <img id="avatar-preview" class="avatar-upload-preview" alt="Vorschau">
+            <p class="avatar-upload-hint">Max. 2 MB — PNG, JPG oder WebP</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Oder wähle einen Emoji-Avatar</label>
           <div class="avatar-selector">
             <button type="button" class="avatar-option selected" data-avatar="mountain">🏔️</button>
             <button type="button" class="avatar-option" data-avatar="eagle">🦅</button>
@@ -158,6 +168,25 @@
       });
     });
 
+    // Profilbild-Vorschau
+    document.getElementById('avatar-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const preview = document.getElementById('avatar-preview');
+      if (!file) { preview.classList.remove('visible'); return; }
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Datei zu groß! Max. 2 MB.');
+        e.target.value = '';
+        preview.classList.remove('visible');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        preview.src = ev.target.result;
+        preview.classList.add('visible');
+      };
+      reader.readAsDataURL(file);
+    });
+
     // Avatar-Auswahl
     document.querySelectorAll('.avatar-option').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -210,6 +239,21 @@
           consent_version: '1.0'
         });
         if (profileError) throw profileError;
+
+        // Profilbild hochladen (falls ausgewählt)
+        const avatarFile = document.getElementById('avatar-file').files[0];
+        if (avatarFile) {
+          const ext = avatarFile.name.split('.').pop().toLowerCase();
+          const path = authData.user.id + '/avatar.' + ext;
+          const { data: uploadData, error: uploadError } = await GK.supabase.storage
+            .from('avatars').upload(path, avatarFile, { upsert: true });
+          if (!uploadError) {
+            const { data: urlData } = GK.supabase.storage.from('avatars').getPublicUrl(path);
+            await GK.supabase.from('user_profiles')
+              .update({ avatar_url: urlData.publicUrl })
+              .eq('id', authData.user.id);
+          }
+        }
 
         document.getElementById('register-form').style.display = 'none';
         successEl.textContent = 'Fast geschafft! Bitte bestätige deine E-Mail-Adresse. Wir haben dir einen Link geschickt.';
