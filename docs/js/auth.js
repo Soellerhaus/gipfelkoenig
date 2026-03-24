@@ -867,7 +867,7 @@ async function showPeakOfDay() {
   if (_lastPotdRegionKey !== null && _lastPotdRegionKey === regionKey) return;
 
   // Lade Peaks im sichtbaren Bereich
-  const { data: peaks } = await GK.supabase
+  const { data: allPeaks } = await GK.supabase
     .from('peaks')
     .select('id, name, elevation, lat, lng')
     .gte('lat', bounds.getSouth())
@@ -878,17 +878,31 @@ async function showPeakOfDay() {
     .order('elevation', { ascending: false })
     .limit(200);
 
-  if (!peaks || peaks.length === 0) {
+  if (!allPeaks || allPeaks.length === 0) {
+    el.style.display = 'none';
+    return;
+  }
+
+  // Nur Gipfel innerhalb 20km vom Kartenzentrum
+  var cLat = center.lat * Math.PI / 180, cLng = center.lng * Math.PI / 180;
+  var peaks = allPeaks.filter(function(p) {
+    var dLat = (p.lat * Math.PI / 180) - cLat;
+    var dLng = (p.lng * Math.PI / 180) - cLng;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(cLat)*Math.cos(p.lat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) <= 20;
+  });
+
+  if (peaks.length === 0) {
     el.style.display = 'none';
     return;
   }
 
   // Deterministischer Seed basierend auf Datum + Region-Center (gerundet auf 0.5°)
-  const today = new Date();
-  const seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
-  const index = Math.abs((seed + regionKey) * 2654435761) % peaks.length;
+  var today = new Date();
+  var seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
+  var index = Math.abs((seed + regionKey) * 2654435761) % peaks.length;
 
-  const peak = peaks[index];
+  var peak = peaks[index];
   _lastPotdRegionKey = regionKey;
   GK.peakOfDayId = peak.id;
   GK.peakOfDayCoords = [peak.lat, peak.lng];
@@ -914,12 +928,12 @@ async function showPeakOfDay() {
   GK.map._potdMarker = L.marker([peak.lat, peak.lng], {
     icon: L.divIcon({
       className: 'potd-star',
-      html: '🎲',
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
+      html: '<div class="potd-dice">🎲</div>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
     }),
     zIndexOffset: 1000
-  }).addTo(GK.map.map)
+  }).addTo(GK.map.leaflet)
     .bindPopup('<b>🎲 Gipfel des Tages</b><br>' + peak.name + '<br><span style="color:#ffd700">5× Punkte!</span>');
 }
 

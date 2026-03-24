@@ -580,6 +580,20 @@
   75% { transform: translateY(-3px); }
 }
 
+/* Gipfel des Tages — animierter Würfel */
+.potd-dice {
+  font-size: 1.8rem;
+  animation: dice-wobble 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(255,215,0,0.7));
+}
+@keyframes dice-wobble {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  15% { transform: rotate(12deg) scale(1.1); }
+  30% { transform: rotate(-8deg) scale(1); }
+  45% { transform: rotate(5deg) scale(1.05); }
+  60% { transform: rotate(0deg) scale(1); }
+}
+
 .peak-marker.normal {
   color: var(--color-text);
   font-size: 1rem;
