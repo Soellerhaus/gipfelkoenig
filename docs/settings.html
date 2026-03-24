@@ -490,6 +490,13 @@
       const file = e.target.files[0];
       if (!file) return;
 
+      // Session sicherstellen
+      if (!currentUser) {
+        const { data: { session } } = await GK.supabase.auth.getSession();
+        if (!session) { alert('Bitte zuerst einloggen!'); return; }
+        currentUser = session.user;
+      }
+
       const statusDiv = document.getElementById('upload-status');
       const bar = document.getElementById('upload-bar');
       const msg = document.getElementById('upload-message');
