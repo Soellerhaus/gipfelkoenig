@@ -571,6 +571,13 @@
 .peak-marker.king {
   font-size: 1.5rem;
   filter: drop-shadow(0 0 6px rgba(212,162,76,0.6));
+  animation: crown-hop 2s ease-in-out infinite;
+}
+@keyframes crown-hop {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-6px); }
+  50% { transform: translateY(0); }
+  75% { transform: translateY(-3px); }
 }
 
 .peak-marker.normal {

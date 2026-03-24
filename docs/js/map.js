@@ -368,12 +368,12 @@ async function loadPeaks() {
       marker.peakData = peak;
       markerLayer.addLayer(marker);
     }
+
+    // Kronen KOMPLETT ASYNC nachladen — blockiert NICHTS
+    loadCrownsAsync(peaks);
   } finally {
     _loadPeaksRunning = false;
   }
-
-  // Kronen KOMPLETT ASYNC nachladen — blockiert NICHTS
-  loadCrownsAsync(peaks);
 }
 
 /** Kronen im Hintergrund laden — blockiert weder UI noch loadPeaks */
