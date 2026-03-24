@@ -386,6 +386,7 @@
 }
 
 /* Bergkönig zweifarbig — überall nutzbar */
+.brand-name { color: var(--snow); font-family: var(--font-display); }
 .brand-name .brand-king { color: var(--color-gold); }
 
 /* === BOTTOM NAVIGATION === */
