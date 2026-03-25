@@ -381,6 +381,9 @@ async function initAppPage() {
   // Täglichen Login-Bonus prüfen
   checkDailyReward();
 
+  // Kronen-Angriffe + Rivalen prüfen (im Hintergrund, blockiert nicht)
+  checkCrownThreats(benutzer.id);
+
   // Strava-OAuth-Callback verarbeiten (Code in URL-Parametern)
   const urlParams = new URLSearchParams(window.location.search);
   const stravaCode = urlParams.get('code');
@@ -1202,6 +1205,172 @@ async function claimDailyReward(streak, points, isDay7) {
     localStorage.setItem('bergkoenig_last_login_date', today);
     localStorage.setItem('bergkoenig_login_streak', streak.toString());
     if (overlay) overlay.style.display = 'none';
+  }
+}
+
+// ============================
+// Kronen-Angriffe & Rivalen-Check
+// ============================
+async function checkCrownThreats(userId) {
+  try {
+    const season = new Date().getFullYear().toString();
+    const lastCheck = localStorage.getItem('bergkoenig_last_crown_check') || '2000-01-01';
+
+    // 1. Alle Peaks laden wo der User Summits hat
+    const { data: mySummits } = await GK.supabase
+      .from('summits').select('peak_id, season')
+      .eq('user_id', userId).eq('season', season);
+    if (!mySummits || mySummits.length === 0) return;
+
+    // Zähle meine Besteigungen pro Peak
+    const myCounts = {};
+    for (const s of mySummits) {
+      myCounts[s.peak_id] = (myCounts[s.peak_id] || 0) + 1;
+    }
+    const myPeakIds = Object.keys(myCounts).map(Number);
+
+    // 2. Alle Summits auf diesen Peaks laden (von allen Usern)
+    const { data: allSummits } = await GK.supabase
+      .from('summits').select('peak_id, user_id, summited_at, season')
+      .in('peak_id', myPeakIds).eq('season', season);
+    if (!allSummits) return;
+
+    // 3. Wer ist König pro Peak? + Gibt es neue Bedrohungen?
+    const peakData = {};
+    for (const s of allSummits) {
+      if (!peakData[s.peak_id]) peakData[s.peak_id] = {};
+      peakData[s.peak_id][s.user_id] = (peakData[s.peak_id][s.user_id] || 0) + 1;
+    }
+
+    // Bedrohte Kronen und verlorene Kronen finden
+    const threats = [];  // ⚔️ Jemand ist nah dran
+    const lost = [];     // 💀 Krone verloren
+
+    for (const [pid, users] of Object.entries(peakData)) {
+      const sorted = Object.entries(users).sort((a, b) => b[1] - a[1]);
+      const myCount = users[userId] || 0;
+      if (myCount === 0) continue;
+
+      const topUser = sorted[0];
+      const topCount = topUser[1];
+
+      if (topUser[0] === userId) {
+        // Ich bin König — gibt es Bedrohungen?
+        if (sorted.length > 1) {
+          const challenger = sorted[1];
+          const gap = myCount - challenger[1];
+          if (gap <= 2 && gap > 0) {
+            // Nur 1-2 Vorsprung — Angriff!
+            threats.push({ peakId: parseInt(pid), challengerId: challenger[0], gap, myCount });
+          }
+        }
+      } else {
+        // Ich bin NICHT mehr König!
+        if (myCounts[pid] && myCounts[pid] > 0) {
+          // Hatte ich mal die Krone? Prüfe ob ich vorher König war
+          const newKingCount = topCount;
+          if (myCount >= newKingCount - 2) {
+            // Ich war kürzlich König und wurde überholt
+            lost.push({ peakId: parseInt(pid), newKingId: topUser[0], newKingCount, myCount });
+          }
+        }
+      }
+    }
+
+    // 4. Peak-Namen laden für die Notifications
+    const notifPeakIds = [...threats.map(t => t.peakId), ...lost.map(l => l.peakId)];
+    if (notifPeakIds.length === 0) {
+      // Kein Angriff — Rivalen-Check statt dessen
+      checkRival(userId, season, allSummits);
+      return;
+    }
+
+    const { data: peaks } = await GK.supabase
+      .from('peaks').select('id, name')
+      .in('id', notifPeakIds);
+    const peakNames = {};
+    if (peaks) peaks.forEach(p => peakNames[p.id] = p.name);
+
+    // Challenger-Namen laden
+    const challengerIds = [...new Set([...threats.map(t => t.challengerId), ...lost.map(l => l.newKingId)])];
+    const { data: profiles } = await GK.supabase
+      .from('user_profiles').select('id, username')
+      .in('id', challengerIds);
+    const userNames = {};
+    if (profiles) profiles.forEach(p => userNames[p.id] = p.username);
+
+    // 5. Notifications erstellen
+    for (const t of threats) {
+      const name = peakNames[t.peakId] || 'Unbekannt';
+      const challenger = userNames[t.challengerId] || 'Jemand';
+      addNotification('⚔️',
+        challenger + ' greift deine Krone an! ' + name + ' — noch ' + t.gap + ' Vorsprung!',
+        'crown-attack');
+    }
+
+    for (const l of lost) {
+      const name = peakNames[l.peakId] || 'Unbekannt';
+      const newKing = userNames[l.newKingId] || 'Jemand';
+      addNotification('💀',
+        'Krone verloren! ' + newKing + ' ist neuer König auf ' + name + ' (' + l.newKingCount + '×)',
+        'crown-lost');
+    }
+
+    // Timestamp speichern
+    localStorage.setItem('bergkoenig_last_crown_check', new Date().toISOString());
+
+    // Rivalen-Check auch noch
+    checkRival(userId, season, allSummits);
+
+  } catch (err) {
+    console.error('Crown threats check:', err);
+  }
+}
+
+// Rivalen-Check: Wer ist direkt über/unter mir in der Rangliste?
+async function checkRival(userId, season) {
+  try {
+    // Letzte Prüfung heute schon? → Skip
+    const lastRivalCheck = localStorage.getItem('bergkoenig_last_rival_check');
+    const today = getTodayStr();
+    if (lastRivalCheck === today) return;
+
+    // Alle User-Punkte laden (Top 50)
+    const { data: leaderboard } = await GK.supabase
+      .from('user_profiles').select('id, username, total_points')
+      .order('total_points', { ascending: false }).limit(50);
+    if (!leaderboard) return;
+
+    const myIndex = leaderboard.findIndex(u => u.id === userId);
+    if (myIndex < 0) return;
+
+    const myPoints = leaderboard[myIndex].total_points || 0;
+
+    // Spieler direkt über mir
+    if (myIndex > 0) {
+      const rival = leaderboard[myIndex - 1];
+      const gap = (rival.total_points || 0) - myPoints;
+      if (gap < 100 && gap > 0) {
+        addNotification('📊',
+          'Noch ' + gap + ' Pkt bis Platz ' + myIndex + '! ' + (rival.username || 'Jemand') + ' ist knapp vor dir.',
+          'rival');
+      }
+    }
+
+    // Spieler direkt unter mir greift an
+    if (myIndex < leaderboard.length - 1) {
+      const chaser = leaderboard[myIndex + 1];
+      const gap = myPoints - (chaser.total_points || 0);
+      if (gap < 50 && gap > 0) {
+        addNotification('🏃',
+          (chaser.username || 'Jemand') + ' holt auf! Nur noch ' + gap + ' Pkt hinter dir.',
+          'rival-chase');
+      }
+    }
+
+    localStorage.setItem('bergkoenig_last_rival_check', today);
+  } catch (err) {
+    console.error('Rival check:', err);
   }
 }
 
