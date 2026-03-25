@@ -814,15 +814,30 @@ async function initMap() {
   };
   homeBtn.addTo(map);
 
-  // Hex-Territory-Toggle-Button
-  const hexToggle = L.control({ position: 'topleft' });
-  hexToggle.onAdd = function () {
-    const div = L.DomUtil.create('div', 'leaflet-bar');
+  // Hex-Territory-Toggle + Opacity-Slider (in einem Control, Slider direkt unter Button)
+  const hexCombo = L.control({ position: 'topleft' });
+  hexCombo.onAdd = function () {
+    const wrap = L.DomUtil.create('div', '');
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;';
     const savedState = localStorage.getItem('gk_hex_visible');
     const hexVisible = savedState === null ? true : savedState === 'true';
     GK.map._hexVisible = hexVisible;
-    div.innerHTML = '<a href="#" title="Gebiete ein/aus" id="hex-toggle-btn" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--color-bg-card,#2d2a26);color:' + (hexVisible ? '#c9a84c' : '#666') + ';font-size:18px;text-decoration:none;border-radius:4px;">⬡</a>';
-    div.querySelector('a').addEventListener('click', function (e) {
+    const savedOpacity = parseInt(localStorage.getItem('gk_hex_opacity'), 10);
+    const opVal = (savedOpacity >= 5 && savedOpacity <= 60) ? savedOpacity : 20;
+    GK.map._hexOpacity = opVal;
+
+    // Toggle-Button
+    const btn = L.DomUtil.create('div', 'leaflet-bar', wrap);
+    btn.innerHTML = '<a href="#" title="Gebiete ein/aus" id="hex-toggle-btn" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--color-bg-card,#2d2a26);color:' + (hexVisible ? '#c9a84c' : '#666') + ';font-size:18px;text-decoration:none;border-radius:4px;">⬡</a>';
+
+    // Slider direkt darunter (zentriert)
+    const sliderDiv = L.DomUtil.create('div', 'hex-opacity-control', wrap);
+    sliderDiv.innerHTML = '<input type="range" min="5" max="60" step="5" value="' + opVal + '" title="Hex-Transparenz" orient="vertical">';
+    if (!hexVisible) sliderDiv.style.display = 'none';
+    GK.map._hexOpacityDiv = sliderDiv;
+
+    // Toggle-Handler
+    btn.querySelector('a').addEventListener('click', function (e) {
       e.preventDefault();
       GK.map._hexVisible = !GK.map._hexVisible;
       localStorage.setItem('gk_hex_visible', GK.map._hexVisible);
@@ -834,45 +849,25 @@ async function initMap() {
           if (map.hasLayer(territoryLayer)) map.removeLayer(territoryLayer);
         }
       }
-      // Opacity-Slider ein-/ausblenden
-      if (GK.map._hexOpacityDiv) {
-        GK.map._hexOpacityDiv.style.display = GK.map._hexVisible ? '' : 'none';
-      }
+      sliderDiv.style.display = GK.map._hexVisible ? '' : 'none';
     });
-    L.DomEvent.disableClickPropagation(div);
-    return div;
-  };
-  hexToggle.addTo(map);
 
-  // Hex-Opacity-Slider (Transparenz der Territorienhexagone)
-  const hexOpacityCtrl = L.control({ position: 'topleft' });
-  hexOpacityCtrl.onAdd = function () {
-    const div = L.DomUtil.create('div', 'hex-opacity-control');
-    const savedOpacity = parseInt(localStorage.getItem('gk_hex_opacity'), 10);
-    const opVal = (savedOpacity >= 5 && savedOpacity <= 60) ? savedOpacity : 20;
-    GK.map._hexOpacity = opVal;
-    div.innerHTML = '<input type="range" min="5" max="60" step="5" value="' + opVal + '" title="Hex-Transparenz" orient="vertical">';
-    const slider = div.querySelector('input');
-    slider.addEventListener('input', function () {
+    // Slider-Handler
+    sliderDiv.querySelector('input').addEventListener('input', function () {
       const v = parseInt(this.value, 10);
       GK.map._hexOpacity = v;
       localStorage.setItem('gk_hex_opacity', v);
-      // Alle bestehenden Hex-Polygone aktualisieren
       if (territoryLayer) {
         territoryLayer.eachLayer(function (layer) {
-          if (layer.setStyle) {
-            layer.setStyle({ fillOpacity: v / 100, opacity: v / 100 * 2 });
-          }
+          if (layer.setStyle) layer.setStyle({ fillOpacity: v / 100, opacity: v / 100 * 2 });
         });
       }
     });
-    // Sichtbarkeit an Hex-Layer koppeln
-    if (!GK.map._hexVisible) div.style.display = 'none';
-    GK.map._hexOpacityDiv = div;
-    L.DomEvent.disableClickPropagation(div);
-    return div;
+
+    L.DomEvent.disableClickPropagation(wrap);
+    return wrap;
   };
-  hexOpacityCtrl.addTo(map);
+  hexCombo.addTo(map);
 
   // Browser-GPS als Standort-Bestimmung (nur wenn nicht vom Server)
   if (navigator.geolocation) {

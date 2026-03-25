@@ -1278,7 +1278,7 @@
   border-radius: 8px;
   padding: 4px 6px;
   margin-top: 4px;
-  margin-left: 10px;
+  margin-left: 0;
 }
 .hex-opacity-control input[type="range"] {
   writing-mode: vertical-lr;
