@@ -933,8 +933,8 @@ async function initMap() {
     }
     if (lats.length === 0) return [];
 
-    // Render-Kacheln: fein bei hohem Zoom
-    var renderStep = zoom >= 14 ? 0.001 : zoom >= 13 ? 0.002 : zoom >= 12 ? 0.004 : zoom >= 11 ? 0.008 : apiStep;
+    // Render-Kacheln: fein bei hohem Zoom (0.0002° ≈ 20m)
+    var renderStep = zoom >= 16 ? 0.0002 : zoom >= 15 ? 0.0005 : zoom >= 14 ? 0.001 : zoom >= 13 ? 0.002 : zoom >= 12 ? 0.004 : zoom >= 11 ? 0.008 : apiStep;
     GK.map._snowStep = renderStep;
 
     var url = 'https://api.open-meteo.com/v1/forecast'
@@ -959,7 +959,7 @@ async function initMap() {
 
       // Feines Render-Grid erzeugen mit IDW-Interpolation (Inverse Distance Weighting)
       var renderData = [];
-      var maxRenderPts = 2500; // Max Kacheln für Performance
+      var maxRenderPts = zoom >= 16 ? 5000 : zoom >= 15 ? 3000 : 2500;
       var count = 0;
       for (var rlat = b.getSouth(); rlat <= b.getNorth() && count < maxRenderPts; rlat += renderStep) {
         for (var rlng = b.getWest(); rlng <= b.getEast() && count < maxRenderPts; rlng += renderStep) {
