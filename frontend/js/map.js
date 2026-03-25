@@ -851,7 +851,7 @@ async function initMap() {
     const savedOpacity = parseInt(localStorage.getItem('gk_hex_opacity'), 10);
     const opVal = (savedOpacity >= 5 && savedOpacity <= 60) ? savedOpacity : 20;
     GK.map._hexOpacity = opVal;
-    div.innerHTML = '<input type="range" min="5" max="60" step="5" value="' + opVal + '" title="Hex-Transparenz">';
+    div.innerHTML = '<input type="range" min="5" max="60" step="5" value="' + opVal + '" title="Hex-Transparenz" orient="vertical">';
     const slider = div.querySelector('input');
     slider.addEventListener('input', function () {
       const v = parseInt(this.value, 10);

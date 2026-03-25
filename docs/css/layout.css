@@ -1276,15 +1276,17 @@
 .hex-opacity-control {
   background: rgba(0,0,0,0.7);
   border-radius: 8px;
-  padding: 6px;
+  padding: 4px 6px;
   margin-top: 4px;
 }
 .hex-opacity-control input[type="range"] {
-  width: 80px;
-  height: 4px;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 4px;
+  height: 70px;
   -webkit-appearance: none;
   appearance: none;
-  background: linear-gradient(to right, rgba(255,215,0,0.3), rgba(255,215,0,1));
+  background: linear-gradient(to top, rgba(255,215,0,0.2), rgba(255,215,0,1));
   border-radius: 2px;
   outline: none;
 }
