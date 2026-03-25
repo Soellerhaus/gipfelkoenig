@@ -1193,6 +1193,9 @@ async function claimDailyReward(streak, points, isDay7) {
       GK.showToast(msg, 'success');
     }
 
+    // Notification in Glocke
+    addNotification('🎁', '+' + points + ' Tages-Bonus (Tag ' + streak + '/7)' + (isDay7 ? ' + Bonus-Los!' : ''), 'reward');
+
   } catch (err) {
     console.error('Daily reward claim Fehler:', err);
     // Trotzdem localStorage updaten damit Modal nicht endlos kommt
@@ -1201,6 +1204,84 @@ async function claimDailyReward(streak, points, isDay7) {
     if (overlay) overlay.style.display = 'none';
   }
 }
+
+// ============================
+// Notification-System (Glocke)
+// ============================
+const _notifications = [];
+
+function addNotification(icon, text, type) {
+  _notifications.unshift({ icon, text, type, time: new Date() });
+  if (_notifications.length > 20) _notifications.pop();
+  updateNotifBadge();
+  renderNotifications();
+}
+
+function updateNotifBadge() {
+  const countEl = document.getElementById('notif-count');
+  const unread = _notifications.filter(n => !n.read).length;
+  if (countEl) {
+    if (unread > 0) {
+      countEl.textContent = unread > 9 ? '9+' : unread;
+      countEl.style.display = 'block';
+    } else {
+      countEl.style.display = 'none';
+    }
+  }
+}
+
+function renderNotifications() {
+  const list = document.getElementById('notif-list');
+  if (!list) return;
+  if (_notifications.length === 0) {
+    list.innerHTML = '<div style="padding:12px 14px;font-size:0.75rem;color:var(--color-muted);text-align:center;">Keine Benachrichtigungen</div>';
+    return;
+  }
+  list.innerHTML = _notifications.map(n => {
+    const ago = timeAgo(n.time);
+    const bg = n.read ? '' : 'background:rgba(201,168,76,0.06);';
+    return '<div style="padding:8px 14px;border-bottom:1px solid var(--color-border);' + bg + 'cursor:pointer;" onclick="this.style.background=\'none\'">'
+      + '<div style="display:flex;gap:8px;align-items:flex-start;">'
+      + '<span style="font-size:1.1rem;">' + n.icon + '</span>'
+      + '<div style="flex:1;">'
+      + '<div style="font-size:0.75rem;color:var(--color-text);line-height:1.3;">' + n.text + '</div>'
+      + '<div style="font-size:0.6rem;color:var(--color-muted);margin-top:2px;">' + ago + '</div>'
+      + '</div></div></div>';
+  }).join('');
+}
+
+function timeAgo(date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60) return 'gerade eben';
+  if (s < 3600) return Math.floor(s / 60) + ' Min';
+  if (s < 86400) return Math.floor(s / 3600) + ' Std';
+  return Math.floor(s / 86400) + ' Tage';
+}
+
+function toggleNotifDropdown() {
+  const dd = document.getElementById('notif-dropdown');
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  dd.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    // Alle als gelesen markieren
+    _notifications.forEach(n => n.read = true);
+    updateNotifBadge();
+  }
+}
+
+// Dropdown schliessen bei Klick ausserhalb
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('notif-dropdown');
+  const bell = document.getElementById('notification-bell');
+  if (dd && dd.style.display !== 'none' && !dd.contains(e.target) && !bell.contains(e.target)) {
+    dd.style.display = 'none';
+  }
+});
+
+// Global verfügbar machen
+window.toggleNotifDropdown = toggleNotifDropdown;
+window.addNotification = addNotification;
 
 // Confetti-Burst Animation
 function fireConfetti() {
