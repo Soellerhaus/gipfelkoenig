@@ -347,6 +347,9 @@ async function initAppPage() {
 
   const benutzer = sitzung.session.user;
 
+  // User global verfügbar machen für andere Module (game.js Leaderboard etc.)
+  GK.auth = { user: benutzer };
+
   // Avatar-Emoji Mapping
   const AVATAR_EMOJIS = {
     'mountain': '🏔️', 'eagle': '🦅', 'ski': '⛷️', 'climber': '🧗',

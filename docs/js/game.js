@@ -215,33 +215,35 @@ window.GK.game = (() => {
     cachedUserPeaks = [];
 
     try {
-      const user = GK.auth?.user;
-      if (user) {
-        const { data: userSummits } = await GK.supabase
-          .from('summits')
-          .select('peak_id')
-          .eq('user_id', user.id);
+      // ALLE aktiven Regionen laden (nicht nur User-eigene) damit Tabs sichtbar sind
+      const { data: allSummits } = await GK.supabase
+        .from('summits')
+        .select('peak_id')
+        .eq('season', season)
+        .limit(500);
 
-        if (userSummits && userSummits.length > 0) {
-          const peakIds = [...new Set(userSummits.map(s => s.peak_id))];
+      if (allSummits && allSummits.length > 0) {
+        const peakIds = [...new Set(allSummits.map(s => s.peak_id))];
+        // Supabase .in() hat ein Limit — in Batches abfragen
+        const batchSize = 100;
+        let allPeaks = [];
+        for (let i = 0; i < peakIds.length; i += batchSize) {
+          const batch = peakIds.slice(i, i + batchSize);
           const { data: peaks } = await GK.supabase
             .from('peaks')
             .select('id, osm_region, lat, lng')
-            .in('id', peakIds);
+            .in('id', batch);
+          if (peaks) allPeaks = allPeaks.concat(peaks);
+        }
 
-          if (peaks) {
-            cachedUserPeaks = peaks;
-            for (const p of peaks) {
-              // Regionen sammeln
-              if (p.osm_region && p.osm_region !== 'ALPEN' && REGION_NAMES[p.osm_region]) {
-                userRegions.add(p.osm_region);
-              }
-              // Sub-Regionen ermitteln
-              if (p.lat && p.lng) {
-                const sr = window.getSubRegion(p.lat, p.lng);
-                if (sr) userSubRegions.add(sr.id);
-              }
-            }
+        cachedUserPeaks = allPeaks;
+        for (const p of allPeaks) {
+          if (p.osm_region && p.osm_region !== 'ALPEN' && REGION_NAMES[p.osm_region]) {
+            userRegions.add(p.osm_region);
+          }
+          if (p.lat && p.lng && typeof window.getSubRegion === 'function') {
+            const sr = window.getSubRegion(p.lat, p.lng);
+            if (sr) userSubRegions.add(sr.id);
           }
         }
       }
