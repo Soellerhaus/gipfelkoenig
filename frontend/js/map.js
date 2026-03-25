@@ -877,7 +877,7 @@ async function initMap() {
   GK.map._snowCache = null;        // { bounds, data, ts }
   GK.map._snowDayIndex = 0;        // 0=heute, 1=+7d, 2=+16d
   const SNOW_DAY_HOURS = [12, 7 * 24 + 12, 15 * 24 + 12]; // Stunde-Offset für heute/+7/+16 (Mittag)
-  const SNOW_GRID_STEP = 0.05;     // ~5 km Gitterabstand
+  const SNOW_GRID_STEP = 0.08;     // ~8 km Gitterabstand (weniger Punkte, flächendeckend)
 
   /** Farbe nach Schneehöhe (cm) */
   function snowColor(depth) {
@@ -909,25 +909,23 @@ async function initMap() {
     const west = Math.floor(b.getWest() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
     const east = Math.ceil(b.getEast() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
 
+    // 2D-Grid erzeugen — max 10 Reihen × 10 Spalten = 100 Punkte
+    const latRange = north - south;
+    const lngRange = east - west;
+    const maxCells = 10;
+    const latStep = Math.max(SNOW_GRID_STEP, latRange / maxCells);
+    const lngStep = Math.max(SNOW_GRID_STEP, lngRange / maxCells);
+
     const lats = [], lngs = [];
-    for (let lat = south; lat <= north; lat += SNOW_GRID_STEP) {
-      for (let lng = west; lng <= east; lng += SNOW_GRID_STEP) {
+    for (let lat = south; lat <= north; lat += latStep) {
+      for (let lng = west; lng <= east; lng += lngStep) {
         lats.push(lat.toFixed(4));
         lngs.push(lng.toFixed(4));
       }
     }
-
-    // Maximal 100 Punkte, sonst wird die API zu langsam
-    if (lats.length > 100) {
-      const step = Math.ceil(lats.length / 100);
-      const filteredLats = [], filteredLngs = [];
-      for (let i = 0; i < lats.length; i += step) {
-        filteredLats.push(lats[i]);
-        filteredLngs.push(lngs[i]);
-      }
-      lats.length = 0; lngs.length = 0;
-      lats.push(...filteredLats); lngs.push(...filteredLngs);
-    }
+    // Speichere Schrittweite für Rechteck-Zeichnung
+    GK.map._snowLatStep = latStep;
+    GK.map._snowLngStep = lngStep;
 
     if (lats.length === 0) return [];
 
@@ -966,21 +964,23 @@ async function initMap() {
     GK.map._snowLayer.clearLayers();
     if (!data || data.length === 0) return;
     const hourIdx = SNOW_DAY_HOURS[GK.map._snowDayIndex] || 12;
-    const half = SNOW_GRID_STEP / 2;
+    // Verwende die tatsächliche Schrittweite des Grids
+    const halfLat = (GK.map._snowLatStep || SNOW_GRID_STEP) / 2;
+    const halfLng = (GK.map._snowLngStep || SNOW_GRID_STEP) / 2;
 
     data.forEach(function (pt) {
       const depth = (pt.hourly && pt.hourly[hourIdx] != null) ? pt.hourly[hourIdx] : 0;
+      if (depth < 1) return; // Kein Schnee → nicht zeichnen
       const color = snowColor(depth);
-      const bounds = [[pt.lat - half, pt.lng - half], [pt.lat + half, pt.lng + half]];
+      const bounds = [[pt.lat - halfLat, pt.lng - halfLng], [pt.lat + halfLat, pt.lng + halfLng]];
       const rect = L.rectangle(bounds, {
         color: 'transparent',
         fillColor: color,
-        fillOpacity: 1,
+        fillOpacity: 0.5,
         weight: 0,
-        interactive: false
+        interactive: true
       });
-      // Tooltip mit Schneehöhe
-      rect.bindTooltip(depth.toFixed(0) + ' cm', { sticky: true, className: 'snow-tooltip' });
+      rect.bindTooltip(depth.toFixed(0) + ' cm Schnee', { sticky: true, className: 'snow-tooltip' });
       rect.addTo(GK.map._snowLayer);
     });
   }
