@@ -43,7 +43,7 @@
           <span style="font-size:0.7rem; color:rgba(0,119,200,0.5);">Garmin <small>(bald)</small></span>
         </button>
         <!-- GPX Upload -->
-        <button onclick="document.getElementById('gpx-file-input')?.click() || window.location.hash='gpx-section'" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 16px; border-radius:12px; border:2px solid var(--color-gold); background:rgba(201,168,76,0.08); cursor:pointer; transition: all 0.2s;">
+        <button onclick="document.getElementById('gpx-file').click()" style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 16px; border-radius:12px; border:2px solid var(--color-gold); background:rgba(201,168,76,0.08); cursor:pointer; transition: all 0.2s;">
           <span style="font-size:1.6rem;">📂</span>
           <span style="font-size:0.7rem; color:var(--color-gold); font-weight:600;">GPX Upload</span>
         </button>
@@ -784,6 +784,10 @@
           const summitTime = fp.point.time || new Date().toISOString();
           const summitYear = new Date(summitTime).getFullYear().toString();
           console.log('DEBUG GPX:', { totalElevGain, totalDistKm, basePts: Math.round(totalElevGain / 100) + Math.round(totalDistKm) + 10 });
+          // Temporärer Debug-Alert
+          if (foundPeaks.indexOf(fp) === 0) {
+            msg.textContent = 'DEBUG: ' + totalElevGain + ' HM + ' + totalDistKm + ' km = ' + (Math.round(totalElevGain/100) + Math.round(totalDistKm) + 10) + ' Basis-Pkt';
+          }
           const basePts = Math.round(totalElevGain / 100) + Math.round(totalDistKm) + 10;
 
           // Prüfe ob Saison-Erster oder Personal-Erster
