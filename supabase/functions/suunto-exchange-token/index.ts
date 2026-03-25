@@ -41,16 +41,22 @@ serve(async (req) => {
       })
     }
 
-    // Code gegen Tokens tauschen bei Suunto
+    // Code gegen Tokens tauschen bei Suunto (Basic Auth!)
+    const clientId = Deno.env.get('SUUNTO_CLIENT_ID')!
+    const clientSecret = Deno.env.get('SUUNTO_CLIENT_SECRET')!
+    const redirectUri = Deno.env.get('SUUNTO_REDIRECT_URI') || 'https://bergkoenig.app/settings.html'
+    const basicAuth = btoa(clientId + ':' + clientSecret)
+
     const tokenResponse = await fetch('https://cloudapi-oauth.suunto.com/oauth/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + basicAuth
+      },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        client_id: Deno.env.get('SUUNTO_CLIENT_ID')!,
-        client_secret: Deno.env.get('SUUNTO_CLIENT_SECRET')!,
-        redirect_uri: Deno.env.get('SUUNTO_REDIRECT_URI') || 'https://bergkoenig.app/settings.html'
+        redirect_uri: redirectUri
       })
     })
 
