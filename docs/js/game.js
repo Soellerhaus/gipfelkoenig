@@ -8,6 +8,62 @@ window.GK = window.GK || {};
 window.GK.game = (() => {
   'use strict';
 
+  // --- Ritter-Ränge ---
+
+  const KNIGHT_RANKS = [
+    { peaks: 200, crowns: 20, name: 'Bergkönig', icon: '👑' },
+    { peaks: 100, crowns: 10, name: 'Herzog',     icon: '💎' },
+    { peaks: 50,  crowns: 5,  name: 'Graf',       icon: '🦅' },
+    { peaks: 30,  crowns: 3,  name: 'Baron',      icon: '🏰' },
+    { peaks: 15,  crowns: 1,  name: 'Ritter',     icon: '⚔️' },
+    { peaks: 5,   crowns: 0,  name: 'Bergsteiger', icon: '⛰️' },
+    { peaks: 1,   crowns: 0,  name: 'Wanderer',   icon: '🥾' },
+  ];
+
+  /**
+   * Rang basierend auf Gipfel-Anzahl und Kronen ermitteln.
+   * @param {number} peakCount - Anzahl verschiedener bestiegener Gipfel
+   * @param {number} crownCount - Anzahl gehaltener Kronen
+   * @returns {{ name: string, icon: string, next: object|null, peaksNeeded: number, crownsNeeded: number }}
+   */
+  function getRank(peakCount, crownCount) {
+    let currentRank = { name: 'Neuling', icon: '🏔️' };
+    let currentIdx = -1;
+
+    for (let i = 0; i < KNIGHT_RANKS.length; i++) {
+      const r = KNIGHT_RANKS[i];
+      if (peakCount >= r.peaks && crownCount >= r.crowns) {
+        currentRank = r;
+        currentIdx = i;
+        break;
+      }
+    }
+
+    // Nächster Rang
+    let nextRank = null;
+    let peaksNeeded = 0;
+    let crownsNeeded = 0;
+
+    if (currentIdx > 0) {
+      nextRank = KNIGHT_RANKS[currentIdx - 1];
+      peaksNeeded = Math.max(0, nextRank.peaks - peakCount);
+      crownsNeeded = Math.max(0, nextRank.crowns - crownCount);
+    } else if (currentIdx === -1) {
+      // Noch kein Rang
+      nextRank = KNIGHT_RANKS[KNIGHT_RANKS.length - 1]; // Wanderer
+      peaksNeeded = Math.max(0, nextRank.peaks - peakCount);
+      crownsNeeded = 0;
+    }
+
+    return {
+      name: currentRank.name,
+      icon: currentRank.icon,
+      next: nextRank,
+      peaksNeeded,
+      crownsNeeded,
+    };
+  }
+
   // --- Abzeichen-Definitionen ---
 
   const BADGE_TYPES = {
@@ -331,6 +387,10 @@ window.GK.game = (() => {
         const crowns = entry.crown_count || 0;
         const summitCount = subRegion ? (entry.sub_summit_count || 0) : (entry.summit_count || 0);
 
+        // Rang ermitteln
+        const userRank = getRank(summitCount, crowns);
+        const rankBadge = userRank.icon + ' ' + userRank.name;
+
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0;border-bottom:1px solid var(--color-border);';
         row.innerHTML = `
@@ -343,6 +403,7 @@ window.GK.game = (() => {
           <div style="flex:1;min-width:0;">
             <div style="font-size:0.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
               ${escapeHtml(entry.username || entry.display_name || 'Anonym')}
+              <span style="font-size:0.7rem;color:var(--color-gold);margin-left:4px;">${rankBadge}</span>
             </div>
             <div style="font-size:0.7rem;color:var(--color-muted);">
               ${summitCount} Gipfel${crowns > 0 ? ' · ' + crowns + ' 👑' : ''}
@@ -510,10 +571,12 @@ window.GK.game = (() => {
 
   return {
     BADGE_TYPES,
+    KNIGHT_RANKS,
     SUB_REGIONS,
     ALPINE_SUB_REGIONS: SUB_REGIONS,
     getCurrentSeason,
     calculatePoints,
+    getRank,
     getSubRegion: window.getSubRegion,
     getSubRegionsForParent: window.getSubRegionsForParent,
     loadLeaderboard,

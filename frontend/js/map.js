@@ -56,6 +56,17 @@ function createSummitedIcon() {
   });
 }
 
+/** Angegriffene-Krone-Marker: Goldenes Schwert — Krone wird angegriffen */
+function createAttackedIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="peak-marker attacked"><span>⚔️</span></div>',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -18],
+  });
+}
+
 /** Gefahr-Marker: Rotes Kreuz — Heute gesperrt */
 function createDangerIcon() {
   return L.divIcon({
@@ -120,7 +131,7 @@ let markerLayer = null;
  * Richtiges Icon für einen Gipfel bestimmen.
  * Berücksichtigt Sicherheit, Besitz und persönliche Besteigung.
  */
-function getMarkerIcon(peak, ownership, userSummited, isSafe) {
+function getMarkerIcon(peak, ownership, userSummited, isSafe, isAttacked) {
   // Unsicher → Gefahr-Marker
   if (!isSafe) {
     return createDangerIcon();
@@ -128,12 +139,15 @@ function getMarkerIcon(peak, ownership, userSummited, isSafe) {
 
   const userId = GK.map._currentUserId;
 
-  // Benutzer ist aktueller König
+  // Benutzer ist aktueller König — Krone wird angegriffen?
   if (ownership && ownership.user_id === userId) {
+    if (isAttacked) {
+      return createAttackedIcon();
+    }
     return createKingIcon();
   }
 
-  // Benutzer hat den Gipfel schon bestiegen (aber ist nicht König)
+  // Benutzer hat den Gipfel schon bestiegen (aber ist nicht König) → GRÜN
   if (userSummited) {
     return createSummitedIcon();
   }
@@ -437,6 +451,102 @@ function loadCrownsAsync() {
     .catch(() => { /* ignorieren */ });
 }
 
+// ---------------------------------------------------------------------------
+// Gebiets-Polygone (Territory Display)
+// ---------------------------------------------------------------------------
+let territoryLayer = null;
+
+/**
+ * Gebiets-Polygone auf der Karte anzeigen.
+ * Gold = User hat die meisten Kronen in der Sub-Region.
+ * Rot = ein anderer Spieler hat die meisten Kronen.
+ */
+async function loadTerritoryPolygons() {
+  const userId = GK.map._currentUserId;
+  if (!userId || !GK.map.leaflet) return;
+
+  const SUB_REGIONS = window.ALPINE_SUB_REGIONS || [];
+  if (SUB_REGIONS.length === 0) return;
+
+  if (!territoryLayer) {
+    territoryLayer = L.layerGroup().addTo(GK.map.leaflet);
+  }
+  territoryLayer.clearLayers();
+
+  const season = getCurrentSeason();
+  const lastSeason = (parseInt(season) - 1).toString();
+
+  try {
+    // Alle Ownership-Daten für sichtbare Saisons laden
+    const { data: ownerships } = await GK.supabase
+      .from('ownership')
+      .select('peak_id, user_id')
+      .in('season', [season, lastSeason]);
+
+    if (!ownerships || ownerships.length === 0) return;
+
+    // Peak-Koordinaten laden für Zuordnung zu Sub-Regionen
+    const peakIds = [...new Set(ownerships.map(o => o.peak_id))];
+    const { data: peaks } = await GK.supabase
+      .from('peaks')
+      .select('id, lat, lng')
+      .in('id', peakIds);
+
+    if (!peaks) return;
+
+    const peakCoords = new Map();
+    for (const p of peaks) peakCoords.set(p.id, p);
+
+    // Pro Sub-Region: Kronen pro User zählen
+    for (const sr of SUB_REGIONS) {
+      const regionPeaks = peaks.filter(p =>
+        p.lat >= sr.latMin && p.lat <= sr.latMax &&
+        p.lng >= sr.lngMin && p.lng <= sr.lngMax
+      );
+      if (regionPeaks.length === 0) continue;
+
+      const regionPeakIds = new Set(regionPeaks.map(p => p.id));
+      const crownsByUser = {};
+
+      for (const o of ownerships) {
+        if (!regionPeakIds.has(o.peak_id)) continue;
+        crownsByUser[o.user_id] = (crownsByUser[o.user_id] || 0) + 1;
+      }
+
+      const users = Object.entries(crownsByUser).sort((a, b) => b[1] - a[1]);
+      if (users.length === 0) continue;
+
+      const topUser = users[0];
+      // Mindestens 2 Kronen um ein Gebiet zu beherrschen
+      if (topUser[1] < 2) continue;
+
+      // Polygon-Koordinaten aus Sub-Region Bounds
+      const bounds = [
+        [sr.latMin, sr.lngMin],
+        [sr.latMin, sr.lngMax],
+        [sr.latMax, sr.lngMax],
+        [sr.latMax, sr.lngMin],
+      ];
+
+      const isUserTerritory = topUser[0] === userId;
+      const color = isUserTerritory ? '#ffd700' : '#e53e3e';
+      const fillOpacity = 0.08;
+
+      const polygon = L.polygon(bounds, {
+        color: color,
+        weight: 1,
+        fillColor: color,
+        fillOpacity: fillOpacity,
+        interactive: false,
+      });
+
+      territoryLayer.addLayer(polygon);
+    }
+  } catch (err) {
+    console.error('Fehler beim Laden der Gebiets-Polygone:', err);
+  }
+}
+
 /** Debounced-Version von loadPeaks */
 const loadPeaksDebounced = debounce(loadPeaks, DEBOUNCE_DELAY);
 
@@ -552,6 +662,8 @@ async function initMap() {
   loadPeaks().then(() => {
     showNearestPeakInPanel();
     if (typeof showPeakOfDay === 'function') showPeakOfDay();
+    // Gebiets-Polygone laden (async, blockiert nichts)
+    loadTerritoryPolygons();
   });
 
   // Bei Kartenverschiebung und Zoom Gipfel neu laden (mit Debounce)

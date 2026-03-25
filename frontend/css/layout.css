@@ -600,8 +600,21 @@
 }
 
 .peak-marker.summited {
-  color: var(--color-muted);
+  color: #2ecc40;
   font-size: 1rem;
+  border-color: #2ecc40;
+  filter: drop-shadow(0 0 4px rgba(46,204,64,0.4));
+}
+
+/* Krone unter Angriff — goldenes Blinken */
+.peak-marker.attacked {
+  font-size: 1.5rem;
+  filter: drop-shadow(0 0 6px rgba(212,162,76,0.6));
+  animation: attack-blink 0.8s ease-in-out infinite;
+}
+@keyframes attack-blink {
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 6px rgba(212,162,76,0.6)); }
+  50% { opacity: 0.5; filter: drop-shadow(0 0 12px rgba(255,215,0,0.9)); }
 }
 
 .peak-marker.danger {
@@ -1072,6 +1085,66 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Region-Fortschrittsbalken */
+.region-progress {
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+}
+.region-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+.region-progress-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+.region-progress-count {
+  font-family: var(--font-mono);
+  color: var(--color-gold);
+  font-size: 0.75rem;
+}
+.region-progress-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.region-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2ecc40, var(--color-gold));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+.region-progress-bar.complete .region-progress-fill {
+  background: var(--color-gold);
+}
+
+/* Rang-Fortschritt */
+.rank-progress {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.2);
+  border-radius: 8px;
+  text-align: center;
+}
+.rank-current {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-gold);
+  margin-bottom: 4px;
+}
+.rank-next-hint {
+  font-size: 0.75rem;
+  color: var(--color-muted);
 }
 
 /* Gipfel des Tages — pulsierender Stern-Marker */

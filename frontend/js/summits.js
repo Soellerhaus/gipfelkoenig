@@ -343,6 +343,66 @@ async function loadMySummits(season) {
     </div>
   `;
 
+  // --- Region-Fortschrittsbalken ---
+  let regionProgressHtml = '';
+  const SUB_REGIONS = window.ALPINE_SUB_REGIONS || [];
+  if (SUB_REGIONS.length > 0 && peakMap.size > 0) {
+    // User-Peaks nach Sub-Region gruppieren
+    const regionCounts = {};
+    for (const [pid, peak] of peakMap) {
+      if (!peak.lat || !peak.lng) continue;
+      for (const sr of SUB_REGIONS) {
+        if (peak.lat >= sr.latMin && peak.lat <= sr.latMax &&
+            peak.lng >= sr.lngMin && peak.lng <= sr.lngMax) {
+          if (!regionCounts[sr.id]) regionCounts[sr.id] = { name: sr.name, count: 0 };
+          regionCounts[sr.id].count++;
+          break;
+        }
+      }
+    }
+
+    // Gesamt-Peaks pro Sub-Region laden (aus allen bekannten Peaks)
+    const regionsWithPeaks = Object.entries(regionCounts)
+      .filter(([id, data]) => data.count > 0)
+      .sort((a, b) => b[1].count - a[1].count);
+
+    if (regionsWithPeaks.length > 0) {
+      // Für jede Region die Gesamt-Anzahl der Peaks laden
+      const regionBars = [];
+      for (const [srId, data] of regionsWithPeaks) {
+        const sr = SUB_REGIONS.find(r => r.id === srId);
+        if (!sr) continue;
+        // Anzahl aller Peaks in dieser Sub-Region ermitteln
+        const { count: totalInRegion } = await GK.supabase
+          .from('peaks')
+          .select('*', { count: 'exact', head: true })
+          .gte('lat', sr.latMin).lte('lat', sr.latMax)
+          .gte('lng', sr.lngMin).lte('lng', sr.lngMax);
+
+        const total = totalInRegion || data.count;
+        const pct = Math.round((data.count / total) * 100);
+        const isComplete = data.count >= total;
+        regionBars.push(`
+          <div class="region-progress">
+            <div class="region-progress-header">
+              <span class="region-progress-name">${data.name}</span>
+              <span class="region-progress-count">${data.count}/${total} ${pct}%</span>
+            </div>
+            <div class="region-progress-bar${isComplete ? ' complete' : ''}">
+              <div class="region-progress-fill" style="width:${pct}%;"></div>
+            </div>
+          </div>
+        `);
+      }
+      regionProgressHtml = `
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:0.85rem;font-weight:600;color:var(--color-gold);margin-bottom:6px;">Regionen-Fortschritt</div>
+          ${regionBars.join('')}
+        </div>
+      `;
+    }
+  }
+
   // Spielerische Kacheln pro Gipfel
   const cardsHtml = sortedGroups.map(([peakId, entries]) => {
     const peak = peakMap.get(peakId);
@@ -430,7 +490,7 @@ async function loadMySummits(season) {
     `;
   }).join('');
 
-  container.innerHTML = statsHtml + cardsHtml || '<p class="text-muted">Keine Gipfel gefunden.</p>';
+  container.innerHTML = statsHtml + regionProgressHtml + cardsHtml || '<p class="text-muted">Keine Gipfel gefunden.</p>';
 }
 
 // ---------------------------------------------------------------------------

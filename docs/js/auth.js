@@ -87,19 +87,58 @@ async function loadProfileForSeason(year) {
   }
   if (el('trophy-hm')) el('trophy-hm').textContent = yearHM.toLocaleString('de');
 
-  // Lose berechnen für diese Saison
-  const gipfelLose = seasonSummits.length;
-  const pionierLose = seasonSummits.filter(s => s.is_season_first).length * 3;
-  const koenigLose = 0;
-  const streakLose = 0;
-  const total = gipfelLose + pionierLose + koenigLose + streakLose;
+  // Kronen laden für Rang-Berechnung
+  let crownCount = 0;
+  const userId = window._currentUserId;
+  if (userId) {
+    const { count: cc } = await GK.supabase
+      .from('ownership')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    crownCount = cc || 0;
+  }
+  if (el('stat-crowns')) el('stat-crowns').textContent = crownCount;
+
+  // Rang berechnen und anzeigen
+  if (GK.game && GK.game.getRank) {
+    const rank = GK.game.getRank(seasonUnique, crownCount);
+    const rankBadge = el('profile-rank-badge');
+    const rankProgress = el('profile-rank-progress');
+    const rankCurrentDisplay = el('rank-current-display');
+    const rankNextHint = el('rank-next-hint');
+
+    if (rankBadge) rankBadge.textContent = rank.icon + ' ' + rank.name;
+
+    if (rankProgress && rankCurrentDisplay && rankNextHint) {
+      rankCurrentDisplay.textContent = rank.icon + ' ' + rank.name;
+      rankProgress.style.display = 'block';
+
+      if (rank.next) {
+        const hints = [];
+        if (rank.peaksNeeded > 0) hints.push(rank.peaksNeeded + ' Gipfel');
+        if (rank.crownsNeeded > 0) hints.push(rank.crownsNeeded + ' Krone' + (rank.crownsNeeded > 1 ? 'n' : ''));
+        rankNextHint.textContent = 'Noch ' + hints.join(' + ') + ' bis ' + rank.next.icon + ' ' + rank.next.name + '!';
+      } else {
+        rankNextHint.textContent = 'Hoechster Rang erreicht!';
+      }
+    }
+  }
+
+  // Lose berechnen fuer diese Saison (neues System)
+  const gipfelLose = seasonSummits.length;   // 1 Los pro Gipfel
+  const koenigLose = crownCount * 5;         // 5 Lose pro Krone
+  // Gebiet-Lose: Anzahl beherrschter Gebiete * 10
+  let gebietLose = 0;
+  // Gipfel des Tages Lose
+  const potdLose = 0; // TODO: track separately when POTD summits exist
+  const total = gipfelLose + koenigLose + gebietLose + potdLose;
 
   const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
   setEl('tickets-total', total);
   setEl('tickets-gipfel', gipfelLose);
-  setEl('tickets-pionier', pionierLose);
   setEl('tickets-koenig', koenigLose);
-  setEl('tickets-streak', streakLose);
+  setEl('tickets-gebiet', gebietLose);
+  setEl('tickets-potd', potdLose);
 }
 
 // ---------------------------------------------------------------------------

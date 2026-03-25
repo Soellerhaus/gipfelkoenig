@@ -112,8 +112,12 @@
         <!-- Profil-Header OBEN -->
         <div class="profile-header" style="margin-bottom: 0.75rem;">
           <div class="profile-avatar" id="profile-avatar">?</div>
-          <h2 id="profile-name">Laden...</h2>
+          <h2 id="profile-name">Laden... <span id="profile-rank-badge" style="font-size:0.85rem;color:var(--color-gold);"></span></h2>
           <p class="text-muted" id="profile-username">@...</p>
+          <div id="profile-rank-progress" class="rank-progress" style="display:none;">
+            <div class="rank-current" id="rank-current-display"></div>
+            <div class="rank-next-hint" id="rank-next-hint"></div>
+          </div>
         </div>
 
         <!-- Saison darunter -->
@@ -196,7 +200,7 @@
 
         <!-- Letzte Besteigungen entfernt — sind im Feed-Tab -->
 
-        <!-- Los-System -->
+        <!-- Los-System (neues Ritterspiel) -->
         <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: rgba(255,215,0,0.3);">
           <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem;">🎟️ Deine Lose</h4>
           <div id="raffle-tickets" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0;">
@@ -206,43 +210,44 @@
             </div>
             <div style="text-align:center; padding:8px; background:rgba(255,255,255,0.05); border-radius:6px;">
               <div id="tickets-breakdown" style="font-size:0.75rem; color:#ccc; text-align:left;">
-                <div>⛰️ <span id="tickets-gipfel">0</span>× Gipfel</div>
-                <div>⭐ <span id="tickets-pionier">0</span>× Pionier</div>
-                <div>👑 <span id="tickets-koenig">0</span>× König</div>
-                <div>🔥 <span id="tickets-streak">0</span>× Streak</div>
+                <div>⛰️ <span id="tickets-gipfel">0</span> Gipfel (1/Gipfel)</div>
+                <div>👑 <span id="tickets-koenig">0</span> Kronen (5/Krone)</div>
+                <div>🗺️ <span id="tickets-gebiet">0</span> Gebiete (10/Gebiet)</div>
+                <div>🎲 <span id="tickets-potd">0</span> Gipfel d. Tages (3/POTD)</div>
               </div>
             </div>
           </div>
-          <p style="font-size:0.7rem; color:#888; text-align:center;">Nächste Verlosung: Saisonende 2026</p>
+          <p style="font-size:0.7rem; color:#888; text-align:center;">Naechste Verlosung: Saisonende 2026</p>
         </div>
 
-        <!-- Spielregeln v2 -->
+        <!-- Spielregeln v3 — Das Ritterspiel -->
         <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: var(--color-gold);">
-          <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--color-gold);">⚔️ So funktioniert Bergkönig</h4>
+          <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--color-gold);">⚔️ Bergkönig — Das Ritterspiel</h4>
           <div style="font-size: 0.78rem; color: var(--color-muted); line-height: 1.6;">
-            <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Basis-Punkte</strong></p>
-            <p style="margin-bottom: 0.25rem;">↗ <strong style="color: var(--color-text);">HM-Punkte:</strong> Aufstieg HM / 100</p>
-            <p style="margin-bottom: 0.25rem;">📏 <strong style="color: var(--color-text);">km-Punkte:</strong> Distanz km × 1</p>
-            <p style="margin-bottom: 0.25rem;">⛰️ <strong style="color: var(--color-text);">Gipfel erreicht:</strong> +10 fix</p>
-            <p style="margin-bottom: 0.5rem;">🏠 <strong style="color: var(--color-text);">Hütte/Scharte/Pass:</strong> +5 fix</p>
-            <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Multiplikatoren</strong></p>
-            <p style="margin-bottom: 0.25rem;">⭐ <strong style="color: var(--color-text);">Pionier</strong> (Saison-Erster) = ×3</p>
-            <p style="margin-bottom: 0.25rem;">🆕 <strong style="color: var(--color-text);">Erstbesuch</strong> (persönlich) = ×2</p>
-            <p style="margin-bottom: 0.25rem;">🔄 <strong style="color: var(--color-text);">Wiederholung</strong> = ×0.2 (abnehmend)</p>
-            <p style="margin-bottom: 0.5rem;">⚡ <strong style="color: var(--color-text);">Streak:</strong> Jede Woche aktiv = ×1.1 bis ×2.0</p>
-            <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Boni</strong></p>
-            <p style="margin-bottom: 0.25rem;">🌅 <strong style="color: var(--color-text);">Frühaufsteher</strong> (Tour vor 07:00 gestartet) = +15</p>
-            <p style="margin-bottom: 0.25rem;">🔥 <strong style="color: var(--color-text);">Combo</strong> (2+ Gipfel/Tag) = +50% pro Extra</p>
-            <p style="margin-bottom: 0.25rem;">👑 <strong style="color: var(--color-text);">König:</strong> Meiste Besteigungen = Krone</p>
-            <p style="margin-bottom: 0.5rem;">🛡️ <strong style="color: var(--color-text);">Sicherheit:</strong> Lawinenwarnstufe 3+ = keine Punkte</p>
+            <p style="margin-bottom: 0.4rem;"><strong style="color: var(--color-gold); font-size: 0.85rem;">1. SAMMLE</strong> <span style="color: var(--color-text);">🏔️</span></p>
+            <p style="margin-bottom: 0.5rem;">Jeden Berg den du besteigst gehoert in deine Sammlung. Fortschrittsbalken pro Region zeigt dir, wie weit du bist.</p>
+
+            <p style="margin-bottom: 0.4rem;"><strong style="color: var(--color-gold); font-size: 0.85rem;">2. HERRSCHE</strong> <span style="color: var(--color-text);">👑</span></p>
+            <p style="margin-bottom: 0.5rem;">Wer einen Berg am oeftesten besteigt, traegt die Krone. Jemand besteigt deinen Berg? Verteidige ihn!</p>
+
+            <p style="margin-bottom: 0.4rem;"><strong style="color: var(--color-gold); font-size: 0.85rem;">3. EROBERE GEBIETE</strong> <span style="color: var(--color-text);">🗺️</span></p>
+            <p style="margin-bottom: 0.5rem;">Meiste Kronen in einer Region = das Gebiet gehoert dir! Gold auf der Karte.</p>
+
+            <p style="margin-bottom: 0.4rem;"><strong style="color: var(--color-gold); font-size: 0.85rem;">4. STEIG AUF</strong> <span style="color: var(--color-text);">⬆️</span></p>
+            <p style="margin-bottom: 0.5rem;">Mehr Gipfel + mehr Kronen = hoeherer Rang. Vom Wanderer zum Bergkoenig!</p>
+
+            <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Punkte</strong></p>
+            <p style="margin-bottom: 0.25rem;">⛰️ <strong style="color: var(--color-text);">Basis:</strong> HM/100 + km</p>
+            <p style="margin-bottom: 0.25rem;">🆕 <strong style="color: var(--color-text);">Neuer Berg</strong> (persoenlich) = 2x Punkte</p>
+            <p style="margin-bottom: 0.5rem;">🔄 <strong style="color: var(--color-text);">Wiederholung</strong> = normale Punkte</p>
+
             <h4 style="margin-top:12px; color:#ffd700;">Lose & Gewinne</h4>
-            <div>🎟️ <strong>Jeder Gipfel</strong> = 1 Los</div>
-            <div>⭐ <strong>Pionier</strong> = 3 Lose</div>
-            <div>👑 <strong>König</strong> = 5 Lose pro Krone</div>
-            <div>🔥 <strong>Streak</strong> = 1 Los pro Woche</div>
+            <div>⛰️ <strong>Jeder Gipfel</strong> = 1 Los</div>
+            <div>👑 <strong>Krone</strong> = 5 Lose pro Krone</div>
+            <div>🗺️ <strong>Gebiet</strong> = 10 Lose pro beherrschtes Gebiet</div>
             <div>🎲 <strong>Gipfel des Tages</strong> = 3 Lose</div>
-            <div style="margin-top:8px; font-size:0.75rem; color:#888;">Mehr Lose = höhere Gewinnchance bei der Saisonend-Verlosung!</div>
-            <a href="/teilnahmebedingungen.html" style="color:#ffd700; font-size:0.75rem;">→ Vollständige Teilnahmebedingungen</a>
+            <div style="margin-top:8px; font-size:0.75rem; color:#888;">Mehr Lose = hoehere Gewinnchance bei der Saisonend-Verlosung!</div>
+            <a href="/teilnahmebedingungen.html" style="color:#ffd700; font-size:0.75rem;">→ Vollstaendige Teilnahmebedingungen</a>
           </div>
         </div>
 
