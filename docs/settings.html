@@ -408,12 +408,15 @@
       }
       if (!code) return;
 
-      const savedState = sessionStorage.getItem('strava_oauth_state');
-      if (state !== savedState) {
-        alert('Sicherheitsfehler. Bitte versuche es erneut.');
-        window.history.replaceState({}, '', '/settings.html');
-        return;
-      }
+      // Erkennung: Strava oder Suunto Callback?
+      const savedStravaState = sessionStorage.getItem('strava_oauth_state');
+      const savedSuuntoState = localStorage.getItem('suunto_oauth_state');
+
+      // Wenn Suunto-State gesetzt war → Suunto Callback (nicht Strava!)
+      if (savedSuuntoState) return; // Suunto-Handler weiter unten verarbeitet es
+
+      // Strava Callback
+      if (!savedStravaState) return; // Kein State → ignorieren
       sessionStorage.removeItem('strava_oauth_state');
 
       // Code gegen Token tauschen via Edge Function
