@@ -978,19 +978,16 @@ async function showPeakOfDay() {
   GK.peakOfDayId = peak.id;
   GK.peakOfDayCoords = [peak.lat, peak.lng];
 
-  nameEl.textContent = peak.name + (peak.elevation ? ' (' + peak.elevation + ' m)' : '');
-  const infoEl = document.getElementById('potd-info');
-  if (infoEl) infoEl.textContent = '5× Punkte!';
-  el.style.display = 'block';
+  // Banner ausblenden — Gipfel des Tages nur als Notification + Marker
+  el.style.display = 'none';
 
-  // Klick-Handler
-  el.onclick = () => {
-    if (GK.peakOfDayId && GK.peakOfDayCoords) {
-      GK.map.leaflet.setView(GK.peakOfDayCoords, 15);
-      if (typeof openPeakPanel === 'function') openPeakPanel(GK.peakOfDayId);
-      else if (typeof window.openPeakPanel === 'function') window.openPeakPanel(GK.peakOfDayId);
-    }
-  };
+  // Notification in der Glocke (nur 1× pro Tag pro Region)
+  var potdNotifKey = 'bergkoenig_potd_notif_' + getTodayStr() + '_' + regionKey;
+  if (!localStorage.getItem(potdNotifKey)) {
+    var peakLabel = peak.name + (peak.elevation ? ' (' + peak.elevation + ' m)' : '');
+    addNotification('🃏', 'Gipfel des Tages: ' + peakLabel + ' — 5× Punkte!', 'potd');
+    localStorage.setItem(potdNotifKey, '1');
+  }
 
   // Stern-Marker auf Karte
   if (GK.map._potdMarker) {
@@ -999,13 +996,18 @@ async function showPeakOfDay() {
   GK.map._potdMarker = L.marker([peak.lat, peak.lng], {
     icon: L.divIcon({
       className: 'potd-star',
-      html: '<div class="potd-dice">🃏</div>',
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
+      html: '<div class="potd-dice" style="font-size:1.3rem;filter:drop-shadow(0 0 4px gold);">🃏</div>',
+      iconSize: [26, 26],
+      iconAnchor: [13, 13]
     }),
     zIndexOffset: 1000
   }).addTo(GK.map.leaflet)
     .bindPopup('<b>🃏 Gipfel des Tages</b><br>' + peak.name + '<br><span style="color:#ffd700">5× Punkte!</span>');
+  // Klick auf Marker → Info-Panel öffnen
+  GK.map._potdMarker.on('click', function() {
+    if (typeof openPeakPanel === 'function') openPeakPanel(peak.id);
+    else if (typeof window.openPeakPanel === 'function') window.openPeakPanel(peak.id);
+  });
 }
 
 // Streak berechnen — Wochen-Streak
