@@ -882,14 +882,15 @@ async function initMap() {
   // Open-Meteo berechnet Schneehöhe basierend auf Höhenlage automatisch!
   const SNOW_STEP = 0.02;  // ~2.2 km
 
+  // depth in cm (API gibt Meter, wir konvertieren beim Lesen)
   function snowColor(depth) {
     if (depth <= 0)   return null;
-    if (depth <= 10)  return '#a8e6a3';  // hellgrün
-    if (depth <= 30)  return '#4caf50';  // grün
-    if (depth <= 60)  return '#42a5f5';  // blau
-    if (depth <= 100) return '#e3f2fd';  // hellblau/weiss
-    if (depth <= 150) return '#f8bbd0';  // rosa
-    return '#e91e63';                    // pink/rot
+    if (depth <= 10)  return '#c8e6c9';  // hellgrün - Spurenschnee
+    if (depth <= 30)  return '#66bb6a';  // grün - wenig
+    if (depth <= 60)  return '#42a5f5';  // blau - mittel
+    if (depth <= 100) return '#bbdefb';  // hellblau - viel
+    if (depth <= 150) return '#e1bee7';  // lila - sehr viel
+    return '#e91e63';                    // pink - extrem
   }
 
   async function fetchSnowData() {
@@ -980,7 +981,8 @@ async function initMap() {
     var half = (GK.map._snowStep || 0.03) / 2;
 
     data.forEach(function(pt) {
-      var depth = (pt.hourly && pt.hourly[hourIdx] != null) ? pt.hourly[hourIdx] : 0;
+      var rawVal = (pt.hourly && pt.hourly[hourIdx] != null) ? pt.hourly[hourIdx] : 0;
+      var depth = rawVal * 100; // API gibt Meter, wir brauchen cm
       if (depth < 1) return;
       var color = snowColor(depth);
       if (!color) return;
@@ -1026,10 +1028,12 @@ async function initMap() {
     // Legende
     const legend = L.DomUtil.create('div', 'snow-legend', wrap);
     legend.innerHTML =
-      '<div class="snow-legend-item"><span style="background:rgba(76,175,80,0.8)"></span>0–20</div>' +
-      '<div class="snow-legend-item"><span style="background:rgba(66,133,244,0.8)"></span>20–50</div>' +
-      '<div class="snow-legend-item"><span style="background:rgba(240,248,255,0.9);border:1px solid #999"></span>50–100</div>' +
-      '<div class="snow-legend-item"><span style="background:rgba(233,30,99,0.8)"></span>100+</div>';
+      '<div class="snow-legend-item"><span style="background:#c8e6c9"></span>0–10 cm</div>' +
+      '<div class="snow-legend-item"><span style="background:#66bb6a"></span>10–30</div>' +
+      '<div class="snow-legend-item"><span style="background:#42a5f5"></span>30–60</div>' +
+      '<div class="snow-legend-item"><span style="background:#bbdefb;border:1px solid #999"></span>60–100</div>' +
+      '<div class="snow-legend-item"><span style="background:#e1bee7"></span>100–150</div>' +
+      '<div class="snow-legend-item"><span style="background:#e91e63"></span>150+</div>';
     legend.style.display = 'none';
 
     // Toggle-Handler
