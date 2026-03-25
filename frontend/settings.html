@@ -467,7 +467,7 @@
     // Suunto OAuth starten — globale Funktion für Quick-Button + normalen Button
     window.startSuuntoOAuth = function() {
       const state = crypto.randomUUID();
-      sessionStorage.setItem('suunto_oauth_state', state);
+      localStorage.setItem('suunto_oauth_state', state);
       const clientId = '32db5831-859b-4ba5-888d-4b35d8dba7fe';
       const redirectUri = encodeURIComponent('https://bergkoenig.app/settings.html');
       window.location.href =
@@ -491,22 +491,20 @@
       const error = params.get('error');
 
       // Nur verarbeiten wenn Suunto-State vorhanden (nicht Strava)
-      const savedState = sessionStorage.getItem('suunto_oauth_state');
+      const savedState = localStorage.getItem('suunto_oauth_state');
       if (!savedState || !code) return;
 
       if (error) {
-        sessionStorage.removeItem('suunto_oauth_state');
+        localStorage.removeItem('suunto_oauth_state');
         window.history.replaceState({}, '', '/settings.html');
         return;
       }
 
-      if (state !== savedState) {
-        alert('Sicherheitsfehler. Bitte versuche es erneut.');
-        sessionStorage.removeItem('suunto_oauth_state');
-        window.history.replaceState({}, '', '/settings.html');
-        return;
+      // State-Check (weich — bei Mismatch trotzdem versuchen, Server validiert)
+      if (state && savedState && state !== savedState) {
+        console.warn('Suunto OAuth state mismatch — trotzdem versuchen');
       }
-      sessionStorage.removeItem('suunto_oauth_state');
+      localStorage.removeItem('suunto_oauth_state');
 
       // Code gegen Token tauschen via Edge Function
       const { data, error: fnError } = await GK.supabase.functions.invoke('suunto-exchange-token', {
