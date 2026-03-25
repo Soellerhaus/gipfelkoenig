@@ -1235,3 +1235,39 @@
 .hex-territory {
   transition: fill-opacity 0.15s ease;
 }
+
+/* === TERRITORY COLOR PICKER === */
+.color-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.color-option {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s;
+  padding: 0;
+  outline: none;
+}
+.color-option:hover {
+  transform: scale(1.2);
+}
+.color-option.selected {
+  border-color: white;
+  box-shadow: 0 0 10px rgba(255,255,255,0.5);
+}
+.hex-preview {
+  width: 60px;
+  height: 52px;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  margin: 10px 0;
+}
+.color-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

@@ -455,6 +455,8 @@ function loadCrownsAsync() {
 // Gebiets-Polygone (Hexagonal Territory Grid)
 // ---------------------------------------------------------------------------
 let territoryLayer = null;
+/** Cache für Gebietsfarben aus der DB (userId → hex color string) */
+const territoryColorCache = new Map();
 
 /**
  * Hex-Grid-Konfiguration (flat-top, perfekte Tessellation):
@@ -480,6 +482,11 @@ const S_LNG = HEX_SIZE_KM / LNG_KM;           // Circumradius in Grad Longitude 
  */
 function getTerritoryColor(userId) {
   if (!userId) return '#888888';
+  // Zuerst Cache prüfen (Farbe aus DB)
+  if (territoryColorCache.has(userId)) {
+    return territoryColorCache.get(userId);
+  }
+  // Fallback: Hash-basierte Farbe generieren
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
     hash = ((hash << 5) - hash) + userId.charCodeAt(i);
@@ -657,7 +664,7 @@ async function loadTerritories() {
 
     if (Object.keys(hexKings).length === 0) return;
 
-    // User-Profile für Tooltip-Namen laden
+    // User-Profile für Tooltip-Namen und Gebietsfarben laden
     const userNames = {};
     for (const uid of allUserIds) {
       try {
@@ -665,6 +672,10 @@ async function loadTerritories() {
         if (profil) {
           const name = profil.display_name || profil.username || 'Anonym';
           userNames[uid] = name.split(' ')[0]; // Nur Vorname
+          // Gebietsfarbe aus Profil cachen
+          if (profil.territory_color) {
+            territoryColorCache.set(uid, profil.territory_color);
+          }
         } else {
           userNames[uid] = 'Anonym';
         }
