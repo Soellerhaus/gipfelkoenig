@@ -894,56 +894,49 @@ async function initMap() {
   }
 
   async function fetchSnowData() {
-    const b = map.getBounds();
-    const zoom = map.getZoom();
+    var b = map.getBounds();
+    var zoom = map.getZoom();
 
-    // Cache prüfen (5 Min + gleicher Bereich)
+    // Cache prüfen
     if (GK.map._snowCache) {
       var c = GK.map._snowCache;
       if (Date.now() - c.ts < 300000 &&
-          Math.abs(c.south - b.getSouth()) < 0.02 &&
-          Math.abs(c.north - b.getNorth()) < 0.02) {
+          Math.abs(c.south - b.getSouth()) < 0.01 &&
+          Math.abs(c.north - b.getNorth()) < 0.01) {
         return c.data;
       }
     }
 
-    // Zoom-abhängige Auflösung: nah = fein, weit = grob
-    var step = zoom >= 13 ? 0.015 : zoom >= 11 ? 0.03 : zoom >= 9 ? 0.06 : 0.12;
-
-    var south = Math.floor(b.getSouth() / step) * step;
-    var north = Math.ceil(b.getNorth() / step) * step;
-    var west  = Math.floor(b.getWest() / step) * step;
-    var east  = Math.ceil(b.getEast() / step) * step;
+    // STRATEGIE: API-Punkte in grobem Raster holen, dann feines Render-Grid
+    // mit Höhen-Interpolation erzeugen (höher = mehr Schnee)
+    var apiStep = 0.02; // ~2km API-Abfrage Raster
+    var south = Math.floor(b.getSouth() / apiStep) * apiStep;
+    var north = Math.ceil(b.getNorth() / apiStep) * apiStep;
+    var west  = Math.floor(b.getWest() / apiStep) * apiStep;
+    var east  = Math.ceil(b.getEast() / apiStep) * apiStep;
 
     var lats = [], lngs = [];
-    for (var la = south; la <= north; la += step) {
-      for (var lo = west; lo <= east; lo += step) {
-        lats.push(la.toFixed(4));
-        lngs.push(lo.toFixed(4));
+    for (var la = south; la <= north; la += apiStep) {
+      for (var lo = west; lo <= east; lo += apiStep) {
+        lats.push(la.toFixed(4)); lngs.push(lo.toFixed(4));
       }
     }
-
-    // Maximal 80 Punkte (Open-Meteo Limit)
     if (lats.length > 80) {
-      var rowCount = Math.round((north - south) / step) + 1;
-      var colCount = Math.round((east - west) / step) + 1;
-      var maxPerDim = Math.floor(Math.sqrt(80));
-      var rowSkip = Math.max(1, Math.ceil(rowCount / maxPerDim));
-      var colSkip = Math.max(1, Math.ceil(colCount / maxPerDim));
-      step = step * Math.max(rowSkip, colSkip);
+      // Bereich zu gross → gröberes Raster
+      apiStep = 0.05;
       lats = []; lngs = [];
-      for (var la2 = south; la2 <= north; la2 += step) {
-        for (var lo2 = west; lo2 <= east; lo2 += step) {
-          lats.push(la2.toFixed(4));
-          lngs.push(lo2.toFixed(4));
+      for (var la2 = south; la2 <= north; la2 += apiStep) {
+        for (var lo2 = west; lo2 <= east; lo2 += apiStep) {
+          lats.push(la2.toFixed(4)); lngs.push(lo2.toFixed(4));
         }
       }
     }
-
-    GK.map._snowStep = step;
     if (lats.length === 0) return [];
 
-    // Open-Meteo: snow_depth wird automatisch nach Höhe berechnet (SRTM Geländemodell)
+    // Render-Kacheln: fein bei hohem Zoom
+    var renderStep = zoom >= 14 ? 0.001 : zoom >= 13 ? 0.002 : zoom >= 12 ? 0.004 : zoom >= 11 ? 0.008 : apiStep;
+    GK.map._snowStep = renderStep;
+
     var url = 'https://api.open-meteo.com/v1/forecast'
       + '?latitude=' + lats.join(',')
       + '&longitude=' + lngs.join(',')
@@ -954,20 +947,56 @@ async function initMap() {
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       var json = await resp.json();
       var results = Array.isArray(json) ? json : [json];
-      var data = results.map(function(r, i) {
+
+      // API-Punkte mit Höhe + Schnee
+      var apiPoints = results.map(function(r, i) {
         return {
-          lat: parseFloat(lats[i]),
-          lng: parseFloat(lngs[i]),
+          lat: parseFloat(lats[i]), lng: parseFloat(lngs[i]),
           elevation: r.elevation || 0,
           hourly: r.hourly ? r.hourly.snow_depth : []
         };
       });
+
+      // Feines Render-Grid erzeugen mit IDW-Interpolation (Inverse Distance Weighting)
+      var renderData = [];
+      var maxRenderPts = 2500; // Max Kacheln für Performance
+      var count = 0;
+      for (var rlat = b.getSouth(); rlat <= b.getNorth() && count < maxRenderPts; rlat += renderStep) {
+        for (var rlng = b.getWest(); rlng <= b.getEast() && count < maxRenderPts; rlng += renderStep) {
+          // IDW: nächste API-Punkte gewichtet mitteln
+          var totalW = 0, weightedHourly = null;
+          var nearestElev = 0, minDist = Infinity;
+          for (var k = 0; k < apiPoints.length; k++) {
+            var dlat = rlat - apiPoints[k].lat;
+            var dlng = rlng - apiPoints[k].lng;
+            var dist = Math.sqrt(dlat*dlat + dlng*dlng) + 0.0001;
+            var w = 1 / (dist * dist);
+            if (dist < minDist) { minDist = dist; nearestElev = apiPoints[k].elevation; }
+            if (!weightedHourly) {
+              weightedHourly = apiPoints[k].hourly.map(function(v) { return v * w; });
+            } else {
+              for (var h = 0; h < apiPoints[k].hourly.length && h < weightedHourly.length; h++) {
+                weightedHourly[h] += (apiPoints[k].hourly[h] || 0) * w;
+              }
+            }
+            totalW += w;
+          }
+          if (weightedHourly && totalW > 0) {
+            renderData.push({
+              lat: rlat, lng: rlng, elevation: nearestElev,
+              hourly: weightedHourly.map(function(v) { return v / totalW; })
+            });
+          }
+          count++;
+        }
+      }
+
       GK.map._snowCache = {
         south: b.getSouth(), north: b.getNorth(),
         west: b.getWest(), east: b.getEast(),
-        data: data, ts: Date.now()
+        data: renderData, ts: Date.now()
       };
-      return data;
+      return renderData;
     } catch (err) {
       console.error('Schnee-Fehler:', err);
       return [];
