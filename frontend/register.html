@@ -271,9 +271,9 @@
         if (compressedAvatarFile) {
           const path = authData.user.id + '/avatar.jpg';
           const { data: uploadData, error: uploadError } = await GK.supabase.storage
-            .from('avatars').upload(path, compressedAvatarFile, { upsert: true });
+            .from('AVATARS').upload(path, compressedAvatarFile, { upsert: true });
           if (!uploadError) {
-            const { data: urlData } = GK.supabase.storage.from('avatars').getPublicUrl(path);
+            const { data: urlData } = GK.supabase.storage.from('AVATARS').getPublicUrl(path);
             await GK.supabase.from('user_profiles')
               .update({ avatar_url: urlData.publicUrl })
               .eq('id', authData.user.id);

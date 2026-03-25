@@ -760,10 +760,10 @@
       try {
         const path = currentUser.id + '/avatar.jpg';
         const { data: uploadData, error: uploadError } = await GK.supabase.storage
-          .from('avatars').upload(path, uploadFile, { upsert: true });
+          .from('AVATARS').upload(path, uploadFile, { upsert: true });
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = GK.supabase.storage.from('avatars').getPublicUrl(path);
+        const { data: urlData } = GK.supabase.storage.from('AVATARS').getPublicUrl(path);
         const { error: updateError } = await GK.supabase.from('user_profiles')
           .update({ avatar_url: urlData.publicUrl })
           .eq('id', currentUser.id);
