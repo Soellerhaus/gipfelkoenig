@@ -164,8 +164,13 @@ serve(async (req) => {
       else if (isPersonalFirst) pts = Math.round(basePts * 2)
       else pts = Math.round(basePts * 0.2)
 
-      // Frühaufsteher-Bonus
+      // Frühaufsteher-Bonus (Tour vor 07:00)
       if (startHour < 7) pts += 15
+
+      // Combo-Bonus (2+ Gipfel in dieser Tour): +50% pro Extra-Gipfel
+      if (foundPeaks.size > 1) {
+        pts = Math.round(pts * (1 + 0.5 * (foundPeaks.size - 1)))
+      }
 
       await supabase.from('summits').insert({
         user_id: profile.id,

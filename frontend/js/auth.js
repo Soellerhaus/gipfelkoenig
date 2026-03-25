@@ -145,7 +145,9 @@ async function loadProfileForSeason(year) {
   let gebietLose = 0;
   // Gipfel des Tages Lose
   const potdLose = 0; // TODO: track separately when POTD summits exist
-  const total = gipfelLose + koenigLose + gebietLose + potdLose;
+  // Punkte-Lose: 1 Los pro 1000 Punkte
+  const punkteLose = Math.floor(seasonPts / 1000);
+  const total = gipfelLose + koenigLose + gebietLose + potdLose + punkteLose;
 
   const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
   setEl('tickets-total', total);
@@ -153,6 +155,7 @@ async function loadProfileForSeason(year) {
   setEl('tickets-koenig', koenigLose);
   setEl('tickets-gebiet', gebietLose);
   setEl('tickets-potd', potdLose);
+  setEl('tickets-punkte', punkteLose);
 }
 
 // ---------------------------------------------------------------------------

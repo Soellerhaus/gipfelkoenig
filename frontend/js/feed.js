@@ -16,7 +16,7 @@ async function loadFeed() {
   try {
     const { data: summits, error } = await GK.supabase
       .from('summits')
-      .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first, elevation_gain')
+      .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first, elevation_gain, distance')
       .order('summited_at', { ascending: false })
       .limit(30);
 
@@ -48,6 +48,17 @@ async function loadFeed() {
       const username = profile.username || 'Anonym';
       const hour = d.getHours();
 
+      // Relative Zeit berechnen
+      const now = new Date();
+      const diffMs = now - d;
+      const diffMin = Math.floor(diffMs / 60000);
+      const diffHrs = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+      let relTime;
+      if (diffMin < 60) relTime = diffMin + ' Min';
+      else if (diffHrs < 24) relTime = diffHrs + ' Std';
+      else relTime = diffDays + ' Tag' + (diffDays !== 1 ? 'e' : '');
+
       if (datum !== lastDate) {
         html += '<div style="font-size:0.75rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin:16px 0 6px;font-family:monospace;">' + datum + '</div>';
         lastDate = datum;
@@ -70,8 +81,9 @@ async function loadFeed() {
       html += '<div style="display:flex;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">';
       html += '<span style="font-size:1.3rem;margin-right:10px;margin-top:2px;">' + avatar + '</span>';
       html += '<div style="flex:1;">';
-      html += '<div><strong style="color:white;">' + username + '</strong> hat <strong style="color:#ffd700;">' + peak.name + '</strong> bestiegen ' + badges + '</div>';
-      html += '<div style="font-size:0.75rem;color:#888;margin-top:2px;">' + (peak.elevation || '?') + ' m · ↗' + hm + ' HM</div>';
+      const distKm = s.distance ? (s.distance + ' km · ') : '';
+      html += '<div><strong style="color:white;">' + username + '</strong> hat <strong style="color:#ffd700;">' + peak.name + '</strong> (' + (peak.elevation || '?') + ' m) bestiegen ' + badges + '</div>';
+      html += '<div style="font-size:0.75rem;color:#888;margin-top:2px;">' + distKm + '↗' + hm + ' HM · ' + relTime + '</div>';
       html += '</div>';
       html += '<div style="text-align:right;min-width:50px;">';
       html += '<div style="font-size:1.2rem;font-weight:bold;color:#ffd700;">+' + (s.points || 0) + '</div>';

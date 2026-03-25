@@ -293,10 +293,10 @@
 
         // Suunto Status
         if (profile.suunto_token) {
-          document.getElementById('suunto-not-connected').style.display = 'none';
-          document.getElementById('suunto-connected').style.display = 'block';
+          document.getElementById('suunto-not-connected-top').style.display = 'none';
+          document.getElementById('suunto-connected-top').style.display = 'block';
           if (profile.suunto_connected_at) {
-            document.getElementById('suunto-connected-since').textContent =
+            document.getElementById('suunto-connected-since-top').textContent =
               new Date(profile.suunto_connected_at).toLocaleDateString('de-AT');
           }
         }
@@ -485,9 +485,9 @@
       if (fnError) {
         alert('Suunto-Verbindung fehlgeschlagen: ' + (fnError.message || 'Unbekannter Fehler'));
       } else {
-        document.getElementById('suunto-not-connected').style.display = 'none';
-        document.getElementById('suunto-connected').style.display = 'block';
-        document.getElementById('suunto-connected-since').textContent =
+        document.getElementById('suunto-not-connected-top').style.display = 'none';
+        document.getElementById('suunto-connected-top').style.display = 'block';
+        document.getElementById('suunto-connected-since-top').textContent =
           new Date().toLocaleDateString('de-AT');
         alert('Suunto erfolgreich verbunden!');
       }
@@ -496,7 +496,7 @@
     }
 
     // Suunto trennen
-    var _dsub = document.getElementById('disconnect-suunto-btn'); if (_dsub) _dsub.addEventListener('click', async () => {
+    var _dsub = document.getElementById('disconnect-suunto-btn-top'); if (_dsub) _dsub.addEventListener('click', async () => {
       if (!confirm('Suunto wirklich trennen? Bestehende Punkte bleiben erhalten.')) return;
 
       // Tokens aus DB löschen
@@ -508,8 +508,8 @@
         suunto_connected_at: null
       }).eq('id', currentUser.id);
 
-      document.getElementById('suunto-connected').style.display = 'none';
-      document.getElementById('suunto-not-connected').style.display = 'block';
+      document.getElementById('suunto-connected-top').style.display = 'none';
+      document.getElementById('suunto-not-connected-top').style.display = 'block';
     });
 
     // Passwort ändern
@@ -572,6 +572,43 @@
       await GK.supabase.auth.signOut();
       window.location.href = '/index.html?deleted=true';
     });
+
+    // Peak of Day Berechnung (gleicher Algorithmus wie auth.js showPeakOfDay)
+    async function getPeakOfDayId(centerLat, centerLng) {
+      // Peaks im 20km Umkreis laden
+      const latOffset = 0.18; // ~20km
+      const lngOffset = 0.25;
+      const { data: allPeaks } = await GK.supabase
+        .from('peaks')
+        .select('id, name, elevation, lat, lng')
+        .gte('lat', centerLat - latOffset).lte('lat', centerLat + latOffset)
+        .gte('lng', centerLng - lngOffset).lte('lng', centerLng + lngOffset)
+        .not('elevation', 'is', null)
+        .order('elevation', { ascending: false })
+        .limit(200);
+
+      if (!allPeaks || allPeaks.length === 0) return null;
+
+      // Nur Peaks innerhalb 20km
+      var cLat = centerLat * Math.PI / 180, cLng = centerLng * Math.PI / 180;
+      var peaks = allPeaks.filter(function(p) {
+        var dLat = (p.lat * Math.PI / 180) - cLat;
+        var dLng = (p.lng * Math.PI / 180) - cLng;
+        var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(cLat)*Math.cos(p.lat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+        return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) <= 20;
+      });
+      if (peaks.length === 0) return null;
+
+      // Sub-Region-Key: Kartenmitte gerundet auf 0.5 Grad Raster
+      var regionKey = Math.round(centerLat * 2) + Math.round(centerLng * 2) * 1000;
+
+      // Deterministischer Seed basierend auf Datum + Region-Center
+      var today = new Date();
+      var seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
+      var index = Math.abs((seed + regionKey) * 2654435761) % peaks.length;
+
+      return peaks[index].id;
+    }
 
     // GPX/CSV Upload
     document.getElementById('gpx-file').addEventListener('change', async (e) => {
@@ -695,13 +732,17 @@
         }
         totalElevGain = Math.round(totalElevGain);
 
-        // Gesamtdistanz berechnen (Haversine)
+        // Gesamtdistanz berechnen (Haversine über alle Trackpoints)
         let totalDistKm = 0;
         for (let i = 1; i < points.length; i++) {
-          const dLat = (points[i].lat - points[i-1].lat) * Math.PI / 180;
-          const dLng = (points[i].lng - points[i-1].lng) * Math.PI / 180;
-          const a = Math.sin(dLat/2)**2 + Math.cos(points[i-1].lat*Math.PI/180) * Math.cos(points[i].lat*Math.PI/180) * Math.sin(dLng/2)**2;
-          totalDistKm += 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) / 1000;
+          const lat1 = points[i-1].lat, lng1 = points[i-1].lng;
+          const lat2 = points[i].lat, lng2 = points[i].lng;
+          if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) continue;
+          const dLat = (lat2 - lat1) * Math.PI / 180;
+          const dLng = (lng2 - lng1) * Math.PI / 180;
+          const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          totalDistKm += 6371 * c;
         }
         totalDistKm = Math.round(totalDistKm * 10) / 10;
 
@@ -741,6 +782,19 @@
           // Frühaufsteher Bonus (erste Trackpoint-Zeit = Tour-Start < 07:00)
           const tourStartTime = points[0] && points[0].time ? new Date(points[0].time) : null;
           if (tourStartTime && tourStartTime.getHours() < 7) pts += 15;
+
+          // Combo-Bonus (2+ Gipfel in dieser Tour): +50% pro Extra-Gipfel
+          if (foundPeaks.length > 1) {
+            pts = Math.round(pts * (1 + 0.5 * (foundPeaks.length - 1)));
+          }
+
+          // Peak of Day 5x Bonus
+          const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+          const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+          const potdId = await getPeakOfDayId(centerLat, centerLng);
+          if (potdId && fp.peak.id === potdId) {
+            pts = Math.round(pts * 5);
+          }
 
           const { error: insertError } = await GK.supabase
             .from('summits')

@@ -189,11 +189,31 @@ GK.api.getOwnership = async function (peakId, season) {
  */
 GK.api.getLeaderboard = async function (region, season, limit) {
   try {
-    // Direkt aus summits-Tabelle berechnen (user_season_stats existiert nicht)
-    const { data: summits, error: summitsError } = await supabaseClient
+    // Wenn eine Region angegeben ist, nur Summits für Peaks in dieser Region laden
+    let regionPeakIds = null;
+    if (region) {
+      // Peaks für die Region laden (über osm_region oder lat/lng Bounds für Sub-Regionen)
+      const { data: regionPeaks, error: peakError } = await supabaseClient
+        .from('peaks')
+        .select('id')
+        .eq('osm_region', region);
+
+      if (peakError) throw peakError;
+      if (!regionPeaks || regionPeaks.length === 0) return [];
+      regionPeakIds = regionPeaks.map(p => p.id);
+    }
+
+    // Summits laden — optional gefiltert nach Region-Peaks
+    let query = supabaseClient
       .from('summits')
       .select('user_id, points, peak_id, is_season_first')
       .eq('season', season);
+
+    if (regionPeakIds) {
+      query = query.in('peak_id', regionPeakIds);
+    }
+
+    const { data: summits, error: summitsError } = await query;
 
     if (summitsError) throw summitsError;
     if (!summits || summits.length === 0) return [];

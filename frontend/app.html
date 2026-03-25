@@ -214,6 +214,7 @@
                 <div>👑 <span id="tickets-koenig">0</span> Kronen (5/Krone)</div>
                 <div>🗺️ <span id="tickets-gebiet">0</span> Gebiete (10/Gebiet)</div>
                 <div>🃏 <span id="tickets-potd">0</span> Gipfel d. Tages (3/POTD)</div>
+                <div>📊 <span id="tickets-punkte">0</span> Punkte-Lose (1/1000 Pkt)</div>
               </div>
             </div>
           </div>
@@ -238,15 +239,20 @@
             <p style="margin-bottom: 0.5rem;">Mehr Gipfel + mehr Kronen = hoeherer Rang. Vom Wanderer zum Bergkoenig!</p>
 
             <p style="margin-bottom: 0.35rem;"><strong style="color: var(--color-text);">Punkte</strong></p>
-            <p style="margin-bottom: 0.25rem;">⛰️ <strong style="color: var(--color-text);">Basis:</strong> HM/100 + km</p>
-            <p style="margin-bottom: 0.25rem;">🆕 <strong style="color: var(--color-text);">Neuer Berg</strong> (persoenlich) = 2x Punkte</p>
-            <p style="margin-bottom: 0.5rem;">🔄 <strong style="color: var(--color-text);">Wiederholung</strong> = normale Punkte</p>
+            <p style="margin-bottom: 0.25rem;">⛰️ <strong style="color: var(--color-text);">Basis:</strong> HM/100 + km + 10</p>
+            <p style="margin-bottom: 0.25rem;">⭐ <strong style="color: var(--color-text);">Pionier</strong> (Saison-Erster) = 3x Punkte</p>
+            <p style="margin-bottom: 0.25rem;">🆕 <strong style="color: var(--color-text);">Erstbesuch</strong> (persoenlich) = 2x Punkte</p>
+            <p style="margin-bottom: 0.25rem;">🔄 <strong style="color: var(--color-text);">Wiederholung</strong> = 0.2x Punkte</p>
+            <p style="margin-bottom: 0.25rem;">🌅 <strong style="color: var(--color-text);">Fruehaufsteher</strong> (vor 07:00) = +15 Punkte</p>
+            <p style="margin-bottom: 0.25rem;">🔥 <strong style="color: var(--color-text);">Combo</strong> (2+ Gipfel/Tag) = +50% pro Extra</p>
+            <p style="margin-bottom: 0.5rem;">🃏 <strong style="color: var(--color-text);">Gipfel des Tages</strong> = 5x Punkte</p>
 
             <h4 style="margin-top:12px; color:#ffd700;">Lose & Gewinne</h4>
             <div>⛰️ <strong>Jeder Gipfel</strong> = 1 Los</div>
             <div>👑 <strong>Krone</strong> = 5 Lose pro Krone</div>
             <div>🗺️ <strong>Gebiet</strong> = 10 Lose pro beherrschtes Gebiet</div>
             <div>🃏 <strong>Gipfel des Tages</strong> = 3 Lose</div>
+            <div>📊 <strong>1000 Punkte</strong> = 1 Los</div>
             <div style="margin-top:8px; font-size:0.75rem; color:#888;">Mehr Lose = hoehere Gewinnchance bei der Saisonend-Verlosung!</div>
             <a href="/teilnahmebedingungen.html" style="color:#ffd700; font-size:0.75rem;">→ Vollstaendige Teilnahmebedingungen</a>
           </div>
@@ -334,7 +340,7 @@
   <script src="js/regions.js"></script>
   <script src="./js/game.js"></script>
   <script src="./js/notifications.js"></script>
-  <script src="./js/gpx-upload.js"></script>
+  <!-- gpx-upload.js entfernt — GPX-Upload erfolgt über settings.html -->
   <script src="./js/feed.js"></script>
   <script src="/js/animations.js"></script>
 </body>

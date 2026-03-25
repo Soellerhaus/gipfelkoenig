@@ -95,35 +95,41 @@ window.GK.game = (() => {
    * @param {boolean} combo           - Teil einer Mehrfach-Gipfel-Tour
    * @returns {number} Berechnete Punkte (gerundet)
    */
-  // Punkte-Berechnung: Gipfel = HM/100, Pässe/Hütten/Scharten = 2 Punkte fix
-  function calculatePoints(peak, isPersonalFirst, isSeasonFirst, combo) {
-    const difficulty = peak.difficulty || 'T2';
-    let points;
+  /**
+   * Einheitliche Punkte-Berechnung (muss überall gleich sein!)
+   * Base = Math.round(elevation_gain / 100) + Math.round(distance_km) + 10
+   * Pionier (Saison-Erster) = x3
+   * Erstbesuch (Persönlich-Erster) = x2
+   * Wiederholung = x0.2
+   * Frühaufsteher (Tour vor 07:00) = +15
+   * Combo (2+ Gipfel/Tag) = +50% pro Extra-Gipfel
+   */
+  function calculatePoints(peak, isPersonalFirst, isSeasonFirst, combo, options) {
+    const opts = options || {};
+    const elevGain = opts.elevation_gain || peak.elevation || 1000;
+    const distKm = opts.distance_km || 0;
 
-    // Feste Punkte für POIs, HM-basiert für Gipfel
-    if (difficulty === 'pass' || difficulty === 'hut' || difficulty === 'saddle') {
-      points = 2;
-    } else {
-      points = Math.round((peak.elevation || 1000) / 100);
-    }
+    // Basis-Punkte
+    let basePts = Math.round(elevGain / 100) + Math.round(distKm) + 10;
 
     // Multiplikator je nach Besuchstyp
+    let points;
     if (isSeasonFirst) {
-      points *= 3;          // Erster diese Saison
+      points = Math.round(basePts * 3);   // Pionier: Erster diese Saison
     } else if (isPersonalFirst) {
-      points *= 1.5;        // Persönlich erster Besuch
+      points = Math.round(basePts * 2);   // Erstbesuch: Persönlich erster Besuch
     } else {
-      points *= 0.2;        // Wiederholung
+      points = Math.round(basePts * 0.2); // Wiederholung
     }
 
-    // Bonus für Mehrfach-Gipfel-Tour
-    if (combo) {
-      points += 5;
+    // Frühaufsteher Bonus (Tour vor 07:00)
+    if (opts.earlyBird) {
+      points += 15;
     }
 
-    // Heimat-Bonus Vorarlberg
-    if (peak.osm_region === 'AT-08') {
-      points += 1;
+    // Combo Bonus (2+ Gipfel am selben Tag): +50% pro Extra-Gipfel
+    if (combo && typeof combo === 'number' && combo > 1) {
+      points = Math.round(points * (1 + 0.5 * (combo - 1)));
     }
 
     return Math.round(points);
