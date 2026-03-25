@@ -457,15 +457,22 @@ function loadCrownsAsync() {
 let territoryLayer = null;
 
 /**
- * Hex-Grid-Konfiguration:
- * ~20km Durchmesser bei 47°N Breite.
- * Hex-Breite (lng) ≈ 0.27° (flat-top hex, Spaltenabstand)
- * Hex-Höhe (lat) ≈ 0.18° (Zeilenabstand)
+ * Hex-Grid-Konfiguration (flat-top, perfekte Tessellation):
+ * Circumradius s = 9km → Hex-Durchmesser 18km.
+ * Bei 47°N: 1° lat ≈ 111.32km, 1° lng ≈ 75.9km.
+ *
+ * Flat-top Hex mit Circumradius s:
+ *   Width  = 2 * s
+ *   Height = sqrt(3) * s
+ *   Col-Spacing = 1.5 * s   (horizontal center-to-center)
+ *   Row-Spacing = sqrt(3) * s (vertical center-to-center)
+ *   Odd columns offset by sqrt(3)/2 * s vertically
  */
-const HEX_WIDTH_DEG = 0.24;   // Grad Longitude (~18km bei 47°N)
-const HEX_HEIGHT_DEG = 0.16;  // Grad Latitude (~18km)
-const HEX_RADIUS_LNG = HEX_WIDTH_DEG / 2;     // halbe Breite
-const HEX_RADIUS_LAT = HEX_HEIGHT_DEG / 2;     // halbe Höhe
+const HEX_SIZE_KM = 9;                        // Circumradius in km (18km Durchmesser)
+const LAT_KM = 111.32;                        // km pro Grad Latitude
+const LNG_KM = 75.9;                          // km pro Grad Longitude bei 47°N
+const S_LAT = HEX_SIZE_KM / LAT_KM;           // Circumradius in Grad Latitude  ≈ 0.0808
+const S_LNG = HEX_SIZE_KM / LNG_KM;           // Circumradius in Grad Longitude ≈ 0.1186
 
 /**
  * Spielerfarbe aus User-ID generieren (deterministisch).
@@ -488,17 +495,22 @@ function getTerritoryColor(userId) {
 /**
  * Hex-Zelle für eine gegebene Koordinate berechnen (flat-top Hex-Grid).
  * Gibt { col, row, centerLat, centerLng } zurück.
+ *
+ * Flat-top Spacing:
+ *   colSpacing = 1.5 * s  (horizontal)
+ *   rowSpacing = sqrt(3) * s (vertical)
+ *   Ungerade Spalten um rowSpacing/2 nach oben versetzt.
  */
 function getHexCell(lat, lng) {
-  // Spalte bestimmen (flat-top: Spaltenabstand = 3/4 der Hex-Breite)
-  const colSpacing = HEX_WIDTH_DEG * 0.75;
+  const colSpacing = 1.5 * S_LNG;
+  const rowSpacing = Math.sqrt(3) * S_LAT;
+
   const col = Math.round(lng / colSpacing);
-  // Ungerade Spalten sind um halbe Höhe versetzt
-  const rowOffset = (col % 2 !== 0) ? HEX_HEIGHT_DEG / 2 : 0;
-  const row = Math.round((lat - rowOffset) / HEX_HEIGHT_DEG);
-  // Hex-Zentrum berechnen
+  const rowOffset = (col % 2 !== 0) ? rowSpacing / 2 : 0;
+  const row = Math.round((lat - rowOffset) / rowSpacing);
+
   const centerLng = col * colSpacing;
-  const centerLat = row * HEX_HEIGHT_DEG + rowOffset;
+  const centerLat = row * rowSpacing + rowOffset;
   return { col, row, centerLat, centerLng };
 }
 
@@ -506,21 +518,23 @@ function getHexCell(lat, lng) {
  * Hex-Schlüssel für Gruppierung (eindeutig pro Hex-Zelle).
  */
 function getHexKey(col, row) {
-  return col + ':' + row;
+  return col + ',' + row;
 }
 
 /**
  * 6 Eckpunkte eines flat-top Hexagons als [lat, lng]-Array.
- * Winkel starten bei 0° (rechts) und gehen gegen den Uhrzeigersinn.
+ * Winkel: 0°, 60°, 120°, 180°, 240°, 300° (flat-top Orientierung).
+ * Verwendet den vollen Circumradius s für jede Achse,
+ * sodass alle Hexagone identisch groß sind und lückenlos kacheln.
  */
 function getHexPolygon(centerLat, centerLng) {
   const points = [];
   for (let i = 0; i < 6; i++) {
     const angleDeg = 60 * i;
-    const angleRad = (Math.PI / 180) * angleDeg;
-    const pLng = centerLng + HEX_RADIUS_LNG * Math.cos(angleRad);
-    const pLat = centerLat + HEX_RADIUS_LAT * Math.sin(angleRad);
-    points.push([pLat, pLng]);
+    const angleRad = angleDeg * Math.PI / 180;
+    const vLng = centerLng + S_LNG * Math.cos(angleRad);
+    const vLat = centerLat + S_LAT * Math.sin(angleRad);
+    points.push([vLat, vLng]);
   }
   return points;
 }
