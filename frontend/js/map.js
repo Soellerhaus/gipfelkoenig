@@ -693,12 +693,13 @@ async function loadTerritories() {
       const corners = getHexPolygon(center.centerLat, center.centerLng);
       const kingName = userNames[king.userId] || 'Anonym';
 
+      const hexOp = (GK.map._hexOpacity || 20) / 100;
       const polygon = L.polygon(corners, {
         color: color,
         weight: 2,
-        opacity: 0.4,
+        opacity: hexOp * 2,
         fillColor: color,
-        fillOpacity: 0.2,
+        fillOpacity: hexOp,
         interactive: true,
         className: 'hex-territory',
       });
@@ -833,11 +834,45 @@ async function initMap() {
           if (map.hasLayer(territoryLayer)) map.removeLayer(territoryLayer);
         }
       }
+      // Opacity-Slider ein-/ausblenden
+      if (GK.map._hexOpacityDiv) {
+        GK.map._hexOpacityDiv.style.display = GK.map._hexVisible ? '' : 'none';
+      }
     });
     L.DomEvent.disableClickPropagation(div);
     return div;
   };
   hexToggle.addTo(map);
+
+  // Hex-Opacity-Slider (Transparenz der Territorienhexagone)
+  const hexOpacityCtrl = L.control({ position: 'topleft' });
+  hexOpacityCtrl.onAdd = function () {
+    const div = L.DomUtil.create('div', 'hex-opacity-control');
+    const savedOpacity = parseInt(localStorage.getItem('gk_hex_opacity'), 10);
+    const opVal = (savedOpacity >= 5 && savedOpacity <= 60) ? savedOpacity : 20;
+    GK.map._hexOpacity = opVal;
+    div.innerHTML = '<input type="range" min="5" max="60" step="5" value="' + opVal + '" title="Hex-Transparenz">';
+    const slider = div.querySelector('input');
+    slider.addEventListener('input', function () {
+      const v = parseInt(this.value, 10);
+      GK.map._hexOpacity = v;
+      localStorage.setItem('gk_hex_opacity', v);
+      // Alle bestehenden Hex-Polygone aktualisieren
+      if (territoryLayer) {
+        territoryLayer.eachLayer(function (layer) {
+          if (layer.setStyle) {
+            layer.setStyle({ fillOpacity: v / 100, opacity: v / 100 * 2 });
+          }
+        });
+      }
+    });
+    // Sichtbarkeit an Hex-Layer koppeln
+    if (!GK.map._hexVisible) div.style.display = 'none';
+    GK.map._hexOpacityDiv = div;
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  };
+  hexOpacityCtrl.addTo(map);
 
   // Browser-GPS als Standort-Bestimmung (nur wenn nicht vom Server)
   if (navigator.geolocation) {
