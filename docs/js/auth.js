@@ -939,9 +939,15 @@ async function showPeakOfDay() {
     return;
   }
 
-  // Nur Gipfel innerhalb 20km vom Kartenzentrum
+  // Schneegrenze je nach Monat (max. erreichbare Gipfelhöhe)
+  var month = new Date().getMonth(); // 0=Jan, 11=Dez
+  var snowLine = [1800, 1900, 2200, 2500, 3000, 3500, 4500, 4500, 3500, 2800, 2200, 1800][month];
+
+  // Nur Gipfel innerhalb 20km vom Kartenzentrum UND unter der Schneegrenze
   var cLat = center.lat * Math.PI / 180, cLng = center.lng * Math.PI / 180;
   var peaks = allPeaks.filter(function(p) {
+    // Schneegrenze: Gipfel muss erreichbar sein
+    if (p.elevation && p.elevation > snowLine) return false;
     var dLat = (p.lat * Math.PI / 180) - cLat;
     var dLng = (p.lng * Math.PI / 180) - cLng;
     var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(cLat)*Math.cos(p.lat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
