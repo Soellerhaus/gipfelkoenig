@@ -63,8 +63,13 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json()
 
     if (!tokenData.access_token) {
-      console.error('Suunto Token-Tausch fehlgeschlagen:', tokenData)
-      return new Response(JSON.stringify({ error: 'Token-Tausch fehlgeschlagen', details: tokenData }), {
+      console.error('Suunto Token-Tausch fehlgeschlagen:', JSON.stringify(tokenData))
+      return new Response(JSON.stringify({
+        error: 'Token-Tausch fehlgeschlagen',
+        suunto_status: tokenResponse.status,
+        suunto_response: tokenData,
+        debug: { clientId: clientId?.substring(0,8) + '...', redirectUri }
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })

@@ -510,12 +510,17 @@
       localStorage.removeItem('suunto_oauth_state');
 
       // Code gegen Token tauschen via Edge Function
-      const { data, error: fnError } = await GK.supabase.functions.invoke('suunto-exchange-token', {
+      const resp = await GK.supabase.functions.invoke('suunto-exchange-token', {
         body: { code }
       });
+      const data = resp.data;
+      const fnError = resp.error;
 
-      if (fnError) {
-        alert('Suunto-Verbindung fehlgeschlagen: ' + (fnError.message || 'Unbekannter Fehler'));
+      if (fnError || (data && data.error)) {
+        var errMsg = fnError ? fnError.message : '';
+        if (data && data.suunto_response) errMsg += '\nSuunto: ' + JSON.stringify(data.suunto_response);
+        if (data && data.debug) errMsg += '\nDebug: ' + JSON.stringify(data.debug);
+        alert('Suunto-Fehler:\n' + errMsg);
       } else {
         document.getElementById('suunto-not-connected-top').style.display = 'none';
         document.getElementById('suunto-connected-top').style.display = 'block';
