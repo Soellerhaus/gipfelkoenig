@@ -462,8 +462,8 @@ let territoryLayer = null;
  * Hex-Breite (lng) ≈ 0.27° (flat-top hex, Spaltenabstand)
  * Hex-Höhe (lat) ≈ 0.18° (Zeilenabstand)
  */
-const HEX_WIDTH_DEG = 0.27;   // Grad Longitude (~20km bei 47°N)
-const HEX_HEIGHT_DEG = 0.18;  // Grad Latitude (~20km)
+const HEX_WIDTH_DEG = 0.24;   // Grad Longitude (~18km bei 47°N)
+const HEX_HEIGHT_DEG = 0.16;  // Grad Latitude (~18km)
 const HEX_RADIUS_LNG = HEX_WIDTH_DEG / 2;     // halbe Breite
 const HEX_RADIUS_LAT = HEX_HEIGHT_DEG / 2;     // halbe Höhe
 
@@ -536,7 +536,10 @@ async function loadTerritories() {
   if (!GK.map.leaflet) return;
 
   if (!territoryLayer) {
-    territoryLayer = L.layerGroup().addTo(GK.map.leaflet);
+    territoryLayer = L.layerGroup();
+    if (GK.map._hexVisible !== false) {
+      territoryLayer.addTo(GK.map.leaflet);
+    }
   }
   territoryLayer.clearLayers();
 
@@ -675,14 +678,6 @@ async function loadTerritories() {
         className: 'hex-territory',
       });
 
-      // Hover-Effekt: Füll-Opacity erhöhen
-      polygon.on('mouseover', function () {
-        this.setStyle({ fillOpacity: 0.4 });
-      });
-      polygon.on('mouseout', function () {
-        this.setStyle({ fillOpacity: 0.2 });
-      });
-
       // Tooltip beim Hover
       polygon.bindTooltip(
         '\ud83d\udc51 ' + kingName + ' \u00b7 ' + king.count + ' Gipfel',
@@ -792,6 +787,32 @@ async function initMap() {
     return div;
   };
   homeBtn.addTo(map);
+
+  // Hex-Territory-Toggle-Button
+  const hexToggle = L.control({ position: 'topleft' });
+  hexToggle.onAdd = function () {
+    const div = L.DomUtil.create('div', 'leaflet-bar');
+    const savedState = localStorage.getItem('gk_hex_visible');
+    const hexVisible = savedState === null ? true : savedState === 'true';
+    GK.map._hexVisible = hexVisible;
+    div.innerHTML = '<a href="#" title="Gebiete ein/aus" id="hex-toggle-btn" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--color-bg-card,#2d2a26);color:' + (hexVisible ? '#c9a84c' : '#666') + ';font-size:18px;text-decoration:none;border-radius:4px;">⬡</a>';
+    div.querySelector('a').addEventListener('click', function (e) {
+      e.preventDefault();
+      GK.map._hexVisible = !GK.map._hexVisible;
+      localStorage.setItem('gk_hex_visible', GK.map._hexVisible);
+      this.style.color = GK.map._hexVisible ? '#c9a84c' : '#666';
+      if (territoryLayer) {
+        if (GK.map._hexVisible) {
+          if (!map.hasLayer(territoryLayer)) map.addLayer(territoryLayer);
+        } else {
+          if (map.hasLayer(territoryLayer)) map.removeLayer(territoryLayer);
+        }
+      }
+    });
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  };
+  hexToggle.addTo(map);
 
   // Browser-GPS als Standort-Bestimmung (nur wenn nicht vom Server)
   if (navigator.geolocation) {
