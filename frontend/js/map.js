@@ -869,6 +869,203 @@ async function initMap() {
   };
   hexCombo.addTo(map);
 
+  // -------------------------------------------------------------------------
+  // Schneetiefe-Layer (Open-Meteo API)
+  // -------------------------------------------------------------------------
+  GK.map._snowVisible = false;
+  GK.map._snowLayer = L.layerGroup();
+  GK.map._snowCache = null;        // { bounds, data, ts }
+  GK.map._snowDayIndex = 0;        // 0=heute, 1=+7d, 2=+16d
+  const SNOW_DAY_HOURS = [12, 7 * 24 + 12, 15 * 24 + 12]; // Stunde-Offset für heute/+7/+16 (Mittag)
+  const SNOW_GRID_STEP = 0.05;     // ~5 km Gitterabstand
+
+  /** Farbe nach Schneehöhe (cm) */
+  function snowColor(depth) {
+    if (depth <= 0)   return 'rgba(200,200,200,0.15)';
+    if (depth <= 20)  return 'rgba(76,175,80,0.55)';    // grün
+    if (depth <= 50)  return 'rgba(66,133,244,0.6)';     // blau
+    if (depth <= 100) return 'rgba(240,248,255,0.7)';    // weiß
+    return 'rgba(233,30,99,0.65)';                       // pink/rot
+  }
+
+  /** Schneehöhen-Daten von Open-Meteo laden (Grid über sichtbaren Kartenbereich) */
+  async function fetchSnowData() {
+    const b = map.getBounds();
+    // Prüfe ob Cache noch gültig (selber Bereich ± Toleranz, max 5 Min alt)
+    if (GK.map._snowCache) {
+      const c = GK.map._snowCache;
+      const tol = SNOW_GRID_STEP;
+      if (Date.now() - c.ts < 300000 &&
+          Math.abs(c.bounds.south - b.getSouth()) < tol &&
+          Math.abs(c.bounds.north - b.getNorth()) < tol &&
+          Math.abs(c.bounds.west - b.getWest()) < tol &&
+          Math.abs(c.bounds.east - b.getEast()) < tol) {
+        return c.data;
+      }
+    }
+
+    const south = Math.floor(b.getSouth() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
+    const north = Math.ceil(b.getNorth() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
+    const west = Math.floor(b.getWest() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
+    const east = Math.ceil(b.getEast() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
+
+    const lats = [], lngs = [];
+    for (let lat = south; lat <= north; lat += SNOW_GRID_STEP) {
+      for (let lng = west; lng <= east; lng += SNOW_GRID_STEP) {
+        lats.push(lat.toFixed(4));
+        lngs.push(lng.toFixed(4));
+      }
+    }
+
+    // Maximal 100 Punkte, sonst wird die API zu langsam
+    if (lats.length > 100) {
+      const step = Math.ceil(lats.length / 100);
+      const filteredLats = [], filteredLngs = [];
+      for (let i = 0; i < lats.length; i += step) {
+        filteredLats.push(lats[i]);
+        filteredLngs.push(lngs[i]);
+      }
+      lats.length = 0; lngs.length = 0;
+      lats.push(...filteredLats); lngs.push(...filteredLngs);
+    }
+
+    if (lats.length === 0) return [];
+
+    const url = 'https://api.open-meteo.com/v1/forecast'
+      + '?latitude=' + lats.join(',')
+      + '&longitude=' + lngs.join(',')
+      + '&hourly=snow_depth&forecast_days=16';
+
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('Open-Meteo HTTP ' + resp.status);
+      const json = await resp.json();
+
+      // API gibt bei 1 Punkt ein Objekt zurück, bei mehreren ein Array
+      const results = Array.isArray(json) ? json : [json];
+      const data = results.map((r, i) => ({
+        lat: parseFloat(lats[i]),
+        lng: parseFloat(lngs[i]),
+        hourly: r.hourly ? r.hourly.snow_depth : []
+      }));
+
+      GK.map._snowCache = {
+        bounds: { south: b.getSouth(), north: b.getNorth(), west: b.getWest(), east: b.getEast() },
+        data: data,
+        ts: Date.now()
+      };
+      return data;
+    } catch (err) {
+      console.error('Schneetiefe-Fehler:', err);
+      return [];
+    }
+  }
+
+  /** Schnee-Rechtecke auf die Karte zeichnen */
+  function renderSnowLayer(data) {
+    GK.map._snowLayer.clearLayers();
+    if (!data || data.length === 0) return;
+    const hourIdx = SNOW_DAY_HOURS[GK.map._snowDayIndex] || 12;
+    const half = SNOW_GRID_STEP / 2;
+
+    data.forEach(function (pt) {
+      const depth = (pt.hourly && pt.hourly[hourIdx] != null) ? pt.hourly[hourIdx] : 0;
+      const color = snowColor(depth);
+      const bounds = [[pt.lat - half, pt.lng - half], [pt.lat + half, pt.lng + half]];
+      const rect = L.rectangle(bounds, {
+        color: 'transparent',
+        fillColor: color,
+        fillOpacity: 1,
+        weight: 0,
+        interactive: false
+      });
+      // Tooltip mit Schneehöhe
+      rect.bindTooltip(depth.toFixed(0) + ' cm', { sticky: true, className: 'snow-tooltip' });
+      rect.addTo(GK.map._snowLayer);
+    });
+  }
+
+  /** Schnee-Layer aktualisieren (Daten laden + rendern) */
+  async function updateSnowLayer() {
+    if (!GK.map._snowVisible) return;
+    const data = await fetchSnowData();
+    renderSnowLayer(data);
+  }
+
+  // Schnee-Toggle-Control (unter hexCombo)
+  const snowControl = L.control({ position: 'topleft' });
+  snowControl.onAdd = function () {
+    const wrap = L.DomUtil.create('div', '');
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;margin-top:4px;';
+
+    // Toggle-Button
+    const btn = L.DomUtil.create('div', 'leaflet-bar', wrap);
+    btn.innerHTML = '<a href="#" title="Schneetiefe ein/aus" id="snow-toggle-btn" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--color-bg-card,#2d2a26);color:#666;font-size:18px;text-decoration:none;border-radius:4px;">❄️</a>';
+
+    // Zeit-Slider (Heute → +7d → +16d)
+    const sliderWrap = L.DomUtil.create('div', 'snow-time-control', wrap);
+    sliderWrap.innerHTML =
+      '<input type="range" min="0" max="2" step="1" value="0" title="Vorhersage-Tag" orient="vertical">' +
+      '<div class="snow-time-labels">' +
+        '<span class="snow-time-label active">H</span>' +
+        '<span class="snow-time-label">+7</span>' +
+        '<span class="snow-time-label">+16</span>' +
+      '</div>';
+    sliderWrap.style.display = 'none';
+
+    // Legende
+    const legend = L.DomUtil.create('div', 'snow-legend', wrap);
+    legend.innerHTML =
+      '<div class="snow-legend-item"><span style="background:rgba(76,175,80,0.8)"></span>0–20</div>' +
+      '<div class="snow-legend-item"><span style="background:rgba(66,133,244,0.8)"></span>20–50</div>' +
+      '<div class="snow-legend-item"><span style="background:rgba(240,248,255,0.9);border:1px solid #999"></span>50–100</div>' +
+      '<div class="snow-legend-item"><span style="background:rgba(233,30,99,0.8)"></span>100+</div>';
+    legend.style.display = 'none';
+
+    // Toggle-Handler
+    btn.querySelector('a').addEventListener('click', function (e) {
+      e.preventDefault();
+      GK.map._snowVisible = !GK.map._snowVisible;
+      this.style.color = GK.map._snowVisible ? '#90caf9' : '#666';
+      sliderWrap.style.display = GK.map._snowVisible ? '' : 'none';
+      legend.style.display = GK.map._snowVisible ? '' : 'none';
+      if (GK.map._snowVisible) {
+        if (!map.hasLayer(GK.map._snowLayer)) map.addLayer(GK.map._snowLayer);
+        updateSnowLayer();
+      } else {
+        if (map.hasLayer(GK.map._snowLayer)) map.removeLayer(GK.map._snowLayer);
+        GK.map._snowLayer.clearLayers();
+      }
+    });
+
+    // Slider-Handler
+    const slider = sliderWrap.querySelector('input');
+    const labels = sliderWrap.querySelectorAll('.snow-time-label');
+    slider.addEventListener('input', function () {
+      GK.map._snowDayIndex = parseInt(this.value, 10);
+      labels.forEach(function (l, i) {
+        l.classList.toggle('active', i === GK.map._snowDayIndex);
+      });
+      // Vorhandene Cache-Daten direkt neu rendern
+      if (GK.map._snowCache) {
+        renderSnowLayer(GK.map._snowCache.data);
+      }
+    });
+
+    L.DomEvent.disableClickPropagation(wrap);
+    return wrap;
+  };
+  snowControl.addTo(map);
+
+  // Bei Kartenverschiebung Schnee-Layer aktualisieren (debounced)
+  map.on('moveend', debounce(function () {
+    if (GK.map._snowVisible) {
+      // Cache invalidieren bei größerer Verschiebung
+      GK.map._snowCache = null;
+      updateSnowLayer();
+    }
+  }, 1000));
+
   // Browser-GPS als Standort-Bestimmung (nur wenn nicht vom Server)
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
