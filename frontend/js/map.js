@@ -874,121 +874,131 @@ async function initMap() {
   // -------------------------------------------------------------------------
   GK.map._snowVisible = false;
   GK.map._snowLayer = L.layerGroup();
-  GK.map._snowCache = null;        // { bounds, data, ts }
+  GK.map._snowCache = null;
   GK.map._snowDayIndex = 0;        // 0=heute, 1=+7d, 2=+16d
-  const SNOW_DAY_HOURS = [12, 7 * 24 + 12, 15 * 24 + 12]; // Stunde-Offset für heute/+7/+16 (Mittag)
-  const SNOW_GRID_STEP = 0.08;     // ~8 km Gitterabstand (weniger Punkte, flächendeckend)
+  const SNOW_DAY_HOURS = [12, 7 * 24 + 12, 15 * 24 + 12];
 
-  /** Farbe nach Schneehöhe (cm) */
+  // Dichtes Grid: ~2km Kacheln, max 50 Punkte pro Abfrage
+  // Open-Meteo berechnet Schneehöhe basierend auf Höhenlage automatisch!
+  const SNOW_STEP = 0.02;  // ~2.2 km
+
   function snowColor(depth) {
-    if (depth <= 0)   return 'rgba(200,200,200,0.15)';
-    if (depth <= 20)  return 'rgba(76,175,80,0.55)';    // grün
-    if (depth <= 50)  return 'rgba(66,133,244,0.6)';     // blau
-    if (depth <= 100) return 'rgba(240,248,255,0.7)';    // weiß
-    return 'rgba(233,30,99,0.65)';                       // pink/rot
+    if (depth <= 0)   return null;
+    if (depth <= 10)  return '#a8e6a3';  // hellgrün
+    if (depth <= 30)  return '#4caf50';  // grün
+    if (depth <= 60)  return '#42a5f5';  // blau
+    if (depth <= 100) return '#e3f2fd';  // hellblau/weiss
+    if (depth <= 150) return '#f8bbd0';  // rosa
+    return '#e91e63';                    // pink/rot
   }
 
-  /** Schneehöhen-Daten von Open-Meteo laden (Grid über sichtbaren Kartenbereich) */
   async function fetchSnowData() {
     const b = map.getBounds();
-    // Prüfe ob Cache noch gültig (selber Bereich ± Toleranz, max 5 Min alt)
+    const zoom = map.getZoom();
+
+    // Cache prüfen (5 Min + gleicher Bereich)
     if (GK.map._snowCache) {
-      const c = GK.map._snowCache;
-      const tol = SNOW_GRID_STEP;
+      var c = GK.map._snowCache;
       if (Date.now() - c.ts < 300000 &&
-          Math.abs(c.bounds.south - b.getSouth()) < tol &&
-          Math.abs(c.bounds.north - b.getNorth()) < tol &&
-          Math.abs(c.bounds.west - b.getWest()) < tol &&
-          Math.abs(c.bounds.east - b.getEast()) < tol) {
+          Math.abs(c.south - b.getSouth()) < 0.02 &&
+          Math.abs(c.north - b.getNorth()) < 0.02) {
         return c.data;
       }
     }
 
-    const south = Math.floor(b.getSouth() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
-    const north = Math.ceil(b.getNorth() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
-    const west = Math.floor(b.getWest() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
-    const east = Math.ceil(b.getEast() / SNOW_GRID_STEP) * SNOW_GRID_STEP;
+    // Zoom-abhängige Auflösung: nah = fein, weit = grob
+    var step = zoom >= 13 ? 0.015 : zoom >= 11 ? 0.03 : zoom >= 9 ? 0.06 : 0.12;
 
-    // 2D-Grid erzeugen — max 10 Reihen × 10 Spalten = 100 Punkte
-    const latRange = north - south;
-    const lngRange = east - west;
-    const maxCells = 10;
-    const latStep = Math.max(SNOW_GRID_STEP, latRange / maxCells);
-    const lngStep = Math.max(SNOW_GRID_STEP, lngRange / maxCells);
+    var south = Math.floor(b.getSouth() / step) * step;
+    var north = Math.ceil(b.getNorth() / step) * step;
+    var west  = Math.floor(b.getWest() / step) * step;
+    var east  = Math.ceil(b.getEast() / step) * step;
 
-    const lats = [], lngs = [];
-    for (let lat = south; lat <= north; lat += latStep) {
-      for (let lng = west; lng <= east; lng += lngStep) {
-        lats.push(lat.toFixed(4));
-        lngs.push(lng.toFixed(4));
+    var lats = [], lngs = [];
+    for (var la = south; la <= north; la += step) {
+      for (var lo = west; lo <= east; lo += step) {
+        lats.push(la.toFixed(4));
+        lngs.push(lo.toFixed(4));
       }
     }
-    // Speichere Schrittweite für Rechteck-Zeichnung
-    GK.map._snowLatStep = latStep;
-    GK.map._snowLngStep = lngStep;
 
+    // Maximal 80 Punkte (Open-Meteo Limit)
+    if (lats.length > 80) {
+      var rowCount = Math.round((north - south) / step) + 1;
+      var colCount = Math.round((east - west) / step) + 1;
+      var maxPerDim = Math.floor(Math.sqrt(80));
+      var rowSkip = Math.max(1, Math.ceil(rowCount / maxPerDim));
+      var colSkip = Math.max(1, Math.ceil(colCount / maxPerDim));
+      step = step * Math.max(rowSkip, colSkip);
+      lats = []; lngs = [];
+      for (var la2 = south; la2 <= north; la2 += step) {
+        for (var lo2 = west; lo2 <= east; lo2 += step) {
+          lats.push(la2.toFixed(4));
+          lngs.push(lo2.toFixed(4));
+        }
+      }
+    }
+
+    GK.map._snowStep = step;
     if (lats.length === 0) return [];
 
-    const url = 'https://api.open-meteo.com/v1/forecast'
+    // Open-Meteo: snow_depth wird automatisch nach Höhe berechnet (SRTM Geländemodell)
+    var url = 'https://api.open-meteo.com/v1/forecast'
       + '?latitude=' + lats.join(',')
       + '&longitude=' + lngs.join(',')
       + '&hourly=snow_depth&forecast_days=16';
 
     try {
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error('Open-Meteo HTTP ' + resp.status);
-      const json = await resp.json();
-
-      // API gibt bei 1 Punkt ein Objekt zurück, bei mehreren ein Array
-      const results = Array.isArray(json) ? json : [json];
-      const data = results.map((r, i) => ({
-        lat: parseFloat(lats[i]),
-        lng: parseFloat(lngs[i]),
-        hourly: r.hourly ? r.hourly.snow_depth : []
-      }));
-
+      var resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      var json = await resp.json();
+      var results = Array.isArray(json) ? json : [json];
+      var data = results.map(function(r, i) {
+        return {
+          lat: parseFloat(lats[i]),
+          lng: parseFloat(lngs[i]),
+          elevation: r.elevation || 0,
+          hourly: r.hourly ? r.hourly.snow_depth : []
+        };
+      });
       GK.map._snowCache = {
-        bounds: { south: b.getSouth(), north: b.getNorth(), west: b.getWest(), east: b.getEast() },
-        data: data,
-        ts: Date.now()
+        south: b.getSouth(), north: b.getNorth(),
+        west: b.getWest(), east: b.getEast(),
+        data: data, ts: Date.now()
       };
       return data;
     } catch (err) {
-      console.error('Schneetiefe-Fehler:', err);
+      console.error('Schnee-Fehler:', err);
       return [];
     }
   }
 
-  /** Schnee-Rechtecke auf die Karte zeichnen */
   function renderSnowLayer(data) {
     GK.map._snowLayer.clearLayers();
-    if (!data || data.length === 0) return;
-    const hourIdx = SNOW_DAY_HOURS[GK.map._snowDayIndex] || 12;
-    // Verwende die tatsächliche Schrittweite des Grids
-    const halfLat = (GK.map._snowLatStep || SNOW_GRID_STEP) / 2;
-    const halfLng = (GK.map._snowLngStep || SNOW_GRID_STEP) / 2;
+    if (!data || !data.length) return;
+    var hourIdx = SNOW_DAY_HOURS[GK.map._snowDayIndex] || 12;
+    var half = (GK.map._snowStep || 0.03) / 2;
 
-    data.forEach(function (pt) {
-      const depth = (pt.hourly && pt.hourly[hourIdx] != null) ? pt.hourly[hourIdx] : 0;
-      if (depth < 1) return; // Kein Schnee → nicht zeichnen
-      const color = snowColor(depth);
-      const bounds = [[pt.lat - halfLat, pt.lng - halfLng], [pt.lat + halfLat, pt.lng + halfLng]];
-      const rect = L.rectangle(bounds, {
-        color: 'transparent',
-        fillColor: color,
-        fillOpacity: 0.5,
-        weight: 0,
-        interactive: true
+    data.forEach(function(pt) {
+      var depth = (pt.hourly && pt.hourly[hourIdx] != null) ? pt.hourly[hourIdx] : 0;
+      if (depth < 1) return;
+      var color = snowColor(depth);
+      if (!color) return;
+      var bounds = [[pt.lat - half, pt.lng - half], [pt.lat + half, pt.lng + half]];
+      var rect = L.rectangle(bounds, {
+        color: 'transparent', fillColor: color,
+        fillOpacity: 0.55, weight: 0, interactive: true
       });
-      rect.bindTooltip(depth.toFixed(0) + ' cm Schnee', { sticky: true, className: 'snow-tooltip' });
+      var tip = depth.toFixed(0) + ' cm';
+      if (pt.elevation) tip += ' · ' + Math.round(pt.elevation) + ' m ü.M.';
+      rect.bindTooltip(tip, { sticky: true, className: 'snow-tooltip' });
       rect.addTo(GK.map._snowLayer);
     });
   }
 
-  /** Schnee-Layer aktualisieren (Daten laden + rendern) */
   async function updateSnowLayer() {
     if (!GK.map._snowVisible) return;
-    const data = await fetchSnowData();
+    var data = await fetchSnowData();
     renderSnowLayer(data);
   }
 
