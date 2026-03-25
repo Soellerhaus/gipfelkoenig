@@ -24,6 +24,113 @@
   <link rel="stylesheet" href="./css/base.css">
   <link rel="stylesheet" href="./css/components.css">
   <link rel="stylesheet" href="./css/layout.css">
+
+  <!-- Daily Reward Modal Styles -->
+  <style>
+    /* --- Daily Reward Overlay & Modal --- */
+    .daily-reward-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.75); z-index: 2000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .daily-reward-modal {
+      background: #1a1a2e; border: 2px solid #ffd700;
+      border-radius: 16px; padding: 28px 24px 20px; text-align: center;
+      max-width: 340px; width: 90%; position: relative;
+      box-shadow: 0 0 40px rgba(255,215,0,0.25), 0 8px 32px rgba(0,0,0,0.6);
+      animation: dailyRewardSlideIn 0.45s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .daily-reward-modal.closing {
+      animation: dailyRewardSlideOut 0.35s ease-in forwards;
+    }
+    @keyframes dailyRewardSlideIn {
+      from { opacity: 0; transform: translateY(-60px) scale(0.9); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes dailyRewardSlideOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to   { opacity: 0; transform: translateY(-40px) scale(0.9); }
+    }
+    .daily-reward-gift {
+      font-size: 3rem; margin-bottom: 4px;
+      animation: dailyGiftBounce 1.2s ease-in-out infinite;
+    }
+    @keyframes dailyGiftBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    .daily-reward-title {
+      font-family: var(--font-display, 'Playfair Display', serif);
+      font-size: 1.4rem; font-weight: 700; color: #ffd700; margin-bottom: 6px;
+    }
+    .daily-reward-streak {
+      font-size: 1.1rem; color: #fff; margin-bottom: 10px;
+    }
+    .daily-reward-points {
+      font-family: var(--font-display, 'Playfair Display', serif);
+      font-size: 2rem; font-weight: 900; color: #ffd700; margin: 8px 0 4px;
+      animation: dailyPointsGlow 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes dailyPointsGlow {
+      from { text-shadow: 0 0 8px rgba(255,215,0,0.4); }
+      to   { text-shadow: 0 0 20px rgba(255,215,0,0.8), 0 0 40px rgba(255,215,0,0.3); }
+    }
+    .daily-reward-bonus {
+      font-size: 0.95rem; color: #ffd700; margin-bottom: 4px;
+    }
+    .daily-reward-btn {
+      display: inline-block; margin-top: 14px; padding: 12px 40px;
+      background: linear-gradient(135deg, #ffd700 0%, #f0a500 100%);
+      color: #1a1a2e; font-weight: 700; font-size: 1.05rem;
+      border: none; border-radius: 10px; cursor: pointer;
+      position: relative; overflow: hidden; transition: transform 0.15s;
+    }
+    .daily-reward-btn:active { transform: scale(0.96); }
+    .daily-reward-btn::after {
+      content: ''; position: absolute; top: -50%; left: -75%; width: 50%; height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      transform: skewX(-25deg);
+      animation: dailyBtnShimmer 2.5s ease-in-out infinite;
+    }
+    @keyframes dailyBtnShimmer {
+      0%   { left: -75%; }
+      100% { left: 150%; }
+    }
+    .daily-reward-dots {
+      display: flex; justify-content: center; gap: 6px;
+      margin-top: 18px; flex-wrap: wrap;
+    }
+    .daily-reward-dot {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; border: 1.5px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.05); color: #888; position: relative;
+    }
+    .daily-reward-dot.done {
+      border-color: #48bb78; color: #48bb78; background: rgba(72,187,120,0.15);
+    }
+    .daily-reward-dot.current {
+      border-color: #ffd700; color: #ffd700; background: rgba(255,215,0,0.15);
+      animation: dailyDotPulse 1s ease-in-out infinite;
+    }
+    @keyframes dailyDotPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.4); }
+      50%      { box-shadow: 0 0 0 6px rgba(255,215,0,0); }
+    }
+    .daily-reward-dot.future { opacity: 0.5; }
+    .daily-reward-dot .dot-label {
+      font-size: 0.55rem; position: absolute; bottom: -14px;
+      color: #888; white-space: nowrap;
+    }
+    /* Gold flash on claim */
+    .daily-reward-overlay.gold-flash {
+      animation: dailyGoldFlash 0.4s ease-out;
+    }
+    @keyframes dailyGoldFlash {
+      0%  { background: rgba(255,215,0,0.6); }
+      100%{ background: rgba(0,0,0,0); }
+    }
+  </style>
 </head>
 <body>
   <div class="app">
@@ -109,10 +216,31 @@
       <!-- Profil / Dashboard -->
       <section class="content-section" id="section-profile">
 
-        <!-- Einstellungen + Abmelden ganz oben -->
-        <div style="display:flex; gap:8px; margin-bottom: 0.75rem;">
-          <a href="/settings.html" class="btn btn-secondary" style="flex:1; font-size: 0.8rem; padding: 8px; text-align: center; text-decoration: none;">⚙️ Einstellungen</a>
-          <button class="btn btn-secondary" id="logout-btn" style="flex:0; font-size: 0.8rem; padding: 8px; white-space:nowrap;">Abmelden</button>
+        <!-- Smartwatch verbinden — oben im Profil -->
+        <div style="margin-bottom: 0.75rem; text-align: center;">
+          <div style="font-size: 0.7rem; color: var(--color-muted); margin-bottom: 6px; letter-spacing: 1px; text-transform: uppercase;">Smartwatch verbinden — ein Klick!</div>
+          <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+            <!-- Suunto -->
+            <a href="/settings.html#suunto" onclick="if(typeof startSuuntoOAuth==='function'){startSuuntoOAuth();return false;}" style="display:flex; flex-direction:column; align-items:center; gap:3px; text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid #e1422a; background:rgba(225,66,42,0.08); cursor:pointer; min-width:60px;">
+              <img src="/img/suunto-logo.png" alt="Suunto" style="height:22px; width:auto;" onerror="this.outerHTML='<span style=font-size:1.2rem>🔴</span>'">
+              <span style="font-size:0.55rem; color:#e1422a; font-weight:600;">Suunto</span>
+            </a>
+            <!-- Strava (bald) -->
+            <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 12px; border-radius:8px; border:1px solid rgba(252,82,0,0.3); background:rgba(252,82,0,0.03); opacity:0.4; min-width:60px;">
+              <span style="font-size:1.2rem;">🟠</span>
+              <span style="font-size:0.55rem; color:#fc5200;">Strava</span>
+            </div>
+            <!-- Garmin (bald) -->
+            <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 12px; border-radius:8px; border:1px solid rgba(0,119,200,0.3); background:rgba(0,119,200,0.03); opacity:0.4; min-width:60px;">
+              <span style="font-size:1.2rem;">🔵</span>
+              <span style="font-size:0.55rem; color:#0077c8;">Garmin</span>
+            </div>
+            <!-- GPX Upload -->
+            <a href="/settings.html#gpx" style="display:flex; flex-direction:column; align-items:center; gap:3px; text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid var(--color-gold); background:rgba(201,168,76,0.08); cursor:pointer; min-width:60px;">
+              <span style="font-size:1.2rem;">📂</span>
+              <span style="font-size:0.55rem; color:var(--color-gold); font-weight:600;">GPX</span>
+            </a>
+          </div>
         </div>
 
         <!-- Profil-Header -->
@@ -278,6 +406,12 @@
           </div>
         </div>
 
+        <!-- Einstellungen + Abmelden unten -->
+        <div style="display:flex; gap:8px; margin-top: 0.75rem; margin-bottom: 0.5rem;">
+          <a href="/settings.html" class="btn btn-secondary" style="flex:1; font-size: 0.8rem; padding: 8px; text-align: center; text-decoration: none;">⚙️ Einstellungen</a>
+          <button class="btn btn-secondary" id="logout-btn" style="flex:0; font-size: 0.8rem; padding: 8px; white-space:nowrap;">Abmelden</button>
+        </div>
+
         <input type="file" id="gpx-upload" accept=".gpx" style="display: none;">
         <div id="gpx-result" style="font-size: 0.75rem; display: none;"></div>
         <!-- Hidden for JS compatibility -->
@@ -334,6 +468,21 @@
         </div>
       </div>
     </div>
+
+    <!-- Daily Reward Modal -->
+    <div id="daily-reward-overlay" class="daily-reward-overlay" style="display:none;">
+      <div class="daily-reward-modal" id="daily-reward-modal">
+        <div class="daily-reward-gift">🎁</div>
+        <div class="daily-reward-title">Täglicher Bonus!</div>
+        <div class="daily-reward-streak" id="daily-reward-streak">Tag 1 🔥</div>
+        <div class="daily-reward-points" id="daily-reward-points">+5 Punkte</div>
+        <div class="daily-reward-bonus" id="daily-reward-bonus" style="display:none;">+ 1 Bonus-Los! 🎁</div>
+        <button class="daily-reward-btn" id="daily-reward-claim">Einsammeln!</button>
+        <div class="daily-reward-dots" id="daily-reward-dots"></div>
+      </div>
+    </div>
+    <!-- Confetti Canvas -->
+    <canvas id="daily-reward-confetti" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:2002;pointer-events:none;"></canvas>
 
     <!-- Toast -->
     <div class="notification-toast" id="toast"></div>

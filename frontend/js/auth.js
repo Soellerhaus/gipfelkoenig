@@ -378,6 +378,9 @@ async function initAppPage() {
     }
   }
 
+  // Täglichen Login-Bonus prüfen
+  checkDailyReward();
+
   // Strava-OAuth-Callback verarbeiten (Code in URL-Parametern)
   const urlParams = new URLSearchParams(window.location.search);
   const stravaCode = urlParams.get('code');
@@ -1040,6 +1043,219 @@ async function calculateStreak(userId) {
   }
 
   return streak;
+}
+
+// ---------------------------------------------------------------------------
+// Täglicher Login-Bonus ("Täglicher Bonus")
+// ---------------------------------------------------------------------------
+
+const DAILY_REWARD_POINTS = [5, 10, 15, 20, 30, 40, 50];
+
+function getTodayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function checkDailyReward() {
+  const today = getTodayStr();
+  const lastClaim = localStorage.getItem('bergkoenig_last_login_date');
+
+  // Bereits heute eingesammelt → nichts tun
+  if (lastClaim === today) return;
+
+  // Streak berechnen
+  let streak = parseInt(localStorage.getItem('bergkoenig_login_streak') || '0', 10);
+
+  if (lastClaim) {
+    // Prüfen ob gestern war (Streak fortsetzen) oder Streak zurücksetzen
+    const lastDate = new Date(lastClaim);
+    const todayDate = new Date(today);
+    const diffDays = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) {
+      // Gestern eingesammelt → Streak weiter
+      streak = (streak % 7) + 1;
+    } else {
+      // Mehr als 1 Tag verpasst → Reset
+      streak = 1;
+    }
+  } else {
+    // Erster Login überhaupt
+    streak = 1;
+  }
+
+  const dayIndex = streak - 1; // 0-basiert
+  const points = DAILY_REWARD_POINTS[dayIndex] || 5;
+  const isDay7 = streak === 7;
+
+  // Modal füllen
+  const streakEl = document.getElementById('daily-reward-streak');
+  const pointsEl = document.getElementById('daily-reward-points');
+  const bonusEl = document.getElementById('daily-reward-bonus');
+  const dotsEl = document.getElementById('daily-reward-dots');
+
+  if (streakEl) streakEl.textContent = 'Tag ' + streak + ' 🔥';
+  if (pointsEl) pointsEl.textContent = '+' + points + ' Punkte';
+  if (bonusEl) bonusEl.style.display = isDay7 ? 'block' : 'none';
+
+  // Streak-Dots rendern
+  if (dotsEl) {
+    let html = '';
+    for (let i = 1; i <= 7; i++) {
+      let cls = 'daily-reward-dot';
+      let icon = '';
+      if (i < streak) {
+        cls += ' done';
+        icon = '✓';
+      } else if (i === streak) {
+        cls += ' current';
+        icon = '🔥';
+      } else if (i === 7) {
+        cls += ' future';
+        icon = '🎁';
+      } else {
+        cls += ' future';
+        icon = '○';
+      }
+      html += '<div class="' + cls + '">' + icon + '<span class="dot-label">' + i + '</span></div>';
+    }
+    dotsEl.innerHTML = html;
+  }
+
+  // Modal anzeigen
+  const overlay = document.getElementById('daily-reward-overlay');
+  if (overlay) overlay.style.display = 'flex';
+
+  // Claim-Button Handler (einmal binden)
+  const claimBtn = document.getElementById('daily-reward-claim');
+  if (claimBtn) {
+    // Alten Listener entfernen durch Klonen
+    const newBtn = claimBtn.cloneNode(true);
+    claimBtn.parentNode.replaceChild(newBtn, claimBtn);
+
+    newBtn.addEventListener('click', function() {
+      claimDailyReward(streak, points, isDay7);
+    });
+  }
+}
+
+async function claimDailyReward(streak, points, isDay7) {
+  const overlay = document.getElementById('daily-reward-overlay');
+  const modal = document.getElementById('daily-reward-modal');
+  const today = getTodayStr();
+
+  try {
+    // 1. Punkte zum Profil in Supabase addieren
+    const userId = GK.auth && GK.auth.user ? GK.auth.user.id : null;
+    if (userId) {
+      // Aktuelle Punkte holen
+      const { data: profile } = await GK.supabase
+        .from('user_profiles')
+        .select('total_points')
+        .eq('id', userId)
+        .single();
+
+      const currentPoints = (profile && profile.total_points) || 0;
+      const newTotal = currentPoints + points;
+
+      await GK.supabase
+        .from('user_profiles')
+        .update({ total_points: newTotal })
+        .eq('id', userId);
+
+      // 2. Header-Punkte aktualisieren
+      const punkteEl = document.getElementById('user-points');
+      if (punkteEl) punkteEl.textContent = newTotal.toLocaleString('de') + ' Pkt';
+    }
+
+    // 3. localStorage aktualisieren
+    localStorage.setItem('bergkoenig_last_login_date', today);
+    localStorage.setItem('bergkoenig_login_streak', streak.toString());
+
+    // 4. Gold Flash + Confetti + Modal schließen
+    if (overlay) overlay.classList.add('gold-flash');
+    fireConfetti();
+
+    setTimeout(function() {
+      if (modal) modal.classList.add('closing');
+      setTimeout(function() {
+        if (overlay) {
+          overlay.style.display = 'none';
+          overlay.classList.remove('gold-flash');
+        }
+        if (modal) modal.classList.remove('closing');
+      }, 350);
+    }, 600);
+
+    // Toast
+    if (typeof GK.showToast === 'function') {
+      const msg = '+' + points + ' Punkte eingesammelt!' + (isDay7 ? ' 🎁 +1 Bonus-Los!' : '');
+      GK.showToast(msg, 'success');
+    }
+
+  } catch (err) {
+    console.error('Daily reward claim Fehler:', err);
+    // Trotzdem localStorage updaten damit Modal nicht endlos kommt
+    localStorage.setItem('bergkoenig_last_login_date', today);
+    localStorage.setItem('bergkoenig_login_streak', streak.toString());
+    if (overlay) overlay.style.display = 'none';
+  }
+}
+
+// Confetti-Burst Animation
+function fireConfetti() {
+  const canvas = document.getElementById('daily-reward-confetti');
+  if (!canvas) return;
+  canvas.style.display = 'block';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+
+  const colors = ['#ffd700','#ff6b6b','#48bb78','#4299e1','#ed64a6','#ecc94b','#fff'];
+  const particles = [];
+  for (let i = 0; i < 80; i++) {
+    particles.push({
+      x: canvas.width / 2 + (Math.random() - 0.5) * 60,
+      y: canvas.height / 2 - 40,
+      vx: (Math.random() - 0.5) * 12,
+      vy: Math.random() * -12 - 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.random() * 6 + 3,
+      life: 1,
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 10
+    });
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    for (const p of particles) {
+      if (p.life <= 0) continue;
+      alive = true;
+      p.x += p.vx;
+      p.vy += 0.25; // Schwerkraft
+      p.y += p.vy;
+      p.life -= 0.012;
+      p.rotation += p.rotSpeed;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation * Math.PI / 180);
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size * 0.6);
+      ctx.restore();
+    }
+    frame++;
+    if (alive && frame < 120) {
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.style.display = 'none';
+    }
+  }
+  requestAnimationFrame(animate);
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
