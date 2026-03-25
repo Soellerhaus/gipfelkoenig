@@ -514,13 +514,15 @@
         body: { code }
       });
       const data = resp.data;
-      const fnError = resp.error;
 
-      if (fnError || (data && data.error)) {
-        var errMsg = fnError ? fnError.message : '';
-        if (data && data.suunto_response) errMsg += '\nSuunto: ' + JSON.stringify(data.suunto_response);
-        if (data && data.debug) errMsg += '\nDebug: ' + JSON.stringify(data.debug);
-        alert('Suunto-Fehler:\n' + errMsg);
+      if (data && data.error) {
+        alert('Suunto-Fehler [' + (data.step || '?') + ']:\n' + data.error +
+          (data.suunto_body ? '\n\nSuunto sagt: ' + JSON.stringify(data.suunto_body) : '') +
+          (data.detail ? '\nDetail: ' + data.detail : '') +
+          (data.used_redirect ? '\nRedirect: ' + data.used_redirect : '') +
+          (data.used_client ? '\nClient: ' + data.used_client : ''));
+      } else if (resp.error) {
+        alert('Suunto-Fehler: ' + resp.error.message);
       } else {
         document.getElementById('suunto-not-connected-top').style.display = 'none';
         document.getElementById('suunto-connected-top').style.display = 'block';
