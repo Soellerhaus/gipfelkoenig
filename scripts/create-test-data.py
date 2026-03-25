@@ -7,11 +7,10 @@ Erstellt 100 Test-User mit realistischen Gipfeldaten.
 Usage:
   python create-test-data.py --create   # Erstelle alle Testdaten
   python create-test-data.py --delete   # Loesche alle Testdaten (is_test_user = true)
-  python create-test-data.py --count    # Zeige Anzahl Test-User/Summits
+  python create-test-data.py --count    # Zeige Statistiken
 """
 
 import argparse
-import json
 import os
 import random
 import sys
@@ -28,14 +27,9 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Supabase Config
 # ---------------------------------------------------------------------------
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://wbrvkweezbeakfphssxp.supabase.co")
+SUPABASE_URL = "https://wbrvkweezbeakfphssxp.supabase.co"
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 REST_BASE = f"{SUPABASE_URL}/rest/v1"
-
-MIGRATION_SQL = """
--- Fuehre dieses SQL in der Supabase SQL-Konsole aus, falls noch nicht vorhanden:
-ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS is_test_user BOOLEAN DEFAULT false;
-"""
 
 # ---------------------------------------------------------------------------
 # Avatar types
@@ -43,119 +37,149 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS is_test_user BOOLEAN DEFAULT 
 AVATAR_TYPES = ["mountain", "eagle", "ski", "climber", "tree", "snow", "deer", "rock"]
 
 # ---------------------------------------------------------------------------
-# Regional user definitions
+# Checkin method weights
+# ---------------------------------------------------------------------------
+CHECKIN_METHODS = [
+    ("strava", 0.60),
+    ("manual", 0.25),
+    ("suunto", 0.10),
+    ("gpx_upload", 0.05),
+]
+
+# ---------------------------------------------------------------------------
+# 100 Test Users: 75 male, 25 female
+# ---------------------------------------------------------------------------
+MALE_REALISTIC = [
+    "Hans Müller", "Pirmin Schlegel", "Tobias Berger", "Stefan Walser", "Marco Alber",
+    "Lukas Fink", "Andreas Hofer", "Thomas Kessler", "Martin Bühler", "Reto Capaul",
+    "Fritz Berchtold", "Werner Moser", "Kurt Steiner", "Peter Huber", "Markus Schneider",
+    "Roland Fischer", "Simon Brunner", "Patrick Zimmermann", "Daniel Koller", "Florian Weber",
+    "Christian Mayer", "Michael Gruber", "Alexander Wirth", "Sebastian Pichler", "Hannes Egger",
+    "Matthias Schwarz", "Dominik Fuchs", "Benjamin Wolf", "Julian Auer", "Oliver Hartmann",
+    "Jakob Braun", "Felix Sommer", "Nikolaus Lechner", "Georg Bauer", "Josef Reiter",
+    "Johann Maier", "Klaus Neumann", "Dieter Hoffmann", "Helmut Schuster", "Erwin Kofler",
+    "Paul Riedl", "Ernst Grabner", "Ludwig Wieser", "Manfred Thurner", "Gerhard Zangerl",
+    "Norbert Peer", "Anton Schranz", "Rudolf Plattner", "Herbert Tanzer", "Siegfried Larcher",
+    # 10 more to reach 60
+    "Walter Auer", "Heinrich Mair", "Friedrich Huber", "Otto Berger", "Gustav Lehner",
+    "Karl Stadler", "Bernhard Eder", "Erich Winkler", "Alfred Holzer", "Hugo Pfeifer",
+]
+
+FEMALE_REALISTIC = [
+    "Anna Steiner", "Lisa Berchtold", "Sandra Müller", "Julia Walser", "Kathrin Moser",
+    "Maria Huber", "Simone Fehr", "Elena Bianchi", "Claudia Fischer", "Martina Gruber",
+    "Laura Schneider", "Stefanie Weber", "Nina Brunner", "Sonja Mayer", "Petra Schwarz",
+    "Monika Egger", "Christine Wolf", "Susanne Braun", "Daniela Sommer", "Verena Koller",
+]
+
+MALE_FANTASY = [
+    "Sugus", "Bergsteiger", "PRS25", "AlpinFuchs", "GipfelJäger",
+    "TrailWolf", "BergNomad", "Höhenmeter", "Schneeleopard", "Steinadler",
+    "Gämse007", "MountainGoat", "KletterMax", "WandererX", "Yeti2025",
+]
+
+FEMALE_FANTASY = [
+    "TrailQueen", "BergFee", "AlpenRose", "GipfelHexe", "Edelweiss",
+]
+
+ALL_USERS = (
+    [(name, "m", "realistic") for name in MALE_REALISTIC]
+    + [(name, "f", "realistic") for name in FEMALE_REALISTIC]
+    + [(name, "m", "fantasy") for name in MALE_FANTASY]
+    + [(name, "f", "fantasy") for name in FEMALE_FANTASY]
+)
+
+assert len(ALL_USERS) == 100, f"Erwartet 100 User, aber {len(ALL_USERS)} definiert"
+
+# ---------------------------------------------------------------------------
+# Regional distribution with lat/lng bounds
 # ---------------------------------------------------------------------------
 REGIONS = {
-    "kleinwalsertal": {
-        "lat_min": 47.30, "lat_max": 47.38, "lng_min": 10.05, "lng_max": 10.22,
-        "home_region": "AT-08",
-        "users": [
-            "WalserBerg", "AlpinMax", "KanzelKoenig", "BregenzerAdler",
-            "MontafonRider", "IfenHiker", "WiddersteinWolf", "GottesackerGeist",
-            "HoherIfenMax", "BaadWanderer", "RiezlernRunner", "MittelbergMichi",
-            "TurasKletterer", "WalserTanne", "KleinwalserKing", "Heuberg_Heidi",
-            "KantAlpinist",
-        ],
-    },
     "oberallgaeu": {
-        "lat_min": 47.30, "lat_max": 47.50, "lng_min": 10.15, "lng_max": 10.50,
-        "home_region": "DE-BY",
-        "users": [
-            "AllgaeuPower", "NebelStuermer", "FellhornFox", "OberstdorfKing",
-            "SoellereckStar", "NebelhornNinja", "RubiAlpinist", "AllgaeuAdler",
-            "BreitachKing", "IllertalIgel", "OyMittelbergOx", "BolsterlangBaer",
-            "FischenFalke", "BalderschwangBock", "GrasgehrenGeist", "HoechstenHero",
-            "AllgaeuGams",
-        ],
+        "count": 30,
+        "lat_min": 47.30, "lat_max": 47.50,
+        "lng_min": 10.15, "lng_max": 10.50,
     },
     "tirol": {
-        "lat_min": 47.15, "lat_max": 47.35, "lng_min": 10.80, "lng_max": 11.60,
-        "home_region": "AT-07",
-        "users": [
-            "InnsbruckEagle", "StubaiFalke", "ZillertalZeus", "BrennerBaer",
-            "PatscherkofelPuma", "NordketteNomad", "AxamerAxel", "SellrainSturm",
-            "WipptalWolf", "KuhtaiKoenig", "OetztalOtter", "PitztalPanther",
-            "MiemingMaus", "SerlesSturm", "HafelekaarHeld", "TirolerTrail",
-            "StamsSteinbock",
-        ],
+        "count": 20,
+        "lat_min": 47.15, "lat_max": 47.35,
+        "lng_min": 10.80, "lng_max": 11.60,
     },
-    "salzburg": {
-        "lat_min": 47.10, "lat_max": 47.40, "lng_min": 12.80, "lng_max": 13.20,
-        "home_region": "AT-05",
-        "users": [
-            "MozartPeak", "PinzgauPuma", "SalzburgSteinbock", "KaprunKoenig",
-            "ZellAmSeeZander", "GlocknergratGuru", "GasteinGeier", "TennengauTiger",
-            "PongauPanther", "LungauLuchs", "HochkoenigHeld", "UntersbergUhu",
-            "DachsteinDrache", "FlachauFalke", "SaalfeldenStar",
-        ],
+    "bregenzerwald": {
+        "count": 10,
+        "lat_min": 47.30, "lat_max": 47.50,
+        "lng_min": 9.80, "lng_max": 10.10,
+    },
+    "kleinwalsertal": {
+        "count": 8,
+        "lat_min": 47.30, "lat_max": 47.38,
+        "lng_min": 10.05, "lng_max": 10.22,
     },
     "oberengadin": {
-        "lat_min": 46.40, "lat_max": 46.60, "lng_min": 9.70, "lng_max": 10.10,
-        "home_region": "CH-GR",
-        "users": [
-            "EngadinExplorer", "BerninaBlitz", "PizPaluKing", "DavosDragon",
-            "StMoritzStar", "SilvaplanaSturm", "CorvatschCracker", "MuottasMuragl",
-            "PontresinaPuma", "DiavolezzaDemon", "LagazAlpinist", "JulierJaeger",
-            "AlbulaAdler", "BeverBock", "ZuozZorro",
-        ],
+        "count": 10,
+        "lat_min": 46.40, "lat_max": 46.60,
+        "lng_min": 9.70, "lng_max": 10.10,
+    },
+    "salzburg": {
+        "count": 10,
+        "lat_min": 47.10, "lat_max": 47.40,
+        "lng_min": 12.80, "lng_max": 13.20,
     },
     "berner_oberland": {
-        "lat_min": 46.50, "lat_max": 46.70, "lng_min": 7.80, "lng_max": 8.20,
-        "home_region": "CH-BE",
-        "users": [
-            "EigerNordwand", "JungfrauJoker", "MoenchMaster", "GrindelwaldGeist",
-            "InterlaknerAdler", "BrienzBaer", "ThunTiger", "LauterbrunnenLoewe",
-            "WengenWolf",
-        ],
+        "count": 5,
+        "lat_min": 46.50, "lat_max": 46.70,
+        "lng_min": 7.80, "lng_max": 8.20,
     },
-    "general_alpine": {
-        # General users get assigned to a random region's bounds at summit time
-        "lat_min": 47.15, "lat_max": 47.50, "lng_min": 9.70, "lng_max": 11.60,
-        "home_region": "AT-08",
-        "users": [
-            "AlpenRitter", "GipfelJaeger", "BergNomad", "TrailWolf",
-            "HoehenAdler", "GratGeher", "SteigEisen", "FelsKoenig",
-            "WandererMax", "BergFex",
-        ],
+    "multi_region": {
+        "count": 7,
     },
 }
 
-# Neighboring region mapping for cross-region summits
-NEIGHBOR_REGIONS = {
-    "kleinwalsertal": ["oberallgaeu", "tirol"],
-    "oberallgaeu": ["kleinwalsertal", "tirol"],
-    "tirol": ["oberallgaeu", "salzburg", "oberengadin"],
-    "salzburg": ["tirol"],
-    "oberengadin": ["berner_oberland", "tirol"],
-    "berner_oberland": ["oberengadin"],
-    "general_alpine": ["kleinwalsertal", "oberallgaeu", "tirol"],
-}
+# ---------------------------------------------------------------------------
+# Activity types (summit count ranges)
+# ---------------------------------------------------------------------------
+ACTIVITY_POOL = (
+    [("hardcore", 20, 30)] * 5
+    + [("active", 10, 19)] * 15
+    + [("regular", 5, 9)] * 35
+    + [("casual", 2, 4)] * 30
+    + [("newbie", 1, 1)] * 15
+)
+
+assert len(ACTIVITY_POOL) == 100, f"Erwartet 100 Aktivitaetstypen, aber {len(ACTIVITY_POOL)}"
 
 
-def get_headers():
+# ---------------------------------------------------------------------------
+# HTTP helpers
+# ---------------------------------------------------------------------------
+def get_headers(minimal=True):
     """Return Supabase REST API headers."""
-    return {
+    h = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
-        "Prefer": "return=representation",
     }
+    if minimal:
+        h["Prefer"] = "return=minimal"
+    else:
+        h["Prefer"] = "return=representation"
+    return h
 
 
-def supabase_get(table, params=None):
-    """GET request to Supabase REST API."""
+def supabase_get(table, query_string=""):
+    """GET request mit manuellem Query-String (fuer doppelte Spaltenfilter)."""
     url = f"{REST_BASE}/{table}"
-    resp = requests.get(url, headers=get_headers(), params=params or {})
+    if query_string:
+        url = f"{url}?{query_string}"
+    resp = requests.get(url, headers=get_headers(minimal=False))
     resp.raise_for_status()
     return resp.json()
 
 
 def supabase_post(table, data):
-    """POST (insert) to Supabase REST API."""
+    """POST (insert) to Supabase REST API. Gibt Status zurueck."""
     url = f"{REST_BASE}/{table}"
-    headers = get_headers()
-    headers["Prefer"] = "return=representation,resolution=ignore-duplicates"
-    resp = requests.post(url, headers=headers, json=data)
+    resp = requests.post(url, headers=get_headers(minimal=True), json=data)
     if resp.status_code not in (200, 201):
         print(f"  FEHLER POST {table}: {resp.status_code} {resp.text[:300]}")
     return resp
@@ -164,7 +188,7 @@ def supabase_post(table, data):
 def supabase_patch(table, match_params, data):
     """PATCH (update) rows matching params."""
     url = f"{REST_BASE}/{table}"
-    headers = get_headers()
+    headers = get_headers(minimal=True)
     resp = requests.patch(url, headers=headers, params=match_params, json=data)
     if resp.status_code not in (200, 204):
         print(f"  FEHLER PATCH {table}: {resp.status_code} {resp.text[:300]}")
@@ -174,350 +198,387 @@ def supabase_patch(table, match_params, data):
 def supabase_delete(table, params):
     """DELETE rows matching params."""
     url = f"{REST_BASE}/{table}"
-    resp = requests.delete(url, headers=get_headers(), params=params)
+    resp = requests.delete(url, headers=get_headers(minimal=True), params=params)
     if resp.status_code not in (200, 204):
         print(f"  FEHLER DELETE {table}: {resp.status_code} {resp.text[:300]}")
     return resp
 
 
 # ---------------------------------------------------------------------------
-# Check prerequisite: is_test_user column
-# ---------------------------------------------------------------------------
-def check_test_user_column():
-    """Check if is_test_user column exists by attempting a filtered query."""
-    url = f"{REST_BASE}/user_profiles"
-    params = {"is_test_user": "eq.true", "select": "id", "limit": "1"}
-    resp = requests.get(url, headers=get_headers(), params=params)
-    if resp.status_code != 200 and "is_test_user" in resp.text:
-        print("=" * 60)
-        print("ACHTUNG: Die Spalte 'is_test_user' fehlt in user_profiles!")
-        print("Fuehre folgendes SQL in der Supabase SQL-Konsole aus:")
-        print(MIGRATION_SQL)
-        print("=" * 60)
-        return False
-    return True
-
-
-# ---------------------------------------------------------------------------
-# Fetch peaks for a region (by lat/lng bounds)
+# Peaks laden und cachen
 # ---------------------------------------------------------------------------
 def fetch_peaks_for_region(region_key):
-    """Load peaks within the lat/lng bounds of a region."""
+    """Lade Peaks innerhalb der lat/lng Bounds einer Region."""
     r = REGIONS[region_key]
-    params = {
-        "select": "id,name,elevation,lat,lng",
-        "lat": f"gte.{r['lat_min']}",
-        "lng": f"gte.{r['lng_min']}",
-        "is_active": "eq.true",
-        "limit": "500",
-    }
-    # Supabase REST needs separate range params; use and conditions
-    url = f"{REST_BASE}/peaks"
-    headers = get_headers()
-    # Build query string manually for multiple conditions on same column
     qs = (
         f"select=id,name,elevation,lat,lng"
         f"&lat=gte.{r['lat_min']}&lat=lte.{r['lat_max']}"
         f"&lng=gte.{r['lng_min']}&lng=lte.{r['lng_max']}"
-        f"&is_active=eq.true&limit=500"
+        f"&limit=200"
     )
-    resp = requests.get(f"{url}?{qs}", headers=headers)
+    url = f"{REST_BASE}/peaks?{qs}"
+    resp = requests.get(url, headers=get_headers(minimal=False))
     if resp.status_code != 200:
         print(f"  Warnung: Peaks laden fuer {region_key} fehlgeschlagen: {resp.status_code}")
         return []
-    peaks = resp.json()
-    return peaks
+    return resp.json()
 
 
 # ---------------------------------------------------------------------------
-# Generate random summit data
+# User auf Regionen verteilen
 # ---------------------------------------------------------------------------
-def random_date_in_season(season):
-    """Return a random datetime within the given season year."""
-    year = int(season)
-    start = datetime(year, 1, 1)
-    if year == 2026:
-        end = datetime(2026, 3, 25)
-    else:
-        end = datetime(year, 12, 31)
-    delta = (end - start).days
-    if delta <= 0:
-        delta = 1
-    rand_days = random.randint(0, delta)
-    rand_hours = random.randint(6, 17)  # realistic hiking hours
-    rand_mins = random.randint(0, 59)
-    return start + timedelta(days=rand_days, hours=rand_hours, minutes=rand_mins)
+def assign_users_to_regions():
+    """Verteile die 100 User zufaellig auf Regionen gemaess count."""
+    shuffled = list(ALL_USERS)
+    random.shuffle(shuffled)
+
+    assignments = []
+    idx = 0
+    region_keys = [k for k in REGIONS if k != "multi_region"]
+
+    for region_key in region_keys:
+        count = REGIONS[region_key]["count"]
+        for _ in range(count):
+            name, gender, name_type = shuffled[idx]
+            assignments.append((name, gender, name_type, region_key))
+            idx += 1
+
+    # Multi-Region: verbleibende 7 User
+    for i in range(REGIONS["multi_region"]["count"]):
+        name, gender, name_type = shuffled[idx]
+        assignments.append((name, gender, name_type, "multi_region"))
+        idx += 1
+
+    assert idx == 100, f"Nur {idx} User zugewiesen statt 100"
+    return assignments
 
 
-def generate_summit_record(user_id, peak, season, is_season_first, is_personal_first):
-    """Create a single summit record dict."""
-    elevation = peak.get("elevation") or random.randint(1200, 2800)
-    elevation_gain = int(elevation * random.uniform(0.4, 0.9))
-    distance = round(elevation_gain / 100 * random.uniform(1.5, 3.0), 1)
-    points = int(elevation_gain / 100 + distance + 10)
-
-    # Checkin method weighted
+# ---------------------------------------------------------------------------
+# Hilfsfunktionen
+# ---------------------------------------------------------------------------
+def pick_checkin_method():
+    """Zufaellige Checkin-Methode gemaess Gewichtung."""
     r = random.random()
-    if r < 0.70:
-        method = "strava"
-    elif r < 0.90:
-        method = "manual"
+    cumulative = 0.0
+    for method, weight in CHECKIN_METHODS:
+        cumulative += weight
+        if r < cumulative:
+            return method
+    return "manual"
+
+
+def random_datetime_in_season(season):
+    """Zufaelliger Zeitpunkt innerhalb einer Saison (06:00-20:00)."""
+    year = int(season)
+    if year == 2025:
+        start = datetime(2025, 1, 1)
+        end = datetime(2025, 12, 31)
     else:
-        method = "gpx_upload"
+        start = datetime(2026, 1, 1)
+        end = datetime(2026, 3, 25)
+    delta_days = (end - start).days
+    if delta_days <= 0:
+        delta_days = 1
+    day = start + timedelta(days=random.randint(0, delta_days))
+    hour = random.randint(6, 19)
+    minute = random.randint(0, 59)
+    return day.replace(hour=hour, minute=minute, second=0)
 
-    summited_at = random_date_in_season(season)
 
-    return {
-        "id": str(uuid4()),
-        "user_id": user_id,
-        "peak_id": peak["id"],
-        "summited_at": summited_at.isoformat(),
-        "season": season,
-        "elevation_gain": elevation_gain,
-        "points": points,
-        "checkin_method": method,
-        "is_season_first": is_season_first,
-        "is_personal_first": is_personal_first,
-        "safety_ok": True,
-    }
+def make_username(name, name_type):
+    """Erzeuge DB-Username: Leerzeichen durch _ ersetzen."""
+    if name_type == "fantasy":
+        return name  # Kein Leerzeichen
+    return name.replace(" ", "_")
 
 
 # ---------------------------------------------------------------------------
 # CREATE
 # ---------------------------------------------------------------------------
 def create_test_data():
-    """Create 100 test users with summit data."""
-    print(MIGRATION_SQL)
-
-    if not check_test_user_column():
-        sys.exit(1)
-
-    # Check for existing test users
-    existing = supabase_get("user_profiles", {
-        "is_test_user": "eq.true",
-        "select": "id,username",
-    })
+    """Erstelle 100 Test-User mit Summit-Daten."""
+    # Existierende Test-User pruefen
+    existing = supabase_get("user_profiles", "is_test_user=eq.true&select=id,username")
     existing_usernames = {u["username"] for u in existing}
     if existing_usernames:
-        print(f"Bereits {len(existing_usernames)} Test-User vorhanden.")
+        print(f"Bereits {len(existing_usernames)} Test-User vorhanden, ueberspringe diese.\n")
 
-    # Load peaks per region (cache)
-    print("\nLade Gipfel pro Region...")
+    # Peaks pro Region laden und cachen
+    print("Lade Gipfel pro Region...")
     peaks_cache = {}
     for region_key in REGIONS:
+        if region_key == "multi_region":
+            continue
         peaks = fetch_peaks_for_region(region_key)
         peaks_cache[region_key] = peaks
         print(f"  {region_key}: {len(peaks)} Gipfel")
 
-    # Warn if any region has no peaks
     empty_regions = [k for k, v in peaks_cache.items() if not v]
     if empty_regions:
-        print(f"\nWarnung: Keine Gipfel in: {', '.join(empty_regions)}")
-        print("Diese Regionen werden uebersprungen.\n")
+        print(f"\n  Warnung: Keine Gipfel in: {', '.join(empty_regions)}\n")
 
-    # Build user list
-    all_users = []
-    for region_key, region_data in REGIONS.items():
-        for username in region_data["users"]:
-            all_users.append({
-                "region": region_key,
-                "username": username,
-                "home_region": region_data["home_region"],
-            })
+    # User auf Regionen verteilen
+    assignments = assign_users_to_regions()
 
-    print(f"\nTotal geplante Test-User: {len(all_users)}")
+    # Activity-Typen zufaellig zuweisen
+    activity_pool = list(ACTIVITY_POOL)
+    random.shuffle(activity_pool)
+
+    # Globale Tracker fuer season_first
+    # Key: (peak_id, season) -> True wenn schon von jemandem bestiegen
+    global_season_summits = set()
 
     created_users = 0
     total_summits = 0
+    all_user_points = {}  # user_id -> total_points
+    all_summit_records = []
 
-    for i, user_info in enumerate(all_users):
-        username = user_info["username"]
-        region_key = user_info["region"]
+    print(f"\nErstelle {len(assignments)} Test-User...\n")
 
+    for i, (name, gender, name_type, region_key) in enumerate(assignments):
+        username = make_username(name, name_type)
+        display_name = name
+        activity_label, min_summits, max_summits = activity_pool[i]
+        num_summits = random.randint(min_summits, max_summits)
+
+        # Ueberspringe existierende User
         if username in existing_usernames:
-            print(f"  [{i+1}/{len(all_users)}] {username} existiert bereits, ueberspringe.")
+            print(f"  [{i+1:3d}/100] {username} existiert bereits, ueberspringe.")
             continue
 
-        user_id = str(uuid4())
+        # 1. Auth-User via Admin API erstellen
+        email = f"test_{username.lower().replace(' ','')}@bergkoenig.test"
+        auth_headers = get_headers()
+        auth_resp = requests.post(
+            f"{SUPABASE_URL}/auth/v1/admin/users",
+            headers=auth_headers,
+            json={
+                "email": email,
+                "password": "BergTest2026!",
+                "email_confirm": True,
+                "user_metadata": {"is_test_user": True}
+            }
+        )
+        if auth_resp.status_code != 200:
+            print(f"  [{i+1:3d}/100] AUTH FEHLER bei {username}: {auth_resp.text[:100]}")
+            continue
 
-        # Create user profile
+        user_id = auth_resp.json()["id"]
+
+        # 2. User-Profil erstellen
         profile = {
             "id": user_id,
             "username": username,
-            "display_name": username,
+            "display_name": display_name,
             "avatar_type": random.choice(AVATAR_TYPES),
-            "home_region": user_info["home_region"],
             "is_test_user": True,
             "total_points": 0,
         }
 
         resp = supabase_post("user_profiles", profile)
         if resp.status_code not in (200, 201):
-            print(f"  [{i+1}/{len(all_users)}] FEHLER bei {username}: {resp.text[:200]}")
+            print(f"  [{i+1:3d}/100] PROFIL FEHLER bei {username}: {resp.text[:100]}")
+            # Auth-User wieder loeschen
+            requests.delete(f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}", headers=get_headers())
             continue
 
         created_users += 1
 
-        # Generate summits
-        home_peaks = peaks_cache.get(region_key, [])
-        if not home_peaks:
-            # Fallback: use any region that has peaks
-            for fallback_key, fallback_peaks in peaks_cache.items():
-                if fallback_peaks:
-                    home_peaks = fallback_peaks
-                    break
+        # Peaks fuer diesen User bestimmen
+        if region_key == "multi_region":
+            # Multi-Region: 2-3 zufaellige Regionen
+            available_regions = [k for k in peaks_cache if peaks_cache[k]]
+            if len(available_regions) < 2:
+                print(f"  [{i+1:3d}/100] {username}: zu wenige Regionen mit Peaks")
+                continue
+            chosen_regions = random.sample(available_regions, min(random.randint(2, 3), len(available_regions)))
+            user_peaks = []
+            for rk in chosen_regions:
+                user_peaks.extend(peaks_cache[rk])
+        else:
+            user_peaks = peaks_cache.get(region_key, [])
 
-        if not home_peaks:
-            print(f"  [{i+1}/{len(all_users)}] {username} erstellt (keine Gipfel verfuegbar)")
+        if not user_peaks:
+            print(f"  [{i+1:3d}/100] {username} erstellt (keine Gipfel in Region {region_key})")
             continue
 
-        # Home region: 3-25 summits
-        num_home = random.randint(3, 25)
-        # Neighbor region: 0-5 summits
-        num_neighbor = random.randint(0, 5)
-
-        summit_records = []
-        visited_peaks = {}  # peak_id -> set of seasons
+        # Summits generieren
+        user_summit_records = []
+        user_peak_count = {}  # peak_id -> Anzahl Besteigungen
+        user_summited_peaks = set()  # Fuer is_personal_first
         user_total_points = 0
 
-        # Home region summits
-        for _ in range(num_home):
-            peak = random.choice(home_peaks)
-            season = "2025" if random.random() < 0.80 else "2026"
-
-            peak_seasons = visited_peaks.setdefault(peak["id"], set())
-            is_personal_first = peak["id"] not in visited_peaks or len(peak_seasons) == 0
-            # After first check, it's in visited_peaks, so re-check properly
-            if len(peak_seasons) == 0:
-                is_personal_first = True
+        for _ in range(num_summits):
+            # Peak waehlen (max 3x pro User)
+            attempts = 0
+            while attempts < 20:
+                peak = random.choice(user_peaks)
+                if user_peak_count.get(peak["id"], 0) < 3:
+                    break
+                attempts += 1
             else:
-                is_personal_first = False
-
-            is_season_first = season not in peak_seasons
-            peak_seasons.add(season)
-
-            record = generate_summit_record(
-                user_id, peak, season, is_season_first, is_personal_first
-            )
-            summit_records.append(record)
-            user_total_points += record["points"]
-
-        # Neighbor region summits
-        neighbors = NEIGHBOR_REGIONS.get(region_key, [])
-        for _ in range(num_neighbor):
-            if not neighbors:
-                break
-            neighbor_key = random.choice(neighbors)
-            neighbor_peaks = peaks_cache.get(neighbor_key, [])
-            if not neighbor_peaks:
+                # Kein passender Peak gefunden, ueberspringe
                 continue
-            peak = random.choice(neighbor_peaks)
-            season = "2025" if random.random() < 0.80 else "2026"
 
-            peak_seasons = visited_peaks.setdefault(peak["id"], set())
-            is_personal_first = len(peak_seasons) == 0
-            is_season_first = season not in peak_seasons
-            peak_seasons.add(season)
+            user_peak_count[peak["id"]] = user_peak_count.get(peak["id"], 0) + 1
 
-            record = generate_summit_record(
-                user_id, peak, season, is_season_first, is_personal_first
-            )
-            summit_records.append(record)
-            user_total_points += record["points"]
+            # Season: 70% 2025, 30% 2026
+            season = "2025" if random.random() < 0.70 else "2026"
+            summited_at = random_datetime_in_season(season)
 
-        # Insert summits in batches (Supabase has payload limits)
-        batch_size = 50
-        for b in range(0, len(summit_records), batch_size):
-            batch = summit_records[b:b + batch_size]
+            # Elevation gain und Distance
+            elevation = peak.get("elevation")
+            if elevation:
+                elevation_gain = round(elevation * random.uniform(0.3, 0.8))
+            else:
+                elevation_gain = random.randint(400, 1500)
+
+            distance = round(elevation_gain / 100 * random.uniform(1.2, 2.8), 1)
+
+            # Punkte berechnen
+            base_points = round(elevation_gain / 100) + round(distance) + 10
+
+            # Season-First und Personal-First pruefen
+            season_key = (peak["id"], season)
+            is_season_first = season_key not in global_season_summits
+            is_personal_first = peak["id"] not in user_summited_peaks
+
+            # Multiplier anwenden
+            if is_season_first:
+                points = round(base_points * 3)
+            elif is_personal_first:
+                points = round(base_points * 2)
+            else:
+                points = round(base_points * 0.2)
+
+            # Tracker aktualisieren
+            global_season_summits.add(season_key)
+            user_summited_peaks.add(peak["id"])
+
+            record = {
+                "id": str(uuid4()),
+                "user_id": user_id,
+                "peak_id": peak["id"],
+                "summited_at": summited_at.isoformat(),
+                "season": season,
+                "elevation_gain": elevation_gain,
+                "distance": distance,
+                "points": points,
+                "checkin_method": pick_checkin_method(),
+                "is_season_first": is_season_first,
+                "is_personal_first": is_personal_first,
+            }
+
+            user_summit_records.append(record)
+            user_total_points += points
+
+        # Summits in Batches von 50 einfuegen
+        for b in range(0, len(user_summit_records), 50):
+            batch = user_summit_records[b:b + 50]
             supabase_post("summits", batch)
 
-        total_summits += len(summit_records)
+        total_summits += len(user_summit_records)
+        all_user_points[user_id] = user_total_points
 
-        # Update total_points on user profile
+        print(
+            f"  [{i+1:3d}/100] {username:25s} | {region_key:18s} | "
+            f"{activity_label:10s} | {len(user_summit_records):2d} Gipfel | "
+            f"{user_total_points:5d} Pkt"
+        )
+
+    # Total Points pro User updaten
+    print("\nAktualisiere total_points fuer alle Test-User...")
+    for user_id, total_pts in all_user_points.items():
         supabase_patch(
             "user_profiles",
             {"id": f"eq.{user_id}"},
-            {"total_points": user_total_points},
+            {"total_points": total_pts},
         )
 
-        print(
-            f"  [{i+1}/{len(all_users)}] {username}: "
-            f"{len(summit_records)} Gipfel, {user_total_points} Punkte"
-        )
-
-    print(f"\n--- Fertig ---")
-    print(f"Neue User erstellt: {created_users}")
-    print(f"Summits erstellt:   {total_summits}")
+    print(f"\n{'='*60}")
+    print(f"FERTIG")
+    print(f"  Neue User erstellt:  {created_users}")
+    print(f"  Summits erstellt:    {total_summits}")
+    print(f"{'='*60}")
 
 
 # ---------------------------------------------------------------------------
 # DELETE
 # ---------------------------------------------------------------------------
 def delete_test_data():
-    """Delete all test users and their summits."""
-    if not check_test_user_column():
-        sys.exit(1)
-
-    # Get test user IDs
-    test_users = supabase_get("user_profiles", {
-        "is_test_user": "eq.true",
-        "select": "id,username",
-    })
+    """Loesche alle Test-User und deren Summits."""
+    # Test-User IDs holen
+    test_users = supabase_get("user_profiles", "is_test_user=eq.true&select=id,username")
 
     if not test_users:
         print("Keine Test-User gefunden.")
         return
 
-    print(f"Gefunden: {len(test_users)} Test-User")
+    print(f"Gefunden: {len(test_users)} Test-User\n")
 
-    # Delete summits for each user (cascade should handle this, but be explicit)
+    # Summits fuer jeden User loeschen
     for i, user in enumerate(test_users):
         uid = user["id"]
         supabase_delete("summits", {"user_id": f"eq.{uid}"})
-        supabase_delete("ownership", {"user_id": f"eq.{uid}"})
-        supabase_delete("badges", {"user_id": f"eq.{uid}"})
-        if (i + 1) % 20 == 0:
-            print(f"  Summits/Badges geloescht fuer {i+1}/{len(test_users)} User...")
+        if (i + 1) % 10 == 0:
+            print(f"  Summits geloescht fuer {i+1}/{len(test_users)} User...")
 
-    # Delete user profiles
+    print(f"  Alle Summits geloescht.")
+
+    # User-Profile loeschen
     supabase_delete("user_profiles", {"is_test_user": "eq.true"})
+    print(f"  Alle {len(test_users)} Test-User-Profile geloescht.")
 
-    print(f"\nGeloescht: {len(test_users)} Test-User und alle zugehoerigen Daten.")
+    # Auth-User loeschen
+    print("  Loesche Auth-User...")
+    for i, user in enumerate(test_users):
+        uid = user["id"]
+        requests.delete(f"{SUPABASE_URL}/auth/v1/admin/users/{uid}", headers=get_headers())
+        if (i + 1) % 10 == 0:
+            print(f"  Auth-User geloescht: {i+1}/{len(test_users)}...")
+    print(f"  Alle Auth-User geloescht.")
+
+    print(f"\nFertig: {len(test_users)} Test-User komplett entfernt (Auth + Profil + Summits).")
 
 
 # ---------------------------------------------------------------------------
 # COUNT
 # ---------------------------------------------------------------------------
 def count_test_data():
-    """Show how many test users and summits exist."""
-    if not check_test_user_column():
-        sys.exit(1)
-
-    test_users = supabase_get("user_profiles", {
-        "is_test_user": "eq.true",
-        "select": "id,username,total_points",
-        "order": "total_points.desc",
-    })
+    """Zeige Statistiken zu Test-Usern und Summits."""
+    test_users = supabase_get(
+        "user_profiles",
+        "is_test_user=eq.true&select=id,username,total_points&order=total_points.desc"
+    )
 
     if not test_users:
         print("Keine Test-User vorhanden.")
         return
 
-    print(f"Test-User: {len(test_users)}")
+    print(f"Test-User gesamt: {len(test_users)}\n")
 
-    # Count summits
+    # Summits zaehlen (Stichprobe der ersten 10 User fuer schnelle Anzeige)
     total_summits = 0
     for user in test_users:
-        summits = supabase_get("summits", {
-            "user_id": f"eq.{user['id']}",
-            "select": "id",
-        })
+        summits = supabase_get("summits", f"user_id=eq.{user['id']}&select=id")
         total_summits += len(summits)
 
-    print(f"Test-Summits: {total_summits}")
-    print(f"\nTop 10 Test-User nach Punkten:")
-    for u in test_users[:10]:
-        print(f"  {u['username']:25s} {u['total_points']:>6d} Pkt")
+    print(f"Test-Summits gesamt: {total_summits}")
+    avg = total_summits / len(test_users) if test_users else 0
+    print(f"Durchschnitt Summits/User: {avg:.1f}")
+
+    total_points = sum(u.get("total_points", 0) for u in test_users)
+    print(f"Gesamtpunkte aller Test-User: {total_points}")
+
+    print(f"\nTop 15 Test-User nach Punkten:")
+    print(f"  {'Username':25s} {'Punkte':>8s}")
+    print(f"  {'-'*25} {'-'*8}")
+    for u in test_users[:15]:
+        print(f"  {u['username']:25s} {u.get('total_points', 0):>8d}")
+
+    print(f"\nBottom 5 Test-User:")
+    for u in test_users[-5:]:
+        print(f"  {u['username']:25s} {u.get('total_points', 0):>8d}")
 
 
 # ---------------------------------------------------------------------------
@@ -525,12 +586,12 @@ def count_test_data():
 # ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(
-        description="Gipfelkoenig Test-Daten Generator"
+        description="Gipfelkoenig Test-Daten Generator (100 User)"
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--create", action="store_true", help="Erstelle 100 Test-User mit Summits")
-    group.add_argument("--delete", action="store_true", help="Loesche alle Test-Daten")
-    group.add_argument("--count", action="store_true", help="Zeige Anzahl Test-User/Summits")
+    group.add_argument("--delete", action="store_true", help="Loesche alle Test-Daten (is_test_user=true)")
+    group.add_argument("--count", action="store_true", help="Zeige Statistiken")
     args = parser.parse_args()
 
     if not SUPABASE_KEY:
