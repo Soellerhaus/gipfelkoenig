@@ -59,7 +59,7 @@ async function loadProfileForSeason(year) {
   const trophySeason = el('trophy-season');
   if (trophySeason) trophySeason.textContent = yearStr;
 
-  if (el('trophy-koenig')) el('trophy-koenig').textContent = '0';
+  // trophy-koenig wird nach Kronen-Berechnung gesetzt (weiter unten)
 
   const pioneerCount = seasonSummits.filter(s => s.is_season_first).length;
   if (el('trophy-pionier')) el('trophy-pionier').textContent = pioneerCount;
@@ -87,17 +87,31 @@ async function loadProfileForSeason(year) {
   }
   if (el('trophy-hm')) el('trophy-hm').textContent = yearHM.toLocaleString('de');
 
-  // Kronen laden für Rang-Berechnung
+  // Kronen berechnen: Prüfe auf welchen Gipfeln der User die meisten Besteigungen hat (König ist)
   let crownCount = 0;
   const userId = window._currentUserId;
-  if (userId) {
-    const { count: cc } = await GK.supabase
-      .from('ownership')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-    crownCount = cc || 0;
+  if (userId && peakIds.length > 0) {
+    // Für jeden Gipfel des Users: alle Summits aller User laden und prüfen ob User König ist
+    for (const pid of peakIds) {
+      const { data: allSummits } = await GK.supabase
+        .from('summits')
+        .select('user_id')
+        .eq('peak_id', pid);
+      if (!allSummits || allSummits.length === 0) continue;
+      // Zähle Besteigungen pro User
+      const counts = {};
+      for (const s of allSummits) {
+        counts[s.user_id] = (counts[s.user_id] || 0) + 1;
+      }
+      const maxCount = Math.max(...Object.values(counts));
+      // User ist König wenn er die meisten Besteigungen hat (bei Gleichstand alle Könige)
+      if ((counts[userId] || 0) === maxCount) {
+        crownCount++;
+      }
+    }
   }
   if (el('stat-crowns')) el('stat-crowns').textContent = crownCount;
+  if (el('trophy-koenig')) el('trophy-koenig').textContent = crownCount;
 
   // Rang berechnen und anzeigen
   if (GK.game && GK.game.getRank) {
@@ -967,13 +981,13 @@ async function showPeakOfDay() {
   GK.map._potdMarker = L.marker([peak.lat, peak.lng], {
     icon: L.divIcon({
       className: 'potd-star',
-      html: '<div class="potd-dice">🎲</div>',
+      html: '<div class="potd-dice">🃏</div>',
       iconSize: [36, 36],
       iconAnchor: [18, 18]
     }),
     zIndexOffset: 1000
   }).addTo(GK.map.leaflet)
-    .bindPopup('<b>🎲 Gipfel des Tages</b><br>' + peak.name + '<br><span style="color:#ffd700">5× Punkte!</span>');
+    .bindPopup('<b>🃏 Gipfel des Tages</b><br>' + peak.name + '<br><span style="color:#ffd700">5× Punkte!</span>');
 }
 
 // Streak berechnen — Wochen-Streak
