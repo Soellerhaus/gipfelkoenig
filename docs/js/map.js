@@ -452,53 +452,87 @@ function loadCrownsAsync() {
 }
 
 // ---------------------------------------------------------------------------
-// Gebiets-Polygone (Territory Display)
+// Gebiets-Polygone (Hexagonal Territory Grid)
 // ---------------------------------------------------------------------------
 let territoryLayer = null;
 
 /**
- * Kleinwalsertal-Polygon — grobe Tal-Umrisse (lat/lng Paare).
- * Koordinaten im Uhrzeigersinn, Start Nordwest.
+ * Hex-Grid-Konfiguration:
+ * ~20km Durchmesser bei 47°N Breite.
+ * Hex-Breite (lng) ≈ 0.27° (flat-top hex, Spaltenabstand)
+ * Hex-Höhe (lat) ≈ 0.18° (Zeilenabstand)
  */
-const KLEINWALSERTAL_POLYGON = [
-  [47.38, 10.05],   // Nordwest
-  [47.38, 10.10],
-  [47.38, 10.15],
-  [47.38, 10.22],   // Nordost
-  [47.35, 10.23],
-  [47.30, 10.22],   // Ost
-  [47.28, 10.18],   // Südost
-  [47.29, 10.15],
-  [47.30, 10.12],   // Süd
-  [47.31, 10.08],
-  [47.32, 10.05],   // Südwest
-  [47.35, 10.04],
-];
-
-/** Bounding-Box des Kleinwalsertal-Polygons (für Peak-Filterung) */
-const KWT_BOUNDS = {
-  latMin: 47.28, latMax: 47.38,
-  lngMin: 10.04, lngMax: 10.23,
-};
+const HEX_WIDTH_DEG = 0.27;   // Grad Longitude (~20km bei 47°N)
+const HEX_HEIGHT_DEG = 0.18;  // Grad Latitude (~20km)
+const HEX_RADIUS_LNG = HEX_WIDTH_DEG / 2;     // halbe Breite
+const HEX_RADIUS_LAT = HEX_HEIGHT_DEG / 2;     // halbe Höhe
 
 /**
- * Prüft ob ein Punkt innerhalb des Kleinwalsertal-Polygons liegt
- * (einfacher Bounding-Box-Check reicht für diesen Zweck).
+ * Spielerfarbe aus User-ID generieren (deterministisch).
+ * Erzeugt eine helle, satte Farbe als HSL-Wert.
  */
-function isInKleinwalsertal(lat, lng) {
-  return lat >= KWT_BOUNDS.latMin && lat <= KWT_BOUNDS.latMax &&
-         lng >= KWT_BOUNDS.lngMin && lng <= KWT_BOUNDS.lngMax;
+function getTerritoryColor(userId) {
+  if (!userId) return '#888888';
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = ((hash << 5) - hash) + userId.charCodeAt(i);
+    hash = hash & hash; // 32-bit int
+  }
+  // Hue 0–360, Saturation 60–80%, Lightness 55–70%
+  const hue = Math.abs(hash) % 360;
+  const sat = 60 + (Math.abs(hash >> 8) % 20);
+  const lit = 55 + (Math.abs(hash >> 16) % 15);
+  return 'hsl(' + hue + ', ' + sat + '%, ' + lit + '%)';
 }
 
 /**
- * Gebiets-Polygone laden und auf der Karte anzeigen.
- * Ermittelt wer die meisten Gipfel im Kleinwalsertal bestiegen hat (König)
- * und zeichnet ein farbiges Polygon:
- *   Gold = eingeloggter User ist König
- *   Rot  = ein anderer Spieler ist König
+ * Hex-Zelle für eine gegebene Koordinate berechnen (flat-top Hex-Grid).
+ * Gibt { col, row, centerLat, centerLng } zurück.
+ */
+function getHexCell(lat, lng) {
+  // Spalte bestimmen (flat-top: Spaltenabstand = 3/4 der Hex-Breite)
+  const colSpacing = HEX_WIDTH_DEG * 0.75;
+  const col = Math.round(lng / colSpacing);
+  // Ungerade Spalten sind um halbe Höhe versetzt
+  const rowOffset = (col % 2 !== 0) ? HEX_HEIGHT_DEG / 2 : 0;
+  const row = Math.round((lat - rowOffset) / HEX_HEIGHT_DEG);
+  // Hex-Zentrum berechnen
+  const centerLng = col * colSpacing;
+  const centerLat = row * HEX_HEIGHT_DEG + rowOffset;
+  return { col, row, centerLat, centerLng };
+}
+
+/**
+ * Hex-Schlüssel für Gruppierung (eindeutig pro Hex-Zelle).
+ */
+function getHexKey(col, row) {
+  return col + ':' + row;
+}
+
+/**
+ * 6 Eckpunkte eines flat-top Hexagons als [lat, lng]-Array.
+ * Winkel starten bei 0° (rechts) und gehen gegen den Uhrzeigersinn.
+ */
+function getHexPolygon(centerLat, centerLng) {
+  const points = [];
+  for (let i = 0; i < 6; i++) {
+    const angleDeg = 60 * i;
+    const angleRad = (Math.PI / 180) * angleDeg;
+    const pLng = centerLng + HEX_RADIUS_LNG * Math.cos(angleRad);
+    const pLat = centerLat + HEX_RADIUS_LAT * Math.sin(angleRad);
+    points.push([pLat, pLng]);
+  }
+  return points;
+}
+
+/**
+ * Hex-Territorien laden und auf der Karte anzeigen.
+ * Lädt alle Gipfel-Besteigungen der aktuellen (+ letzten) Saison,
+ * gruppiert sie in Hex-Zellen und zeichnet für jede Zelle mit Gipfeln
+ * ein farbiges Hexagon, eingefärbt nach dem Spieler mit den meisten
+ * einzigartigen Gipfeln in dieser Zelle (= König der Hex-Zelle).
  */
 async function loadTerritories() {
-  const userId = GK.map._currentUserId;
   if (!GK.map.leaflet) return;
 
   if (!territoryLayer) {
@@ -507,76 +541,160 @@ async function loadTerritories() {
   territoryLayer.clearLayers();
 
   const season = getCurrentSeason();
+  const lastSeason = (parseInt(season) - 1).toString();
 
   try {
-    // Alle Gipfel im Kleinwalsertal-Bereich laden
+    // Sichtbare Kartengrenzen mit etwas Puffer
+    const bounds = GK.map.leaflet.getBounds();
+    const pad = 0.3; // ~30km Puffer
+    const latMin = bounds.getSouth() - pad;
+    const latMax = bounds.getNorth() + pad;
+    const lngMin = bounds.getWest() - pad;
+    const lngMax = bounds.getEast() + pad;
+
+    // Alle Gipfel im sichtbaren Bereich laden
     const { data: peaks } = await GK.supabase
       .from('peaks')
       .select('id, lat, lng')
-      .gte('lat', KWT_BOUNDS.latMin)
-      .lte('lat', KWT_BOUNDS.latMax)
-      .gte('lng', KWT_BOUNDS.lngMin)
-      .lte('lng', KWT_BOUNDS.lngMax);
+      .gte('lat', latMin)
+      .lte('lat', latMax)
+      .gte('lng', lngMin)
+      .lte('lng', lngMax);
 
     if (!peaks || peaks.length === 0) return;
 
     const peakIds = peaks.map(p => p.id);
 
-    // Alle Besteigungen dieser Gipfel in der aktuellen Saison laden
-    const { data: summits } = await GK.supabase
-      .from('summits')
-      .select('peak_id, user_id')
-      .in('peak_id', peakIds)
-      .eq('season', season);
-
-    if (!summits || summits.length === 0) return;
-
-    // Eindeutige Gipfel pro User zählen (ein Gipfel zählt nur 1×)
-    const peaksByUser = {};
-    for (const s of summits) {
-      if (!peaksByUser[s.user_id]) peaksByUser[s.user_id] = new Set();
-      peaksByUser[s.user_id].add(s.peak_id);
+    // Gipfel → Hex-Zelle zuordnen
+    const peakHexMap = {}; // peakId → hexKey
+    const hexCenters = {}; // hexKey → { centerLat, centerLng, col, row }
+    for (const p of peaks) {
+      const hex = getHexCell(p.lat, p.lng);
+      const key = getHexKey(hex.col, hex.row);
+      peakHexMap[p.id] = key;
+      if (!hexCenters[key]) {
+        hexCenters[key] = { centerLat: hex.centerLat, centerLng: hex.centerLng, col: hex.col, row: hex.row };
+      }
     }
 
-    const ranked = Object.entries(peaksByUser)
-      .map(([uid, pset]) => ({ userId: uid, count: pset.size }))
-      .sort((a, b) => b.count - a.count);
+    // Alle Besteigungen dieser Gipfel in aktueller + letzter Saison laden
+    // Supabase .in() hat ein Limit, daher in Batches aufteilen
+    let allSummits = [];
+    const batchSize = 200;
+    for (let i = 0; i < peakIds.length; i += batchSize) {
+      const batch = peakIds.slice(i, i + batchSize);
+      const { data: summits } = await GK.supabase
+        .from('summits')
+        .select('peak_id, user_id, season')
+        .in('peak_id', batch)
+        .in('season', [season, lastSeason]);
+      if (summits) allSummits = allSummits.concat(summits);
+    }
 
-    if (ranked.length === 0) return;
+    if (allSummits.length === 0) return;
 
-    const king = ranked[0];
-    // Mindestens 2 verschiedene Gipfel für ein Territorium
-    if (king.count < 2) return;
+    // Pro Hex-Zelle: einzigartige Gipfel pro User zählen (aktuelle Saison bevorzugt)
+    // hexKey → { userId → Set(peakId) }
+    const hexUserPeaks = {};
+    // Erst aktuelle Saison, dann letzte Saison als Fallback
+    const currentSeasonSummits = allSummits.filter(s => s.season === season);
+    const lastSeasonSummits = allSummits.filter(s => s.season === lastSeason);
 
-    // König-Name laden
-    let kingName = 'Unbekannt';
-    try {
-      const profil = await GK.api.getUserProfile(king.userId);
-      if (profil) kingName = profil.display_name || profil.username || 'Anonym';
-    } catch (e) { /* ignorieren */ }
+    // Aktuelle Saison eintragen
+    for (const s of currentSeasonSummits) {
+      const hexKey = peakHexMap[s.peak_id];
+      if (!hexKey) continue;
+      if (!hexUserPeaks[hexKey]) hexUserPeaks[hexKey] = {};
+      if (!hexUserPeaks[hexKey][s.user_id]) hexUserPeaks[hexKey][s.user_id] = new Set();
+      hexUserPeaks[hexKey][s.user_id].add(s.peak_id);
+    }
 
-    // Farbe bestimmen: Gold für eigenes Gebiet, Rot für fremdes
-    const isOwn = userId && king.userId === userId;
-    const color = isOwn ? '#ffd700' : '#e53e3e';
+    // Letzte Saison nur für Hex-Zellen ohne aktuelle Daten (Fallback)
+    for (const s of lastSeasonSummits) {
+      const hexKey = peakHexMap[s.peak_id];
+      if (!hexKey) continue;
+      // Nur eintragen wenn diese Hex-Zelle noch keine Daten hat
+      if (hexUserPeaks[hexKey] && Object.keys(hexUserPeaks[hexKey]).length > 0) continue;
+      if (!hexUserPeaks[hexKey]) hexUserPeaks[hexKey] = {};
+      if (!hexUserPeaks[hexKey][s.user_id]) hexUserPeaks[hexKey][s.user_id] = new Set();
+      hexUserPeaks[hexKey][s.user_id].add(s.peak_id);
+    }
 
-    // Polygon zeichnen
-    const polygon = L.polygon(KLEINWALSERTAL_POLYGON, {
-      color: color,
-      weight: 2,
-      opacity: 0.5,
-      fillColor: color,
-      fillOpacity: 0.15,
-      interactive: true,
-    });
+    // Für jede Hex-Zelle den König ermitteln und User-IDs sammeln
+    const hexKings = {}; // hexKey → { userId, count }
+    const allUserIds = new Set();
+    for (const [hexKey, userPeaks] of Object.entries(hexUserPeaks)) {
+      let topUser = null;
+      let topCount = 0;
+      for (const [uid, peakSet] of Object.entries(userPeaks)) {
+        allUserIds.add(uid);
+        if (peakSet.size > topCount) {
+          topCount = peakSet.size;
+          topUser = uid;
+        }
+      }
+      if (topUser && topCount > 0) {
+        hexKings[hexKey] = { userId: topUser, count: topCount };
+      }
+    }
 
-    // Tooltip beim Hover
-    polygon.bindTooltip('👑 Kleinwalsertal — ' + kingName + ' (' + king.count + ' Gipfel)', {
-      sticky: true,
-      direction: 'center',
-      className: 'territory-tooltip',
-    });
+    if (Object.keys(hexKings).length === 0) return;
 
-    territoryLayer.addLayer(polygon);
+    // User-Profile für Tooltip-Namen laden
+    const userNames = {};
+    for (const uid of allUserIds) {
+      try {
+        const profil = await GK.api.getUserProfile(uid);
+        if (profil) {
+          const name = profil.display_name || profil.username || 'Anonym';
+          userNames[uid] = name.split(' ')[0]; // Nur Vorname
+        } else {
+          userNames[uid] = 'Anonym';
+        }
+      } catch (e) {
+        userNames[uid] = 'Anonym';
+      }
+    }
+
+    // Hex-Polygone zeichnen
+    for (const [hexKey, king] of Object.entries(hexKings)) {
+      const center = hexCenters[hexKey];
+      if (!center) continue;
+
+      const color = getTerritoryColor(king.userId);
+      const corners = getHexPolygon(center.centerLat, center.centerLng);
+      const kingName = userNames[king.userId] || 'Anonym';
+
+      const polygon = L.polygon(corners, {
+        color: color,
+        weight: 2,
+        opacity: 0.4,
+        fillColor: color,
+        fillOpacity: 0.2,
+        interactive: true,
+        className: 'hex-territory',
+      });
+
+      // Hover-Effekt: Füll-Opacity erhöhen
+      polygon.on('mouseover', function () {
+        this.setStyle({ fillOpacity: 0.4 });
+      });
+      polygon.on('mouseout', function () {
+        this.setStyle({ fillOpacity: 0.2 });
+      });
+
+      // Tooltip beim Hover
+      polygon.bindTooltip(
+        '\ud83d\udc51 ' + kingName + ' \u00b7 ' + king.count + ' Gipfel',
+        {
+          sticky: true,
+          direction: 'center',
+          className: 'territory-tooltip',
+        }
+      );
+
+      territoryLayer.addLayer(polygon);
+    }
 
   } catch (err) {
     console.error('Fehler beim Laden der Territorien:', err);
@@ -585,6 +703,9 @@ async function loadTerritories() {
 
 /** Debounced-Version von loadPeaks */
 const loadPeaksDebounced = debounce(loadPeaks, DEBOUNCE_DELAY);
+
+/** Debounced-Version von loadTerritories (länger, da schwerer) */
+const loadTerritoriesDebounced = debounce(loadTerritories, 1500);
 
 // ---------------------------------------------------------------------------
 // Karte initialisieren
@@ -702,9 +823,11 @@ async function initMap() {
     loadTerritories();
   });
 
-  // Bei Kartenverschiebung und Zoom Gipfel neu laden (mit Debounce)
+  // Bei Kartenverschiebung und Zoom Gipfel + Territorien neu laden (mit Debounce)
   map.on('moveend', loadPeaksDebounced);
   map.on('zoomend', loadPeaksDebounced);
+  map.on('moveend', loadTerritoriesDebounced);
+  map.on('zoomend', loadTerritoriesDebounced);
 
   // Gipfel des Tages bei Kartenverschiebung aktualisieren (debounced 2s)
   let potdTimer;
