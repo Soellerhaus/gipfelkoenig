@@ -48,9 +48,9 @@ serve(async (req) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        client_id: '32db5831-859b-4ba5-888d-4b35d8dba7fe',
-        client_secret: 'BK-suunto-2026-secret',
-        redirect_uri: 'https://bergkoenig.app/settings.html'
+        client_id: Deno.env.get('SUUNTO_CLIENT_ID')!,
+        client_secret: Deno.env.get('SUUNTO_CLIENT_SECRET')!,
+        redirect_uri: Deno.env.get('SUUNTO_REDIRECT_URI') || 'https://bergkoenig.app/settings.html'
       })
     })
 
