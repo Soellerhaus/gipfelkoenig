@@ -109,7 +109,13 @@
       <!-- Profil / Dashboard -->
       <section class="content-section" id="section-profile">
 
-        <!-- Profil-Header OBEN -->
+        <!-- Einstellungen + Abmelden ganz oben -->
+        <div style="display:flex; gap:8px; margin-bottom: 0.75rem;">
+          <a href="/settings.html" class="btn btn-secondary" style="flex:1; font-size: 0.8rem; padding: 8px; text-align: center; text-decoration: none;">⚙️ Einstellungen</a>
+          <button class="btn btn-secondary" id="logout-btn" style="flex:0; font-size: 0.8rem; padding: 8px; white-space:nowrap;">Abmelden</button>
+        </div>
+
+        <!-- Profil-Header -->
         <div class="profile-header" style="margin-bottom: 0.75rem;">
           <div class="profile-avatar" id="profile-avatar">?</div>
           <h2 id="profile-name">Laden... <span id="profile-rank-badge" style="font-size:0.85rem;color:var(--color-gold);"></span></h2>
@@ -272,11 +278,8 @@
           </div>
         </div>
 
-        <!-- Einstellungen — ein Button zu settings.html -->
-        <a href="/settings.html" class="btn btn-secondary btn-block" style="font-size: 0.8rem; padding: 8px; text-align: center; text-decoration: none; display: block; margin-bottom: 0.5rem;">⚙️ Einstellungen</a>
         <input type="file" id="gpx-upload" accept=".gpx" style="display: none;">
         <div id="gpx-result" style="font-size: 0.75rem; display: none;"></div>
-        <button class="btn btn-secondary btn-block" id="logout-btn" style="font-size: 0.8rem; padding: 8px;">Abmelden</button>
         <!-- Hidden for JS compatibility -->
         <button id="strava-profile-btn" style="display:none;"></button>
         <span id="strava-status" style="display:none;"></span>
