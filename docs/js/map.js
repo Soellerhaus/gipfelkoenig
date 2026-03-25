@@ -457,16 +457,49 @@ function loadCrownsAsync() {
 let territoryLayer = null;
 
 /**
- * Gebiets-Polygone auf der Karte anzeigen.
- * Gold = User hat die meisten Kronen in der Sub-Region.
- * Rot = ein anderer Spieler hat die meisten Kronen.
+ * Kleinwalsertal-Polygon — grobe Tal-Umrisse (lat/lng Paare).
+ * Koordinaten im Uhrzeigersinn, Start Nordwest.
  */
-async function loadTerritoryPolygons() {
-  const userId = GK.map._currentUserId;
-  if (!userId || !GK.map.leaflet) return;
+const KLEINWALSERTAL_POLYGON = [
+  [47.38, 10.05],   // Nordwest
+  [47.38, 10.10],
+  [47.38, 10.15],
+  [47.38, 10.22],   // Nordost
+  [47.35, 10.23],
+  [47.30, 10.22],   // Ost
+  [47.28, 10.18],   // Südost
+  [47.29, 10.15],
+  [47.30, 10.12],   // Süd
+  [47.31, 10.08],
+  [47.32, 10.05],   // Südwest
+  [47.35, 10.04],
+];
 
-  const SUB_REGIONS = window.ALPINE_SUB_REGIONS || [];
-  if (SUB_REGIONS.length === 0) return;
+/** Bounding-Box des Kleinwalsertal-Polygons (für Peak-Filterung) */
+const KWT_BOUNDS = {
+  latMin: 47.28, latMax: 47.38,
+  lngMin: 10.04, lngMax: 10.23,
+};
+
+/**
+ * Prüft ob ein Punkt innerhalb des Kleinwalsertal-Polygons liegt
+ * (einfacher Bounding-Box-Check reicht für diesen Zweck).
+ */
+function isInKleinwalsertal(lat, lng) {
+  return lat >= KWT_BOUNDS.latMin && lat <= KWT_BOUNDS.latMax &&
+         lng >= KWT_BOUNDS.lngMin && lng <= KWT_BOUNDS.lngMax;
+}
+
+/**
+ * Gebiets-Polygone laden und auf der Karte anzeigen.
+ * Ermittelt wer die meisten Gipfel im Kleinwalsertal bestiegen hat (König)
+ * und zeichnet ein farbiges Polygon:
+ *   Gold = eingeloggter User ist König
+ *   Rot  = ein anderer Spieler ist König
+ */
+async function loadTerritories() {
+  const userId = GK.map._currentUserId;
+  if (!GK.map.leaflet) return;
 
   if (!territoryLayer) {
     territoryLayer = L.layerGroup().addTo(GK.map.leaflet);
@@ -474,76 +507,79 @@ async function loadTerritoryPolygons() {
   territoryLayer.clearLayers();
 
   const season = getCurrentSeason();
-  const lastSeason = (parseInt(season) - 1).toString();
 
   try {
-    // Alle Ownership-Daten für sichtbare Saisons laden
-    const { data: ownerships } = await GK.supabase
-      .from('ownership')
-      .select('peak_id, user_id')
-      .in('season', [season, lastSeason]);
-
-    if (!ownerships || ownerships.length === 0) return;
-
-    // Peak-Koordinaten laden für Zuordnung zu Sub-Regionen
-    const peakIds = [...new Set(ownerships.map(o => o.peak_id))];
+    // Alle Gipfel im Kleinwalsertal-Bereich laden
     const { data: peaks } = await GK.supabase
       .from('peaks')
       .select('id, lat, lng')
-      .in('id', peakIds);
+      .gte('lat', KWT_BOUNDS.latMin)
+      .lte('lat', KWT_BOUNDS.latMax)
+      .gte('lng', KWT_BOUNDS.lngMin)
+      .lte('lng', KWT_BOUNDS.lngMax);
 
-    if (!peaks) return;
+    if (!peaks || peaks.length === 0) return;
 
-    const peakCoords = new Map();
-    for (const p of peaks) peakCoords.set(p.id, p);
+    const peakIds = peaks.map(p => p.id);
 
-    // Pro Sub-Region: Kronen pro User zählen
-    for (const sr of SUB_REGIONS) {
-      const regionPeaks = peaks.filter(p =>
-        p.lat >= sr.latMin && p.lat <= sr.latMax &&
-        p.lng >= sr.lngMin && p.lng <= sr.lngMax
-      );
-      if (regionPeaks.length === 0) continue;
+    // Alle Besteigungen dieser Gipfel in der aktuellen Saison laden
+    const { data: summits } = await GK.supabase
+      .from('summits')
+      .select('peak_id, user_id')
+      .in('peak_id', peakIds)
+      .eq('season', season);
 
-      const regionPeakIds = new Set(regionPeaks.map(p => p.id));
-      const crownsByUser = {};
+    if (!summits || summits.length === 0) return;
 
-      for (const o of ownerships) {
-        if (!regionPeakIds.has(o.peak_id)) continue;
-        crownsByUser[o.user_id] = (crownsByUser[o.user_id] || 0) + 1;
-      }
-
-      const users = Object.entries(crownsByUser).sort((a, b) => b[1] - a[1]);
-      if (users.length === 0) continue;
-
-      const topUser = users[0];
-      // Mindestens 2 Kronen um ein Gebiet zu beherrschen
-      if (topUser[1] < 2) continue;
-
-      // Polygon-Koordinaten aus Sub-Region Bounds
-      const bounds = [
-        [sr.latMin, sr.lngMin],
-        [sr.latMin, sr.lngMax],
-        [sr.latMax, sr.lngMax],
-        [sr.latMax, sr.lngMin],
-      ];
-
-      const isUserTerritory = topUser[0] === userId;
-      const color = isUserTerritory ? '#ffd700' : '#e53e3e';
-      const fillOpacity = 0.08;
-
-      const polygon = L.polygon(bounds, {
-        color: color,
-        weight: 1,
-        fillColor: color,
-        fillOpacity: fillOpacity,
-        interactive: false,
-      });
-
-      territoryLayer.addLayer(polygon);
+    // Eindeutige Gipfel pro User zählen (ein Gipfel zählt nur 1×)
+    const peaksByUser = {};
+    for (const s of summits) {
+      if (!peaksByUser[s.user_id]) peaksByUser[s.user_id] = new Set();
+      peaksByUser[s.user_id].add(s.peak_id);
     }
+
+    const ranked = Object.entries(peaksByUser)
+      .map(([uid, pset]) => ({ userId: uid, count: pset.size }))
+      .sort((a, b) => b.count - a.count);
+
+    if (ranked.length === 0) return;
+
+    const king = ranked[0];
+    // Mindestens 2 verschiedene Gipfel für ein Territorium
+    if (king.count < 2) return;
+
+    // König-Name laden
+    let kingName = 'Unbekannt';
+    try {
+      const profil = await GK.api.getUserProfile(king.userId);
+      if (profil) kingName = profil.display_name || profil.username || 'Anonym';
+    } catch (e) { /* ignorieren */ }
+
+    // Farbe bestimmen: Gold für eigenes Gebiet, Rot für fremdes
+    const isOwn = userId && king.userId === userId;
+    const color = isOwn ? '#ffd700' : '#e53e3e';
+
+    // Polygon zeichnen
+    const polygon = L.polygon(KLEINWALSERTAL_POLYGON, {
+      color: color,
+      weight: 2,
+      opacity: 0.5,
+      fillColor: color,
+      fillOpacity: 0.15,
+      interactive: true,
+    });
+
+    // Tooltip beim Hover
+    polygon.bindTooltip('👑 Kleinwalsertal — ' + kingName + ' (' + king.count + ' Gipfel)', {
+      sticky: true,
+      direction: 'center',
+      className: 'territory-tooltip',
+    });
+
+    territoryLayer.addLayer(polygon);
+
   } catch (err) {
-    console.error('Fehler beim Laden der Gebiets-Polygone:', err);
+    console.error('Fehler beim Laden der Territorien:', err);
   }
 }
 
@@ -663,7 +699,7 @@ async function initMap() {
     showNearestPeakInPanel();
     if (typeof showPeakOfDay === 'function') showPeakOfDay();
     // Gebiets-Polygone laden (async, blockiert nichts)
-    loadTerritoryPolygons();
+    loadTerritories();
   });
 
   // Bei Kartenverschiebung und Zoom Gipfel neu laden (mit Debounce)
