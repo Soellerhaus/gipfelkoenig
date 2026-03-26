@@ -274,6 +274,12 @@
   z-index: 1;
 }
 
+/* Sicherstellen dass die Nav IMMER über der Karte liegt */
+.app-nav {
+  z-index: 10000 !important;
+  pointer-events: auto !important;
+}
+
 /* Gipfel-Info Panel — schwebt über der Karte, oberhalb der Nav */
 .peak-info-panel {
   position: absolute;
