@@ -383,7 +383,7 @@ async function initAppPage() {
   }
 
   // Täglichen Login-Bonus prüfen
-  checkDailyReward();
+  // checkDailyReward(); -- entfernt
 
   // Kronen-Angriffe + Rivalen prüfen (im Hintergrund, blockiert nicht)
   checkCrownThreats(benutzer.id);
