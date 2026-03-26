@@ -263,6 +263,7 @@
   flex: 1;
   min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 #map {
@@ -402,6 +403,11 @@
   flex-shrink: 0;
   position: relative;
   z-index: 1000;
+  isolation: isolate;
+  cursor: pointer;
+}
+.app-nav * {
+  pointer-events: auto !important;
 }
 
 .nav-item {
