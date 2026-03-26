@@ -94,6 +94,7 @@ async function loadProfileForSeason(year) {
   // Kronen berechnen: Prüfe auf welchen Gipfeln der User die meisten Besteigungen hat (König ist)
   let crownCount = 0;
   const userId = window._currentUserId;
+  const peakIds = [...new Set(seasonSummits.map(s => s.peak_id))];
   if (userId && peakIds.length > 0) {
     // Für jeden Gipfel des Users: alle Summits aller User laden und prüfen ob User König ist
     for (const pid of peakIds) {
