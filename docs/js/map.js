@@ -693,26 +693,17 @@ async function loadTerritories() {
       const corners = getHexPolygon(center.centerLat, center.centerLng);
       const kingName = userNames[king.userId] || 'Anonym';
 
-      const hexOp = (GK.map._hexOpacity || 20) / 100;
+      const hexOp = (GK.map._hexOpacity || 12) / 100;
       const polygon = L.polygon(corners, {
         color: color,
-        weight: 2,
-        opacity: hexOp * 2,
+        weight: 1,
+        opacity: hexOp,
         fillColor: color,
         fillOpacity: hexOp,
-        interactive: true,
+        interactive: false,
         className: 'hex-territory',
+        pane: 'overlayPane',
       });
-
-      // Tooltip beim Hover
-      polygon.bindTooltip(
-        '\ud83d\udc51 ' + kingName + ' \u00b7 ' + king.count + ' Gipfel',
-        {
-          sticky: true,
-          direction: 'center',
-          className: 'territory-tooltip',
-        }
-      );
 
       territoryLayer.addLayer(polygon);
     }
