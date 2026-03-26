@@ -42,15 +42,19 @@ async function loadProfileForSeason(year) {
   if (el('stat-crowns')) el('stat-crowns').textContent = '0';
   if (el('season-summits')) el('season-summits').textContent = seasonUnique;
   if (el('season-points')) el('season-points').textContent = seasonPts.toLocaleString('de');
+  // Header-Punkte auf aktuelle Saison setzen (nicht total_points)
+  const punkteEl = document.querySelector('.header-points');
+  if (punkteEl) punkteEl.textContent = seasonPts.toLocaleString('de') + ' Pkt';
 
-  // HM berechnen
-  const peakIds = [...new Set(seasonSummits.map(s => s.peak_id))];
+  // HM berechnen — echte Aufstiegs-HM aus elevation_gain, Fallback auf Berghöhe
   let seasonHM = 0;
-  for (const pid of peakIds) {
-    const p = await GK.api.getPeakById(pid);
-    if (p && p.elevation) {
-      const sCount = seasonSummits.filter(s => s.peak_id === pid).length;
-      seasonHM += p.elevation * sCount;
+  for (const s of seasonSummits) {
+    if (s.elevation_gain && s.elevation_gain > 0) {
+      seasonHM += s.elevation_gain;
+    } else {
+      // Fallback: Berghöhe als grobe Schätzung
+      const p = await GK.api.getPeakById(s.peak_id);
+      if (p && p.elevation) seasonHM += p.elevation;
     }
   }
   if (el('season-hm')) el('season-hm').textContent = seasonHM.toLocaleString('de');
@@ -140,8 +144,8 @@ async function loadProfileForSeason(year) {
 
   // Lose berechnen fuer diese Saison (neues System)
   const gipfelLose = seasonSummits.length;   // 1 Los pro Gipfel
-  const koenigLose = crownCount * 5;         // 5 Lose pro Krone
-  // Gebiet-Lose: Anzahl beherrschter Gebiete * 10
+  const koenigLose = crownCount;              // 1 Los pro Krone
+  // Gebiet-Lose: Anzahl beherrschter Gebiete * 5
   let gebietLose = 0;
   // Gipfel des Tages Lose
   const potdLose = 0; // TODO: track separately when POTD summits exist
