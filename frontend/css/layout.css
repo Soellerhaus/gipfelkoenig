@@ -249,13 +249,16 @@
 .app-header-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 2px;
+  border-radius: 50%;
   background: var(--color-bg-card);
-  border: 1px solid var(--color-gold);
+  border: 1.5px solid var(--color-gold);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.85rem;
+  color: var(--color-gold);
+  cursor: pointer;
+  overflow: hidden;
 }
 
 /* === MAP + INFO LAYOUT === */
@@ -507,14 +510,16 @@
 .profile-avatar {
   width: 80px;
   height: 80px;
-  border-radius: 2px;
+  border-radius: 50%;
   background: var(--color-bg-card);
-  border: 1px solid var(--color-gold);
+  border: 2px solid var(--color-gold);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2rem;
+  color: var(--color-gold);
   margin: 0 auto 1rem;
+  overflow: hidden;
 }
 
 .profile-stats {
