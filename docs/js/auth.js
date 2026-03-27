@@ -26,6 +26,7 @@ window.switchProfileSeason = function(delta) {
 };
 
 async function loadProfileForSeason(year) {
+  try {
   const summits = window._allSummitsCache;
   if (!summits) return;
 
@@ -161,6 +162,9 @@ async function loadProfileForSeason(year) {
   setEl('tickets-gebiet', gebietLose);
   setEl('tickets-potd', potdLose);
   setEl('tickets-punkte', punkteLose);
+  } catch (err) {
+    console.warn('loadProfileForSeason Fehler (nicht kritisch):', err.message);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -506,7 +510,7 @@ async function initAppPage() {
       const currentYear = window.currentProfileSeason || new Date().getFullYear();
       const label = document.getElementById('profile-season-label');
       if (label) label.textContent = 'SAISON ' + currentYear;
-      await loadProfileForSeason(currentYear);
+      loadProfileForSeason(currentYear).catch(e => console.warn('Season load:', e.message));
     }
   }
 
