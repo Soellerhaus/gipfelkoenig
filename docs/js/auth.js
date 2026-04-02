@@ -690,6 +690,7 @@ async function startPagedImport(userId, stravaToken) {
   let totalPoints = 0;
   let page = 1;
   let totalPages = 0;
+  let consecutiveErrors = 0;
   const allPeaks = [];
 
   if (savedBefore) console.log('Import fortgesetzt — lade Aktivitäten vor ' + new Date(beforeEpoch * 1000).toLocaleDateString('de'));
@@ -711,18 +712,35 @@ async function startPagedImport(userId, stravaToken) {
       });
 
       if (error) {
-        console.error('Import-Fehler:', error);
+        consecutiveErrors++;
+        console.error('Import-Fehler (' + consecutiveErrors + '/5):', error);
+        // Bei 5 Fehlern hintereinander → Token abgelaufen, Import stoppen
+        if (consecutiveErrors >= 5) {
+          if (messageEl) messageEl.textContent = 'Token abgelaufen — bitte Strava neu verbinden';
+          await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
+          localStorage.removeItem('import_before_' + userId);
+          setTimeout(() => { if (bar) bar.style.display = 'none'; }, 5000);
+          break;
+        }
         if (messageEl) messageEl.textContent = 'Fehler — versuche nächsten Zeitraum...';
-        beforeEpoch -= 30 * 24 * 3600; // 30 Tage zurückspringen
+        beforeEpoch -= 30 * 24 * 3600;
         localStorage.setItem('import_before_' + userId, beforeEpoch.toString());
-        if (totalPages > 100) break;
         continue;
       }
+      consecutiveErrors = 0; // Reset bei Erfolg
 
       const result = typeof data === 'string' ? JSON.parse(data) : data;
       console.log('Ergebnis:', result);
 
       if (result.error) {
+        // Token abgelaufen? Strava gibt 401
+        if (result.error.includes && (result.error.includes('401') || result.error.includes('Authorization'))) {
+          if (messageEl) messageEl.textContent = 'Strava Token abgelaufen — bitte neu verbinden';
+          await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
+          localStorage.removeItem('import_before_' + userId);
+          setTimeout(() => { if (bar) bar.style.display = 'none'; }, 5000);
+          break;
+        }
         console.error('Server-Fehler:', result.error);
         if (messageEl) messageEl.textContent = 'Fehler: ' + result.error;
         break;
