@@ -815,14 +815,14 @@ async function importStravaActivities(userId, accessToken) {
         const timeStream = streams.find(s => s.type === 'time');
         if (!latlngStream) continue;
 
-        // GPS-Punkte gegen Gipfel prüfen (200m Radius)
+        // GPS-Punkte gegen Gipfel prüfen (80m Radius)
         const foundPeaks = new Map();
         for (let i = 0; i < latlngStream.data.length; i++) {
           const [lat, lng] = latlngStream.data[i];
           for (const peak of allPeaks) {
             if (foundPeaks.has(peak.id)) continue;
             const dist = haversineDistance(lat, lng, peak.lat, peak.lng);
-            if (dist <= 200) {
+            if (dist <= 80) {
               const timeOffset = timeStream ? timeStream.data[i] : 0;
               const summitTime = new Date(new Date(activity.start_date).getTime() + timeOffset * 1000);
               foundPeaks.set(peak.id, { peak, summitTime, dist });
