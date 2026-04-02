@@ -47,15 +47,11 @@ async function loadProfileForSeason(year) {
   const punkteEl = document.querySelector('.header-points');
   if (punkteEl) punkteEl.textContent = seasonPts.toLocaleString('de') + ' Pkt';
 
-  // HM berechnen — echte Aufstiegs-HM aus elevation_gain, Fallback auf Berghöhe
+  // HM berechnen — nur echte Aufstiegs-HM (kein Fallback auf Berghöhe)
   let seasonHM = 0;
   for (const s of seasonSummits) {
     if (s.elevation_gain && s.elevation_gain > 0) {
       seasonHM += s.elevation_gain;
-    } else {
-      // Fallback: Berghöhe als grobe Schätzung
-      const p = await GK.api.getPeakById(s.peak_id);
-      if (p && p.elevation) seasonHM += p.elevation;
     }
   }
   if (el('season-hm')) el('season-hm').textContent = seasonHM.toLocaleString('de');
@@ -97,12 +93,13 @@ async function loadProfileForSeason(year) {
   const userId = window._currentUserId;
   const peakIds = [...new Set(seasonSummits.map(s => s.peak_id))];
   if (userId && peakIds.length > 0) {
-    // Für jeden Gipfel des Users: alle Summits aller User laden und prüfen ob User König ist
+    // Für jeden Gipfel des Users: Summits dieser Saison laden und prüfen ob User König ist
     for (const pid of peakIds) {
       const { data: allSummits } = await GK.supabase
         .from('summits')
         .select('user_id')
-        .eq('peak_id', pid);
+        .eq('peak_id', pid)
+        .eq('season', yearStr);
       if (!allSummits || allSummits.length === 0) continue;
       // Zähle Besteigungen pro User
       const counts = {};
