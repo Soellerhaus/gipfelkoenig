@@ -123,11 +123,11 @@
               <img src="/img/suunto-logo.png" alt="Suunto" style="height:22px; width:auto;" onerror="this.outerHTML='<span style=font-size:1.2rem>🔴</span>'">
               <span style="font-size:0.55rem; color:#e1422a; font-weight:600;">Suunto</span>
             </a>
-            <!-- Strava (bald) -->
-            <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 12px; border-radius:8px; border:1px solid rgba(252,82,0,0.3); background:rgba(252,82,0,0.03); opacity:0.4; min-width:60px;">
-              <span style="font-size:1.2rem;">🟠</span>
-              <span style="font-size:0.55rem; color:#fc5200;">Strava</span>
-            </div>
+            <!-- Strava -->
+            <a href="/settings.html#strava" onclick="if(typeof startStravaOAuth==='function'){startStravaOAuth();return false;}" style="display:flex; flex-direction:column; align-items:center; gap:3px; text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid #fc5200; background:rgba(252,82,0,0.08); cursor:pointer; min-width:60px;">
+              <img src="/img/strava-compatible.svg" alt="Strava" style="height:22px; width:auto;" onerror="this.outerHTML='<span style=font-size:1.2rem>🟠</span>'">
+              <span style="font-size:0.55rem; color:#fc5200; font-weight:600;">Strava</span>
+            </a>
             <!-- Garmin (bald) -->
             <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 12px; border-radius:8px; border:1px solid rgba(0,119,200,0.3); background:rgba(0,119,200,0.03); opacity:0.4; min-width:60px;">
               <span style="font-size:1.2rem;">🔵</span>
