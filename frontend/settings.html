@@ -389,7 +389,8 @@
     // Strava OAuth starten — globale Funktion für Quick-Button + normalen Button
     window.startStravaOAuth = function() {
       const state = crypto.randomUUID();
-      sessionStorage.setItem('strava_oauth_state', state);
+      localStorage.setItem('strava_oauth_state', state);
+      localStorage.setItem('pending_oauth', 'strava');
       const redirectUri = 'https://bergkoenig.app/settings.html';
       window.location.href =
         'https://www.strava.com/oauth/authorize' +
@@ -420,23 +421,23 @@
       if (!code) return;
 
       // Erkennung: Strava oder Suunto Callback?
-      const savedStravaState = sessionStorage.getItem('strava_oauth_state');
-      const savedSuuntoState = localStorage.getItem('suunto_oauth_state');
+      // Erkennung über pending_oauth Flag (zuverlässiger als State-Vergleich)
+      const pendingOAuth = localStorage.getItem('pending_oauth');
+      localStorage.removeItem('pending_oauth');
 
-      // Wenn Suunto-State gesetzt war → Suunto Callback (nicht Strava!)
-      if (savedSuuntoState) return; // Suunto-Handler weiter unten verarbeitet es
+      if (pendingOAuth === 'suunto') return; // Suunto-Handler verarbeitet es
 
-      // Strava Callback
-      if (!savedStravaState) return; // Kein State → ignorieren
-      sessionStorage.removeItem('strava_oauth_state');
+      // Strava Callback — State-Check weich (localStorage statt sessionStorage)
+      const savedStravaState = localStorage.getItem('strava_oauth_state');
+      localStorage.removeItem('strava_oauth_state');
 
       // Code gegen Token tauschen via Edge Function
       const { data, error: fnError } = await GK.supabase.functions.invoke('strava-exchange-token', {
         body: { code }
       });
 
-      if (fnError) {
-        alert('Strava-Verbindung fehlgeschlagen. Bitte erneut versuchen.');
+      if (fnError || (data && data.error)) {
+        alert('Strava-Fehler: ' + (data?.error || fnError?.message || 'Unbekannt') + (data?.step ? ' [' + data.step + ']' : ''));
       } else {
         document.getElementById('strava-not-connected').style.display = 'none';
         document.getElementById('strava-connected').style.display = 'block';
@@ -482,6 +483,7 @@
     window.startSuuntoOAuth = function() {
       const state = crypto.randomUUID();
       localStorage.setItem('suunto_oauth_state', state);
+      localStorage.setItem('pending_oauth', 'suunto');
       const clientId = '32db5831-859b-4ba5-888d-4b35d8dba7fe';
       const redirectUri = encodeURIComponent('https://bergkoenig.app/settings.html');
       window.location.href =
