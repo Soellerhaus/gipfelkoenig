@@ -11,7 +11,8 @@ const corsHeaders = {
 }
 
 // Skitouren (BackcountrySki) zählen, Pistenskifahren (AlpineSki) NICHT
-const ALLOWED_TYPES = ['Hike', 'Run', 'Walk', 'TrailRun', 'BackcountrySki', 'Snowshoe']
+// Wandern, Schneeschuh, Skitour, Trailrunning, Langlauf — NICHT Skifahren/Radfahren
+const ALLOWED_TYPES = ['Hike', 'Run', 'Walk', 'TrailRun', 'BackcountrySki', 'Snowshoe', 'NordicSki']
 const MIN_ELEVATION_GAIN = 50
 const STRAVA_PAGE_SIZE = 30
 const PEAK_RADIUS_METERS = 80
@@ -171,7 +172,21 @@ serve(async (req) => {
           .gte('lng', startLng - 0.3)
           .lte('lng', startLng + 0.3)
 
-        if (!nearbyPeaks || nearbyPeaks.length === 0) continue
+        if (!nearbyPeaks || nearbyPeaks.length === 0) {
+          // Keine Gipfel in der Nähe — Aktivität trotzdem speichern für HM/km
+          await supabase.from('summits').insert({
+            user_id, peak_id: null,
+            summited_at: new Date(activity.start_date).toISOString(),
+            season: getSeason(new Date(activity.start_date)),
+            strava_activity_id: activityId,
+            checkin_method: 'strava', points: 0,
+            is_season_first: false, is_personal_first: false,
+            safety_ok: true, safety_level: 0,
+            elevation_gain: activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : null,
+            distance: activity.distance ? Math.round(activity.distance / 1000) : null
+          }).catch(() => {})
+          continue
+        }
 
         // GPS-Streams holen
         await delay(1500) // Rate Limiting
@@ -192,10 +207,25 @@ serve(async (req) => {
 
         // Gipfel suchen (nur nahe Gipfel, nicht 42k!)
         const found = findPeaksInTrack(latlng, time, nearbyPeaks)
-        if (found.size === 0) continue
 
         const activityStart = new Date(activity.start_date)
         const season = getSeason(activityStart)
+
+        // Aktivität IMMER speichern (auch ohne Gipfelmatch → HM/km werden gezählt)
+        if (found.size === 0) {
+          await supabase.from('summits').insert({
+            user_id, peak_id: null,
+            summited_at: activityStart.toISOString(),
+            season, strava_activity_id: activityId,
+            checkin_method: 'strava', points: 0,
+            is_season_first: false, is_personal_first: false,
+            safety_ok: true, safety_level: 0,
+            elevation_gain: activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : null,
+            distance: activity.distance ? Math.round(activity.distance / 1000) : null
+          }).then(() => console.log(`🏃 Aktivität ${activityId} gespeichert (kein Gipfel, ${Math.round(activity.total_elevation_gain||0)} HM)`))
+            .catch(() => {})
+          continue
+        }
 
         for (const [peakId, { peak, timeOffset }] of found) {
           const summitTime = new Date(activityStart.getTime() + (timeOffset * 1000))
