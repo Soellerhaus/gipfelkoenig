@@ -683,6 +683,9 @@ async function startPagedImport(userId, stravaToken) {
   // Fortschritt laden: bis wohin wurde bereits importiert?
   const savedBefore = localStorage.getItem('import_before_' + userId);
   let beforeEpoch = savedBefore ? parseInt(savedBefore) : Math.floor(Date.now() / 1000); // Start: jetzt
+
+  // Maximum 3 Jahre zurück importieren
+  const threeYearsAgo = Math.floor(Date.now() / 1000) - (3 * 365 * 24 * 3600);
   let totalSummits = 0;
   let totalPoints = 0;
   let page = 1;
@@ -749,6 +752,12 @@ async function startPagedImport(userId, stravaToken) {
       }
 
       // Fertig?
+      // Stopp wenn älter als 3 Jahre
+      if (beforeEpoch < threeYearsAgo) {
+        console.log('Import: 3-Jahres-Limit erreicht');
+        result.done = true;
+      }
+
       if (result.done || !result.has_more) {
         console.log('Import abgeschlossen! ' + totalSummits + ' Gipfel, ' + totalPoints + ' Punkte');
         if (progressEl) progressEl.style.width = '100%';
