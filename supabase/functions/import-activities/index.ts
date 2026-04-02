@@ -231,7 +231,9 @@ serve(async (req) => {
             checkin_method: 'strava', points,
             is_season_first: isSeasonFirst,
             is_personal_first: isPersonalFirst,
-            safety_ok: true, safety_level: 0
+            safety_ok: true, safety_level: 0,
+            elevation_gain: activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : null,
+            distance: activity.distance ? Math.round(activity.distance / 1000) : null
           })
 
           summitsFound++

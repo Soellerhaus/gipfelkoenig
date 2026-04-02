@@ -141,16 +141,22 @@ async function loadProfileForSeason(year) {
     }
   }
 
-  // Lose berechnen fuer diese Saison (neues System)
-  const gipfelLose = seasonSummits.length;   // 1 Los pro Gipfel
-  const koenigLose = crownCount;              // 1 Los pro Krone
-  // Gebiet-Lose: Anzahl beherrschter Gebiete * 5
-  let gebietLose = 0;
-  // Gipfel des Tages Lose
-  const potdLose = 0; // TODO: track separately when POTD summits exist
-  // Punkte-Lose: 1 Los pro 1000 Punkte
-  const punkteLose = Math.floor(seasonPts / 1000);
-  const total = gipfelLose + koenigLose + gebietLose + potdLose + punkteLose;
+  // km berechnen (nur diese Saison!)
+  let seasonKM = 0;
+  for (const s of seasonSummits) {
+    if (s.distance && s.distance > 0) seasonKM += s.distance;
+  }
+  if (el('season-km')) el('season-km').textContent = seasonKM.toLocaleString('de');
+
+  // Lose NUR fuer diese Saison (nicht uebertragbar!)
+  const gipfelLose = seasonUnique;                    // 1 Los pro Gipfel (unique)
+  const koenigLose = crownCount * 2;                  // 2 Lose pro Krone
+  let gebietLose = 0;                                 // 5 Lose pro Gebiet (TODO)
+  const potdLose = 0;                                 // 5 Lose pro Gipfel des Tages (TODO)
+  const punkteLose = Math.floor(seasonPts / 1000);    // 1 Los pro 1000 Pkt
+  const hmLose = Math.floor(seasonHM / 10000);        // 1 Los pro 10.000 HM
+  const kmLose = Math.floor(seasonKM / 50);           // 1 Los pro 50 km
+  const total = gipfelLose + koenigLose + gebietLose + potdLose + punkteLose + hmLose + kmLose;
 
   const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
   setEl('tickets-total', total);
@@ -159,6 +165,8 @@ async function loadProfileForSeason(year) {
   setEl('tickets-gebiet', gebietLose);
   setEl('tickets-potd', potdLose);
   setEl('tickets-punkte', punkteLose);
+  setEl('tickets-hm', hmLose);
+  setEl('tickets-km', kmLose);
   } catch (err) {
     console.warn('loadProfileForSeason Fehler (nicht kritisch):', err.message);
   }
@@ -459,7 +467,7 @@ async function initAppPage() {
   if (profil) {
     const { data: summits } = await GK.supabase
       .from('summits')
-      .select('peak_id, points, summited_at, season, is_season_first, elevation_gain')
+      .select('peak_id, points, summited_at, season, is_season_first, elevation_gain, distance')
       .eq('user_id', benutzer.id)
       .order('summited_at', { ascending: false });
 
