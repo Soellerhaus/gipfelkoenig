@@ -503,11 +503,13 @@ async function initAppPage() {
         if (rankDetail) rankDetail.textContent = 'von ' + allProfiles.length + ' Bergfreunden';
       }
 
-      // Saison-Stats für aktuelles Jahr laden
-      const currentYear = window.currentProfileSeason || new Date().getFullYear();
+      // Saison-Stats: neueste Saison mit Daten anzeigen (nicht immer aktuelles Jahr)
+      const seasons = [...new Set(summits.map(s => s.season))].sort().reverse();
+      const bestSeason = seasons.length > 0 ? parseInt(seasons[0]) : new Date().getFullYear();
+      window.currentProfileSeason = bestSeason;
       const label = document.getElementById('profile-season-label');
-      if (label) label.textContent = 'SAISON ' + currentYear;
-      loadProfileForSeason(currentYear).catch(e => console.warn('Season load:', e.message));
+      if (label) label.textContent = 'SAISON ' + bestSeason;
+      loadProfileForSeason(bestSeason).catch(e => console.warn('Season load:', e.message));
     }
   }
 
