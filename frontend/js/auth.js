@@ -8,7 +8,7 @@ window.GK = window.GK || {};
 // ---------------------------------------------------------------------------
 // Jahres-Wähler für Profil-Saison
 // ---------------------------------------------------------------------------
-window.currentProfileSeason = new Date().getFullYear();
+window.currentProfileSeason = 0; // Wird nach DB-Load auf neueste Saison gesetzt
 window._allSummitsCache = null;
 window._currentUserId = null;
 
