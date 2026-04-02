@@ -439,10 +439,20 @@
       if (fnError || (data && data.error)) {
         alert('Strava-Fehler: ' + (data?.error || fnError?.message || 'Unbekannt') + (data?.step ? ' [' + data.step + ']' : ''));
       } else {
+        // Import starten: import_status auf 'pending' setzen
+        if (currentUser) {
+          await GK.supabase.from('user_profiles').update({
+            import_status: 'pending'
+          }).eq('id', currentUser.id);
+        }
+        alert('Strava erfolgreich verbunden! Deine Aktivitäten werden jetzt importiert. Gehe zur Karte um den Fortschritt zu sehen.');
         document.getElementById('strava-not-connected').style.display = 'none';
         document.getElementById('strava-connected').style.display = 'block';
         document.getElementById('strava-connected-since').textContent =
           new Date().toLocaleDateString('de-AT');
+        // Zur App weiterleiten für den Import
+        window.location.href = '/app.html';
+        return;
       }
 
       window.history.replaceState({}, '', '/settings.html');

@@ -382,7 +382,7 @@ async function initAppPage() {
     if (punkteEl) punkteEl.textContent = (profil.total_points || 0).toLocaleString('de') + ' Pkt';
 
     // Laufenden Import erkennen (bei Seiten-Reload während Import)
-    if (profil.import_status === 'importing' && profil.strava_token) {
+    if ((profil.import_status === 'importing' || profil.import_status === 'pending') && profil.strava_token) {
       startPagedImport(benutzer.id, profil.strava_token);
     }
   }
