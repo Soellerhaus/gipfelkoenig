@@ -668,10 +668,13 @@ async function startPagedImport(userId, stravaToken) {
 
   if (bar) bar.style.display = 'block';
 
-  let page = 1;
+  // Letzte Seite aus localStorage laden (Fortsetzung nach Abbruch)
+  const savedPage = parseInt(localStorage.getItem('import_last_page_' + userId) || '0');
+  let page = savedPage > 0 ? savedPage : 1;
   let totalSummits = 0;
   let totalPoints = 0;
   const allPeaks = [];
+  if (savedPage > 1) console.log('Import wird fortgesetzt ab Seite ' + savedPage);
 
   while (true) {
     try {
@@ -728,8 +731,9 @@ async function startPagedImport(userId, stravaToken) {
         if (percentEl) percentEl.textContent = '100%';
         if (messageEl) messageEl.textContent = '✅ ' + totalSummits + ' Gipfel · ' + totalPoints.toLocaleString('de') + ' Punkte';
 
-        // Import-Status auf done setzen damit er nicht nochmal startet
+        // Import-Status auf done setzen + Fortschritt aufräumen
         await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
+        localStorage.removeItem('import_last_page_' + userId);
 
         // Nach 3 Sekunden Bar ausblenden (kein Reload!)
         setTimeout(() => {
@@ -739,8 +743,10 @@ async function startPagedImport(userId, stravaToken) {
       }
 
       page++;
+      localStorage.setItem('import_last_page_' + userId, page.toString());
     } catch (err) {
       console.error('Import Seite ' + page + ' Fehler:', err);
+      localStorage.setItem('import_last_page_' + userId, page.toString());
       page++;
       if (page > 50) break;
     }
