@@ -97,13 +97,53 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    // Token-Refresh: Prüfe ob Token abgelaufen und erneuere automatisch
+    let activeToken = strava_token
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('strava_token, strava_refresh_token, strava_token_expires_at')
+      .eq('id', user_id)
+      .single()
+
+    if (profile?.strava_token_expires_at) {
+      const expiresAt = new Date(profile.strava_token_expires_at).getTime()
+      if (Date.now() > expiresAt - 300000) { // 5 Min vor Ablauf refreshen
+        console.log('Token abgelaufen — refreshe...')
+        const refreshResp = await fetch('https://www.strava.com/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: Deno.env.get('STRAVA_CLIENT_ID'),
+            client_secret: Deno.env.get('STRAVA_CLIENT_SECRET'),
+            grant_type: 'refresh_token',
+            refresh_token: profile.strava_refresh_token
+          })
+        })
+        const refreshData = await refreshResp.json()
+        if (refreshData.access_token) {
+          activeToken = refreshData.access_token
+          await supabase.from('user_profiles').update({
+            strava_token: refreshData.access_token,
+            strava_refresh_token: refreshData.refresh_token || profile.strava_refresh_token,
+            strava_token_expires_at: new Date(refreshData.expires_at * 1000).toISOString()
+          }).eq('id', user_id)
+          console.log('Token erfolgreich refresht!')
+        } else {
+          console.error('Token-Refresh fehlgeschlagen:', refreshData)
+          return new Response(JSON.stringify({ error: 'Token-Refresh fehlgeschlagen', done: true }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          })
+        }
+      }
+    }
+
     // 1. Gipfel werden pro Aktivität geladen (nur nahe Gipfel, spart Speicher)
     console.log('Gipfel werden pro Aktivität geladen (Bounding Box)')
 
     // 2. Eine Seite Strava-Aktivitäten holen
     const url = `https://www.strava.com/api/v3/athlete/activities?per_page=${STRAVA_PAGE_SIZE}&page=${page}`
     const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${strava_token}` }
+      headers: { 'Authorization': `Bearer ${activeToken}` }
     })
 
     if (!res.ok) {
@@ -192,7 +232,7 @@ serve(async (req) => {
         await delay(1500) // Rate Limiting
         const streamUrl = `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=latlng,time&key_type=stream`
         const streamRes = await fetch(streamUrl, {
-          headers: { 'Authorization': `Bearer ${strava_token}` }
+          headers: { 'Authorization': `Bearer ${activeToken}` }
         })
 
         if (!streamRes.ok) {
