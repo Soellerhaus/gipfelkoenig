@@ -8,7 +8,7 @@ window.GK = window.GK || {};
 // ---------------------------------------------------------------------------
 // Jahres-Wähler für Profil-Saison
 // ---------------------------------------------------------------------------
-window.currentProfileSeason = 0; // Wird nach DB-Load auf neueste Saison gesetzt
+window.currentProfileSeason = new Date().getFullYear();
 window._allSummitsCache = null;
 window._currentUserId = null;
 
@@ -47,12 +47,14 @@ async function loadProfileForSeason(year) {
   const punkteEl = document.querySelector('.header-points');
   if (punkteEl) punkteEl.textContent = seasonPts.toLocaleString('de') + ' Pkt';
 
-  // HM berechnen — nur echte Aufstiegs-HM (kein Fallback auf Berghöhe)
+  // HM berechnen — dedupliziert nach Aktivität
   let seasonHM = 0;
+  const seenHM = new Set();
   for (const s of seasonSummits) {
-    if (s.elevation_gain && s.elevation_gain > 0) {
-      seasonHM += s.elevation_gain;
-    }
+    const key = s.strava_activity_id || s.peak_id;
+    if (seenHM.has(key)) continue;
+    seenHM.add(key);
+    if (s.elevation_gain && s.elevation_gain > 0) seasonHM += s.elevation_gain;
   }
   if (el('season-hm')) el('season-hm').textContent = seasonHM.toLocaleString('de');
 
@@ -141,9 +143,13 @@ async function loadProfileForSeason(year) {
     }
   }
 
-  // km berechnen (nur diese Saison!)
+  // km berechnen — dedupliziert nach Aktivität
   let seasonKM = 0;
+  const seenKM = new Set();
   for (const s of seasonSummits) {
+    const key = s.strava_activity_id || s.peak_id;
+    if (seenKM.has(key)) continue;
+    seenKM.add(key);
     if (s.distance && s.distance > 0) seasonKM += s.distance;
   }
   if (el('season-km')) el('season-km').textContent = seasonKM.toLocaleString('de');
@@ -467,7 +473,7 @@ async function initAppPage() {
   if (profil) {
     const { data: summits } = await GK.supabase
       .from('summits')
-      .select('peak_id, points, summited_at, season, is_season_first, elevation_gain, distance')
+      .select('peak_id, points, summited_at, season, is_season_first, elevation_gain, distance, strava_activity_id')
       .eq('user_id', benutzer.id)
       .order('summited_at', { ascending: false });
 
@@ -512,12 +518,11 @@ async function initAppPage() {
       }
 
       // Saison-Stats: neueste Saison mit Daten anzeigen (nicht immer aktuelles Jahr)
-      const seasons = [...new Set(summits.map(s => s.season))].sort().reverse();
-      const bestSeason = seasons.length > 0 ? parseInt(seasons[0]) : new Date().getFullYear();
-      window.currentProfileSeason = bestSeason;
+      const currentYear = new Date().getFullYear();
+      window.currentProfileSeason = currentYear;
       const label = document.getElementById('profile-season-label');
-      if (label) label.textContent = 'SAISON ' + bestSeason;
-      loadProfileForSeason(bestSeason).catch(e => console.warn('Season load:', e.message));
+      if (label) label.textContent = 'SAISON ' + currentYear;
+      loadProfileForSeason(currentYear).catch(e => console.warn('Season load:', e.message));
     }
   }
 
