@@ -659,7 +659,7 @@ function initNavigation() {
 // Import-Fortschrittsbalken — pollt den Status aus user_profiles
 // ---------------------------------------------------------------------------
 
-// Seitenweiser Import — ein Request pro Seite, kein Timeout
+// Datum-basierter Import — neueste zuerst, Fortschritt via Datum
 async function startPagedImport(userId, stravaToken) {
   const bar = document.getElementById('import-bar');
   const progressEl = document.getElementById('import-progress');
@@ -668,38 +668,44 @@ async function startPagedImport(userId, stravaToken) {
 
   if (bar) bar.style.display = 'block';
 
-  // Letzte Seite aus localStorage laden (Fortsetzung nach Abbruch)
-  const savedPage = parseInt(localStorage.getItem('import_last_page_' + userId) || '0');
-  let page = savedPage > 0 ? savedPage : 1;
+  // Fortschritt laden: bis wohin wurde bereits importiert?
+  const savedBefore = localStorage.getItem('import_before_' + userId);
+  let beforeEpoch = savedBefore ? parseInt(savedBefore) : Math.floor(Date.now() / 1000); // Start: jetzt
   let totalSummits = 0;
   let totalPoints = 0;
+  let page = 1;
+  let totalPages = 0;
   const allPeaks = [];
-  if (savedPage > 1) console.log('Import wird fortgesetzt ab Seite ' + savedPage);
+
+  if (savedBefore) console.log('Import fortgesetzt — lade Aktivitäten vor ' + new Date(beforeEpoch * 1000).toLocaleDateString('de'));
 
   while (true) {
     try {
+      totalPages++;
       // Fortschritt anzeigen
-      const progress = Math.min(95, page * 8);
+      const progress = Math.min(95, totalPages * 8);
       if (progressEl) progressEl.style.width = progress + '%';
       if (percentEl) percentEl.textContent = progress + '%';
-      if (messageEl) messageEl.textContent = `Seite ${page} · ${totalSummits} Gipfel gefunden`;
+      const dateStr = new Date(beforeEpoch * 1000).toLocaleDateString('de', { month: 'short', year: 'numeric' });
+      if (messageEl) messageEl.textContent = totalSummits + ' Gipfel · ' + dateStr + ' · Seite ' + totalPages;
 
-      console.log(`Import Seite ${page}...`);
+      console.log('Import: vor ' + dateStr + ' (Seite ' + totalPages + ')');
 
       const { data, error } = await GK.supabase.functions.invoke('import-activities', {
-        body: { user_id: userId, strava_token: stravaToken, page }
+        body: { user_id: userId, strava_token: stravaToken, page: 1, before: beforeEpoch }
       });
 
       if (error) {
-        console.error('Import-Fehler Seite ' + page + ':', error);
-        if (messageEl) messageEl.textContent = 'Fehler bei Seite ' + page + ' — versuche nächste...';
-        page++;
-        if (page > 50) break; // Sicherheits-Limit
+        console.error('Import-Fehler:', error);
+        if (messageEl) messageEl.textContent = 'Fehler — versuche nächsten Zeitraum...';
+        beforeEpoch -= 30 * 24 * 3600; // 30 Tage zurückspringen
+        localStorage.setItem('import_before_' + userId, beforeEpoch.toString());
+        if (totalPages > 100) break;
         continue;
       }
 
       const result = typeof data === 'string' ? JSON.parse(data) : data;
-      console.log('Seite ' + page + ' Ergebnis:', result);
+      console.log('Ergebnis:', result);
 
       if (result.error) {
         console.error('Server-Fehler:', result.error);
@@ -724,6 +730,12 @@ async function startPagedImport(userId, stravaToken) {
         }
       }
 
+      // Ältestes Datum dieser Seite als nächsten "before" Marker setzen
+      if (result.oldest_date) {
+        beforeEpoch = Math.floor(new Date(result.oldest_date).getTime() / 1000) - 1;
+        localStorage.setItem('import_before_' + userId, beforeEpoch.toString());
+      }
+
       // Fertig?
       if (result.done || !result.has_more) {
         console.log('Import abgeschlossen! ' + totalSummits + ' Gipfel, ' + totalPoints + ' Punkte');
@@ -731,24 +743,18 @@ async function startPagedImport(userId, stravaToken) {
         if (percentEl) percentEl.textContent = '100%';
         if (messageEl) messageEl.textContent = '✅ ' + totalSummits + ' Gipfel · ' + totalPoints.toLocaleString('de') + ' Punkte';
 
-        // Import-Status auf done setzen + Fortschritt aufräumen
         await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
-        localStorage.removeItem('import_last_page_' + userId);
+        localStorage.removeItem('import_before_' + userId);
 
-        // Nach 3 Sekunden Bar ausblenden (kein Reload!)
         setTimeout(() => {
           if (bar) bar.style.display = 'none';
         }, 3000);
         break;
       }
 
-      page++;
-      localStorage.setItem('import_last_page_' + userId, page.toString());
     } catch (err) {
-      console.error('Import Seite ' + page + ' Fehler:', err);
-      localStorage.setItem('import_last_page_' + userId, page.toString());
-      page++;
-      if (page > 50) break;
+      console.error('Import Fehler:', err);
+      if (totalPages > 100) break;
     }
   }
 }
