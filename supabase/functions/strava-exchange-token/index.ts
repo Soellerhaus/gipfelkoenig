@@ -65,14 +65,20 @@ serve(async (req) => {
       })
     }
 
+    // Athlete-Daten für Profil extrahieren
+    const athlete = tokenData.athlete || {}
+    const displayName = [athlete.firstname, athlete.lastname].filter(Boolean).join(' ') || null
+
     const { error: dbError } = await supabase.from('user_profiles').update({
-      strava_id: tokenData.athlete?.id?.toString() || null,
+      strava_id: athlete.id?.toString() || null,
       strava_token: tokenData.access_token,
       strava_refresh_token: tokenData.refresh_token,
       strava_token_expires_at: tokenData.expires_at
         ? new Date(tokenData.expires_at * 1000).toISOString()
         : null,
-      strava_connected_at: new Date().toISOString()
+      strava_connected_at: new Date().toISOString(),
+      display_name: displayName,
+      avatar_url: athlete.profile || null
     }).eq('id', userData.user.id)
 
     if (dbError) {

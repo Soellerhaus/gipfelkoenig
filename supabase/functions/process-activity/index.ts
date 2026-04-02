@@ -101,7 +101,7 @@ serve(async (req) => {
       if (!nearbyPeaks) {
         const { data: peaks } = await supabase
           .from('peaks')
-          .select('id, name, elevation, osm_region, season_from, season_to')
+          .select('id, name, lat, lng, elevation, osm_region, season_from, season_to')
           .gte('lat', lat - 0.001)
           .lte('lat', lat + 0.001)
           .gte('lng', lng - 0.001)

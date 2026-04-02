@@ -82,7 +82,7 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, strava_token, page = 1 } = await req.json()
+    const { user_id, strava_token, page = 1, before } = await req.json()
 
     if (!user_id || !strava_token) {
       return new Response(JSON.stringify({ error: 'user_id und strava_token erforderlich' }), {
@@ -130,8 +130,8 @@ serve(async (req) => {
           console.log('Token erfolgreich refresht!')
         } else {
           console.error('Token-Refresh fehlgeschlagen:', refreshData)
-          return new Response(JSON.stringify({ error: 'Token-Refresh fehlgeschlagen', done: true }), {
-            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          return new Response(JSON.stringify({ error: 'Token-Refresh fehlgeschlagen', token_expired: true, done: true }), {
+            status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           })
         }
       }
@@ -141,13 +141,20 @@ serve(async (req) => {
     console.log('Gipfel werden pro Aktivität geladen (Bounding Box)')
 
     // 2. Eine Seite Strava-Aktivitäten holen
-    const url = `https://www.strava.com/api/v3/athlete/activities?per_page=${STRAVA_PAGE_SIZE}&page=${page}`
+    let url = `https://www.strava.com/api/v3/athlete/activities?per_page=${STRAVA_PAGE_SIZE}&page=${page}`
+    if (before) url += `&before=${before}`
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${activeToken}` }
     })
 
     if (!res.ok) {
-      throw new Error(`Strava API Fehler: ${res.status}`)
+      const status = res.status
+      if (status === 401) {
+        return new Response(JSON.stringify({ error: 'Strava Token ungültig (401)', token_expired: true, done: true }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      throw new Error(`Strava API Fehler: ${status}`)
     }
 
     const activities = await res.json()
@@ -236,7 +243,15 @@ serve(async (req) => {
         })
 
         if (!streamRes.ok) {
-          if (streamRes.status === 429) break // Rate Limit
+          if (streamRes.status === 429) {
+            // Rate Limit — Seite abbrechen, Frontend soll später retry machen
+            console.log('Rate Limit erreicht — breche Seite ab, Frontend soll warten und erneut versuchen')
+            return new Response(JSON.stringify({
+              done: false, page, rate_limited: true, has_more: true,
+              summits_found: summitsFound, points: pagePoints, peaks: peakNames,
+              oldest_date: activity.start_date
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+          }
           continue
         }
 
@@ -336,6 +351,9 @@ serve(async (req) => {
       }).eq('id', user_id)
     }
 
+    // Ältestes Aktivitäts-Datum für Frontend-Pagination
+    const oldestDate = activities.length > 0 ? activities[activities.length - 1].start_date : null
+
     return new Response(JSON.stringify({
       done: !hasMore,
       page,
@@ -344,7 +362,8 @@ serve(async (req) => {
       summits_found: summitsFound,
       points: pagePoints,
       peaks: peakNames,
-      has_more: hasMore
+      has_more: hasMore,
+      oldest_date: oldestDate
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (error) {

@@ -182,7 +182,7 @@ async function loadProfileForSeason(year) {
 // Strava OAuth — Platzhalter-Konfiguration
 // ---------------------------------------------------------------------------
 const STRAVA_CLIENT_ID = '211591';
-const STRAVA_CLIENT_SECRET = '7a7f59b117e1ec641cd49803eb2ea7ee40ff40f0';
+// Client Secret nicht mehr im Frontend — Token-Exchange läuft über Edge Function
 const STRAVA_REDIRECT_URI = window.location.origin + window.location.pathname.replace(/[^/]*$/, '') + 'app.html';
 const STRAVA_AUTH_URL =
   'https://www.strava.com/oauth/authorize' +
@@ -410,41 +410,32 @@ async function initAppPage() {
 
   if (stravaCode) {
     try {
-      console.log('Strava-Code erhalten, tausche gegen Token...');
+      console.log('Strava-Code erhalten, tausche gegen Token via Edge Function...');
 
-      // Token-Austausch direkt über Strava API
-      const tokenResponse = await fetch('https://www.strava.com/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: STRAVA_CLIENT_ID,
-          client_secret: STRAVA_CLIENT_SECRET,
-          code: stravaCode,
-          grant_type: 'authorization_code'
-        })
+      // Token-Austausch über Backend Edge Function (Client Secret bleibt serverseitig)
+      const session = await GK.supabase.auth.getSession();
+      const authToken = session?.data?.session?.access_token;
+      const { data: exchangeResult, error: exchangeError } = await GK.supabase.functions.invoke('strava-exchange-token', {
+        body: { code: stravaCode }
       });
 
-      const tokenData = await tokenResponse.json();
+      const result = typeof exchangeResult === 'string' ? JSON.parse(exchangeResult) : exchangeResult;
 
-      if (tokenData.access_token) {
-        console.log('Strava-Token erhalten! Athlete:', tokenData.athlete?.firstname);
+      if (exchangeError || !result?.success) {
+        console.error('Strava Token-Tausch fehlgeschlagen:', result?.error || exchangeError);
+        if (typeof GK.showToast === 'function') {
+          GK.showToast('Strava-Verbindung fehlgeschlagen: ' + (result?.error || 'Unbekannter Fehler'), 'error');
+        }
+      } else {
+        console.log('Strava erfolgreich verbunden via Edge Function!');
 
-        // Strava-Daten im Profil speichern
-        await GK.supabase
-          .from('user_profiles')
-          .update({
-            strava_id: tokenData.athlete?.id?.toString(),
-            strava_token: tokenData.access_token,
-            strava_refresh_token: tokenData.refresh_token,
-            display_name: tokenData.athlete?.firstname + ' ' + tokenData.athlete?.lastname,
-            avatar_url: tokenData.athlete?.profile
-          })
-          .eq('id', benutzer.id);
+        // Profil neu laden um aktuelle Daten zu haben
+        const updatedProfil = await GK.api.getUserProfile(benutzer.id);
 
         // Avatar aktualisieren
         const avatarEl = document.getElementById('user-avatar');
-        if (avatarEl && tokenData.athlete?.profile) {
-          avatarEl.innerHTML = '<img src="' + tokenData.athlete.profile + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+        if (avatarEl && updatedProfil?.avatar_url) {
+          avatarEl.innerHTML = '<img src="' + updatedProfil.avatar_url + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
         }
 
         // Erfolgs-Toast anzeigen
@@ -455,11 +446,7 @@ async function initAppPage() {
         // Import-Status setzen und starten
         await GK.supabase.from('user_profiles').update({ import_status: 'importing' }).eq('id', benutzer.id);
         console.log('Starte seitenweisen Aktivitäten-Import...');
-        startPagedImport(benutzer.id, tokenData.access_token);
-
-        // Nicht warten — User kann sofort die App nutzen
-      } else {
-        console.error('Strava Token-Fehler:', tokenData);
+        startPagedImport(benutzer.id, updatedProfil.strava_token);
       }
 
       // URL bereinigen
@@ -671,7 +658,7 @@ function initNavigation() {
 // Import-Fortschrittsbalken — pollt den Status aus user_profiles
 // ---------------------------------------------------------------------------
 
-// Datum-basierter Import — neueste zuerst, Fortschritt via Datum
+// Seitenweiser Import — page hochzählen, before für Zeitfenster
 async function startPagedImport(userId, stravaToken) {
   const bar = document.getElementById('import-bar');
   const progressEl = document.getElementById('import-progress');
@@ -682,13 +669,13 @@ async function startPagedImport(userId, stravaToken) {
 
   // Fortschritt laden: bis wohin wurde bereits importiert?
   const savedBefore = localStorage.getItem('import_before_' + userId);
-  let beforeEpoch = savedBefore ? parseInt(savedBefore) : Math.floor(Date.now() / 1000); // Start: jetzt
+  let beforeEpoch = savedBefore ? parseInt(savedBefore) : Math.floor(Date.now() / 1000);
 
   // Maximum 3 Jahre zurück importieren
   const threeYearsAgo = Math.floor(Date.now() / 1000) - (3 * 365 * 24 * 3600);
   let totalSummits = 0;
   let totalPoints = 0;
-  let page = 1;
+  let currentPage = 1;
   let totalPages = 0;
   let consecutiveErrors = 0;
   const allPeaks = [];
@@ -703,47 +690,79 @@ async function startPagedImport(userId, stravaToken) {
       if (progressEl) progressEl.style.width = progress + '%';
       if (percentEl) percentEl.textContent = progress + '%';
       const dateStr = new Date(beforeEpoch * 1000).toLocaleDateString('de', { month: 'short', year: 'numeric' });
-      if (messageEl) messageEl.textContent = totalSummits + ' Gipfel · ' + dateStr + ' · Seite ' + totalPages;
+      if (messageEl) messageEl.textContent = totalSummits + ' Gipfel · ' + dateStr + ' · Seite ' + currentPage;
 
-      console.log('Import: vor ' + dateStr + ' (Seite ' + totalPages + ')');
+      console.log('Import: vor ' + dateStr + ' (page=' + currentPage + ', total=' + totalPages + ')');
 
       const { data, error } = await GK.supabase.functions.invoke('import-activities', {
-        body: { user_id: userId, strava_token: stravaToken, page: 1, before: beforeEpoch }
+        body: { user_id: userId, strava_token: stravaToken, page: currentPage, before: beforeEpoch }
       });
 
+      // Token-Fehler erkennen (Edge Function gibt 401 zurück → Supabase meldet FunctionsHttpError)
       if (error) {
+        const errMsg = error.message || error.toString();
+        // Token abgelaufen (401 von Edge Function)
+        if (errMsg.includes('401') || errMsg.includes('non-2xx')) {
+          // Versuche response body zu lesen
+          let body = null;
+          try { body = typeof data === 'string' ? JSON.parse(data) : data; } catch(e) {}
+          if (body?.token_expired) {
+            if (messageEl) messageEl.textContent = 'Strava Token abgelaufen — bitte neu verbinden';
+            await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
+            localStorage.removeItem('import_before_' + userId);
+            setTimeout(function() { if (bar) bar.style.display = 'none'; }, 5000);
+            break;
+          }
+        }
+
         consecutiveErrors++;
-        console.error('Import-Fehler (' + consecutiveErrors + '/5):', error);
-        // Bei 5 Fehlern hintereinander → Token abgelaufen, Import stoppen
+        console.error('Import-Fehler (' + consecutiveErrors + '/5):', errMsg);
         if (consecutiveErrors >= 5) {
-          if (messageEl) messageEl.textContent = 'Token abgelaufen — bitte Strava neu verbinden';
+          if (messageEl) messageEl.textContent = 'Import fehlgeschlagen — bitte Strava neu verbinden';
           await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
           localStorage.removeItem('import_before_' + userId);
-          setTimeout(() => { if (bar) bar.style.display = 'none'; }, 5000);
+          setTimeout(function() { if (bar) bar.style.display = 'none'; }, 5000);
           break;
         }
-        if (messageEl) messageEl.textContent = 'Fehler — versuche nächsten Zeitraum...';
-        beforeEpoch -= 30 * 24 * 3600;
-        localStorage.setItem('import_before_' + userId, beforeEpoch.toString());
+        if (messageEl) messageEl.textContent = 'Fehler — Retry in 5s...';
+        await new Promise(function(r) { setTimeout(r, 5000); });
         continue;
       }
-      consecutiveErrors = 0; // Reset bei Erfolg
+      consecutiveErrors = 0;
 
       const result = typeof data === 'string' ? JSON.parse(data) : data;
       console.log('Ergebnis:', result);
 
+      // Token-Fehler im JSON Body erkennen
+      if (result.token_expired) {
+        if (messageEl) messageEl.textContent = 'Strava Token abgelaufen — bitte neu verbinden';
+        await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
+        localStorage.removeItem('import_before_' + userId);
+        setTimeout(function() { if (bar) bar.style.display = 'none'; }, 5000);
+        break;
+      }
+
       if (result.error) {
-        // Token abgelaufen? Strava gibt 401
-        if (result.error.includes && (result.error.includes('401') || result.error.includes('Authorization'))) {
-          if (messageEl) messageEl.textContent = 'Strava Token abgelaufen — bitte neu verbinden';
-          await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
-          localStorage.removeItem('import_before_' + userId);
-          setTimeout(() => { if (bar) bar.style.display = 'none'; }, 5000);
-          break;
-        }
         console.error('Server-Fehler:', result.error);
         if (messageEl) messageEl.textContent = 'Fehler: ' + result.error;
         break;
+      }
+
+      // Rate Limit — warte 60s und versuche erneut (gleiche page + before)
+      if (result.rate_limited) {
+        console.log('Rate Limit — warte 60s...');
+        if (messageEl) messageEl.textContent = 'Strava Rate Limit — warte 60 Sekunden...';
+        await new Promise(function(r) { setTimeout(r, 60000); });
+        // oldest_date updaten falls vorhanden, dann gleiche page nochmal
+        if (result.oldest_date) {
+          beforeEpoch = Math.floor(new Date(result.oldest_date).getTime() / 1000) - 1;
+          localStorage.setItem('import_before_' + userId, beforeEpoch.toString());
+          currentPage = 1; // Neuer Zeitraum, page zurücksetzen
+        }
+        totalSummits += result.summits_found || 0;
+        totalPoints += result.points || 0;
+        if (result.peaks) allPeaks.push(...result.peaks);
+        continue;
       }
 
       totalSummits += result.summits_found || 0;
@@ -752,14 +771,14 @@ async function startPagedImport(userId, stravaToken) {
 
       // Header-Punkte live aktualisieren
       if (result.total_points) {
-        const punkteEl = document.getElementById('user-points');
+        var punkteEl = document.getElementById('user-points');
         if (punkteEl) punkteEl.textContent = result.total_points.toLocaleString('de') + ' Pkt';
       }
 
       // Gipfel-Toast bei Fund
       if (result.peaks && result.peaks.length > 0) {
         if (typeof GK.showToast === 'function') {
-          GK.showToast('⛰️ ' + result.peaks.join(', '), 'success');
+          GK.showToast(result.peaks.join(', '), 'success');
         }
       }
 
@@ -767,9 +786,12 @@ async function startPagedImport(userId, stravaToken) {
       if (result.oldest_date) {
         beforeEpoch = Math.floor(new Date(result.oldest_date).getTime() / 1000) - 1;
         localStorage.setItem('import_before_' + userId, beforeEpoch.toString());
+        currentPage = 1; // Neuer Zeitraum, page zurücksetzen
+      } else {
+        // Kein oldest_date → nächste Seite im gleichen Zeitraum
+        currentPage++;
       }
 
-      // Fertig?
       // Stopp wenn älter als 3 Jahre
       if (beforeEpoch < threeYearsAgo) {
         console.log('Import: 3-Jahres-Limit erreicht');
@@ -780,12 +802,12 @@ async function startPagedImport(userId, stravaToken) {
         console.log('Import abgeschlossen! ' + totalSummits + ' Gipfel, ' + totalPoints + ' Punkte');
         if (progressEl) progressEl.style.width = '100%';
         if (percentEl) percentEl.textContent = '100%';
-        if (messageEl) messageEl.textContent = '✅ ' + totalSummits + ' Gipfel · ' + totalPoints.toLocaleString('de') + ' Punkte';
+        if (messageEl) messageEl.textContent = totalSummits + ' Gipfel · ' + totalPoints.toLocaleString('de') + ' Punkte';
 
         await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
         localStorage.removeItem('import_before_' + userId);
 
-        setTimeout(() => {
+        setTimeout(function() {
           if (bar) bar.style.display = 'none';
         }, 3000);
         break;
@@ -798,179 +820,8 @@ async function startPagedImport(userId, stravaToken) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Strava Aktivitäten-Import (läuft im Browser nach OAuth)
-// ---------------------------------------------------------------------------
-
-// Haversine-Distanz in Metern
-function haversineDistance(lat1, lng1, lat2, lng2) {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng/2) * Math.sin(dLng/2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-async function importStravaActivities(userId, accessToken) {
-  // Alle Gipfel aus der DB laden
-  let allPeaks = [];
-  let from = 0;
-  while (true) {
-    const { data } = await GK.supabase
-      .from('peaks')
-      .select('id, name, lat, lng, elevation, osm_region')
-      .range(from, from + 999);
-    if (!data || data.length === 0) break;
-    allPeaks = allPeaks.concat(data);
-    if (data.length < 1000) break;
-    from += 1000;
-  }
-  console.log('Gipfel geladen:', allPeaks.length);
-
-  // Alle Strava-Aktivitäten abrufen
-  let page = 1;
-  let totalSummits = 0;
-  let totalActivities = 0;
-
-  while (true) {
-    const res = await fetch(
-      'https://www.strava.com/api/v3/athlete/activities?per_page=50&page=' + page,
-      { headers: { 'Authorization': 'Bearer ' + accessToken } }
-    );
-    const activities = await res.json();
-    if (!activities || !Array.isArray(activities) || activities.length === 0) break;
-
-    for (const activity of activities) {
-      if (!['Hike', 'Run', 'Walk', 'TrailRun', 'BackcountrySki', 'Snowshoe'].includes(activity.type)) continue;
-      if (!activity.total_elevation_gain || activity.total_elevation_gain < 100) continue;
-
-      totalActivities++;
-
-      // GPS-Streams abrufen
-      try {
-        const streamRes = await fetch(
-          'https://www.strava.com/api/v3/activities/' + activity.id + '/streams?keys=latlng,time&key_type=distance',
-          { headers: { 'Authorization': 'Bearer ' + accessToken } }
-        );
-
-        if (streamRes.status === 429) {
-          console.log('Rate Limit — warte 60 Sekunden...');
-          await new Promise(r => setTimeout(r, 60000));
-          continue;
-        }
-
-        const streams = await streamRes.json();
-        const latlngStream = streams.find(s => s.type === 'latlng');
-        const timeStream = streams.find(s => s.type === 'time');
-        if (!latlngStream) continue;
-
-        // GPS-Punkte gegen Gipfel prüfen (80m Radius)
-        const foundPeaks = new Map();
-        for (let i = 0; i < latlngStream.data.length; i++) {
-          const [lat, lng] = latlngStream.data[i];
-          for (const peak of allPeaks) {
-            if (foundPeaks.has(peak.id)) continue;
-            const dist = haversineDistance(lat, lng, peak.lat, peak.lng);
-            if (dist <= 80) {
-              const timeOffset = timeStream ? timeStream.data[i] : 0;
-              const summitTime = new Date(new Date(activity.start_date).getTime() + timeOffset * 1000);
-              foundPeaks.set(peak.id, { peak, summitTime, dist });
-            }
-          }
-        }
-
-        // Gefundene Gipfel speichern
-        for (const [peakId, info] of foundPeaks) {
-          const season = info.summitTime.getFullYear().toString();
-          const elevGain = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0;
-          const distKm = activity.distance ? Math.round(activity.distance / 1000) : 0;
-
-          // Basis: HM/100 + km×1 + Gipfel-Bonus
-          let basePts = Math.round(elevGain / 100) + distKm + 10;
-
-          // Prüfe Saison-Erster und Personal-Erster
-          const { data: existingSeason } = await GK.supabase
-            .from('summits')
-            .select('id')
-            .eq('peak_id', peakId)
-            .eq('season', season)
-            .limit(1);
-
-          const { data: existingPersonal } = await GK.supabase
-            .from('summits')
-            .select('id')
-            .eq('peak_id', peakId)
-            .eq('user_id', userId)
-            .limit(1);
-
-          const isSeasonFirst = !existingSeason || existingSeason.length === 0;
-          const isPersonalFirst = !existingPersonal || existingPersonal.length === 0;
-
-          // Multiplikatoren
-          let pts = basePts;
-          if (isSeasonFirst) pts = Math.round(basePts * 3);
-          else if (isPersonalFirst) pts = Math.round(basePts * 2);
-          else pts = Math.round(basePts * 0.2);
-
-          // Frühaufsteher Bonus (Tour-Startzeit < 07:00)
-          if (new Date(activity.start_date).getHours() < 7) pts += 15;
-
-          await GK.supabase.from('summits').upsert({
-            user_id: userId,
-            peak_id: peakId,
-            summited_at: info.summitTime.toISOString(),
-            season: season,
-            strava_activity_id: activity.id.toString(),
-            checkin_method: 'strava',
-            points: pts,
-            elevation_gain: elevGain,
-            distance: distKm * 1000,
-            safety_ok: true,
-            is_season_first: isSeasonFirst,
-            is_personal_first: isPersonalFirst
-          }, { onConflict: 'user_id,peak_id,summited_at', ignoreDuplicates: true });
-
-          totalSummits++;
-          console.log('⛰️ ' + info.peak.name + ' (' + info.peak.elevation + 'm) — ' +
-            info.summitTime.toLocaleDateString('de') + ' — ' + Math.round(info.dist) + 'm');
-        }
-
-        // Rate Limiting: 2 Sekunden zwischen Requests
-        await new Promise(r => setTimeout(r, 2000));
-
-      } catch (err) {
-        console.error('Stream-Fehler für Aktivität ' + activity.id + ':', err);
-      }
-    }
-
-    console.log('Seite ' + page + ' verarbeitet: ' + totalActivities + ' Aktivitäten, ' + totalSummits + ' Gipfel');
-
-    if (typeof GK.showToast === 'function') {
-      GK.showToast('Import: ' + totalSummits + ' Gipfel gefunden...', 'success');
-    }
-
-    page++;
-  }
-
-  // Gesamt-Punkte berechnen und Profil aktualisieren
-  const { data: allSummits } = await GK.supabase
-    .from('summits')
-    .select('points')
-    .eq('user_id', userId);
-
-  const totalPoints = allSummits ? allSummits.reduce((s, r) => s + (r.points || 0), 0) : 0;
-  await GK.supabase.from('user_profiles').update({ total_points: totalPoints }).eq('id', userId);
-
-  console.log('Import abgeschlossen! ' + totalSummits + ' Gipfel, ' + totalPoints + ' Punkte');
-  if (typeof GK.showToast === 'function') {
-    GK.showToast('Import fertig! ' + totalSummits + ' Gipfel erkannt!', 'success');
-  }
-
-  // Seite neu laden um die Daten anzuzeigen
-  setTimeout(() => window.location.reload(), 3000);
-}
+// Browser-seitiger Import (importStravaActivities) wurde entfernt
+// Import läuft jetzt komplett über die Edge Function import-activities
 
 // Gipfel des Tages — deterministisch basierend auf Datum
 // Gipfel des Tages — deterministisch basierend auf Datum, pro Sub-Region
