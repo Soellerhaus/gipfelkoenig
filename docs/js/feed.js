@@ -26,7 +26,7 @@ async function loadFeed() {
 
     // Batch: User-Profile laden
     const userIds = [...new Set(summits.map(s => s.user_id))];
-    const { data: profiles } = await GK.supabase.from('user_profiles').select('id, username, avatar_type').in('id', userIds);
+    const { data: profiles } = await GK.supabase.from('user_profiles').select('id, username, display_name, avatar_type, avatar_url').in('id', userIds);
     const profileMap = {};
     (profiles || []).forEach(p => profileMap[p.id] = p);
 
@@ -45,8 +45,12 @@ async function loadFeed() {
       const datum = d.toLocaleDateString('de-AT', { day:'2-digit', month:'long', year:'numeric' });
       const profile = profileMap[s.user_id] || {};
       const peak = peakMap[s.peak_id] || { name:'Unbekannt', elevation:0 };
-      const avatar = AVATARS[profile.avatar_type] || '⛰️';
-      const username = profile.username || 'Anonym';
+      const hasPhoto = profile.avatar_url && profile.avatar_url.startsWith('http');
+      const avatar = hasPhoto ? '' : (AVATARS[profile.avatar_type] || '⛰️');
+      const avatarHtml = hasPhoto
+        ? '<img src="' + profile.avatar_url + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:10px;margin-top:2px;">'
+        : '<span style="font-size:1.3rem;margin-right:10px;margin-top:2px;">' + avatar + '</span>';
+      const username = profile.display_name || profile.username || 'Anonym';
       const hour = d.getHours();
 
       // Relative Zeit berechnen
@@ -80,7 +84,7 @@ async function loadFeed() {
       else breakdownText += ' Basis';
 
       html += '<div style="display:flex;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">';
-      html += '<span style="font-size:1.3rem;margin-right:10px;margin-top:2px;">' + avatar + '</span>';
+      html += avatarHtml;
       html += '<div style="flex:1;">';
       const distKm = s.distance ? (s.distance + ' km · ') : '';
       html += '<div><strong style="color:white;">' + username + '</strong> hat <strong style="color:#ffd700;">' + peak.name + '</strong> (' + (peak.elevation || '?') + ' m) bestiegen ' + badges + '</div>';
