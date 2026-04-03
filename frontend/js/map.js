@@ -464,8 +464,8 @@ const HEX_AVATAR_EMOJIS = {
   'tree': '🌲', 'snow': '❄️', 'deer': '🦌', 'rock': '🪨'
 };
 
-// CSS clip-path für flat-top Hexagon-Form
-const HEX_CLIP_PATH = 'polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%)';
+// CSS clip-path für flat-top Hexagon-Form (flache Kante oben/unten)
+const HEX_CLIP_PATH = 'polygon(25% 6.7%, 75% 6.7%, 100% 50%, 75% 93.3%, 25% 93.3%, 0% 50%)';
 
 /**
  * HTML für ein Hex-Avatar DivIcon erzeugen.
@@ -741,12 +741,14 @@ async function loadTerritories() {
       territoryLayer.addLayer(polygon);
 
       // Profilbild so gross wie das Hexagon (Pixel-Grösse aus Geo-Koordinaten)
+      // Flat-top Hex: Breite = 2*r, Höhe = sqrt(3)*r
       const centerPx = map.latLngToLayerPoint([center.centerLat, center.centerLng]);
       const cornerPx = map.latLngToLayerPoint(corners[0]);
       const hexRadiusPx = Math.sqrt(Math.pow(cornerPx.x - centerPx.x, 2) + Math.pow(cornerPx.y - centerPx.y, 2));
+      // iconSize = Breite des Hex (2*r), clip-path schneidet es auf die richtige Form
       const iconSize = Math.round(hexRadiusPx * 2);
 
-      if (iconSize < 16) continue; // Zu klein zum Anzeigen
+      if (iconSize < 20) continue; // Zu klein zum Anzeigen
 
       const avatarHtml = buildHexAvatarHtml(profile, iconSize);
       const icon = L.divIcon({
