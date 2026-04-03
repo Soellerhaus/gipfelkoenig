@@ -688,29 +688,43 @@ async function loadTerritories() {
 
     if (Object.keys(hexKings).length === 0) return;
 
-    // User-Profile laden (Profilbild, Avatar-Typ, Name)
+    // User-Profile laden — Batch-Query statt einzelne Requests (Performance!)
     const userProfiles = {};
+    const uncachedIds = [];
     for (const uid of allUserIds) {
-      // Cache nutzen wenn vorhanden
       if (territoryProfileCache.has(uid)) {
         userProfiles[uid] = territoryProfileCache.get(uid);
-        continue;
+      } else {
+        uncachedIds.push(uid);
       }
+    }
+
+    // Alle fehlenden Profile in einem Query laden (max 200 pro Batch)
+    for (let i = 0; i < uncachedIds.length; i += 200) {
+      const batch = uncachedIds.slice(i, i + 200);
       try {
-        const profil = await GK.api.getUserProfile(uid);
-        if (profil) {
-          const p = {
-            name: (profil.display_name || profil.username || 'Anonym').split(' ')[0],
-            avatarUrl: profil.avatar_url || null,
-            avatarType: profil.avatar_type || null,
-            username: profil.username || 'Anonym'
-          };
-          userProfiles[uid] = p;
-          territoryProfileCache.set(uid, p);
-        } else {
-          userProfiles[uid] = { name: 'Anonym', avatarUrl: null, avatarType: null, username: 'Anonym' };
+        const { data: profiles } = await GK.supabase
+          .from('user_profiles')
+          .select('id, username, display_name, avatar_url, avatar_type')
+          .in('id', batch);
+
+        if (profiles) {
+          for (const profil of profiles) {
+            const p = {
+              name: (profil.display_name || profil.username || 'Anonym').split(' ')[0],
+              avatarUrl: profil.avatar_url || null,
+              avatarType: profil.avatar_type || null,
+              username: profil.username || 'Anonym'
+            };
+            userProfiles[profil.id] = p;
+            territoryProfileCache.set(profil.id, p);
+          }
         }
-      } catch (e) {
+      } catch (e) { console.warn('Batch-Profil-Laden fehlgeschlagen:', e); }
+    }
+    // Fallback für fehlende
+    for (const uid of uncachedIds) {
+      if (!userProfiles[uid]) {
         userProfiles[uid] = { name: 'Anonym', avatarUrl: null, avatarType: null, username: 'Anonym' };
       }
     }
