@@ -209,6 +209,32 @@ async function loadProfileForSeason(year) {
   setEl('tickets-punkte', punkteLose);
   setEl('tickets-hm', hmLose);
   setEl('tickets-km', kmLose);
+
+  // "Nächstes Los" Motivation berechnen — was ist am nächsten dran?
+  const nextLosHints = [];
+  const hmBisLos = 10000 - (seasonHM % 10000);
+  const kmBisLos = 50 - (seasonKM % 50);
+  const pktBisLos = 1000 - (seasonPts % 1000);
+  // Das nächste Los: welches ist am schnellsten erreichbar?
+  if (hmBisLos <= 3000) nextLosHints.push('Noch ' + hmBisLos.toLocaleString('de') + ' HM bis zum nächsten HM-Los!');
+  if (kmBisLos <= 20) nextLosHints.push('Noch ' + kmBisLos + ' km bis zum nächsten km-Los!');
+  if (pktBisLos <= 500) nextLosHints.push('Noch ' + pktBisLos.toLocaleString('de') + ' Punkte bis zum nächsten Punkte-Los!');
+  // Fallback: immer das nächste zeigen
+  if (nextLosHints.length === 0) {
+    // Welches ist am nächsten (prozentual)?
+    const hmPct = (seasonHM % 10000) / 10000;
+    const kmPct = (seasonKM % 50) / 50;
+    const pktPct = (seasonPts % 1000) / 1000;
+    if (hmPct >= kmPct && hmPct >= pktPct) nextLosHints.push('Noch ' + hmBisLos.toLocaleString('de') + ' HM bis zum nächsten HM-Los!');
+    else if (kmPct >= hmPct && kmPct >= pktPct) nextLosHints.push('Noch ' + kmBisLos + ' km bis zum nächsten km-Los!');
+    else nextLosHints.push('Noch ' + pktBisLos.toLocaleString('de') + ' Punkte bis zum nächsten Punkte-Los!');
+  }
+  const nextLosEl = el('next-los-hint');
+  if (nextLosEl) nextLosEl.textContent = nextLosHints[0];
+
+  // Global speichern für Gipfel-Tab
+  window._nextLosHints = nextLosHints;
+  window._seasonStats = { seasonHM, seasonKM, seasonPts, hmBisLos, kmBisLos, pktBisLos };
   } catch (err) {
     console.warn('loadProfileForSeason Fehler (nicht kritisch):', err.message);
   }

@@ -364,6 +364,29 @@ async function loadMySummits(season) {
     </div>
   `;
 
+  // "Nächstes Los" Motivation
+  let nextLosHtml = '';
+  const stats = window._seasonStats;
+  if (stats) {
+    const hints = [];
+    if (stats.hmBisLos <= 5000) hints.push('\u2191 ' + stats.hmBisLos.toLocaleString('de') + ' HM \u2192 n\u00e4chstes HM-Los');
+    if (stats.kmBisLos <= 30) hints.push('\ud83e\udeb7 ' + stats.kmBisLos + ' km \u2192 n\u00e4chstes km-Los');
+    if (stats.pktBisLos <= 500) hints.push('\u2b50 ' + stats.pktBisLos.toLocaleString('de') + ' Pkt \u2192 n\u00e4chstes Punkte-Los');
+    if (hints.length === 0) {
+      // Immer mindestens einen Hinweis zeigen
+      const hmPct = (stats.seasonHM % 10000) / 10000;
+      const kmPct = (stats.seasonKM % 50) / 50;
+      const pktPct = (stats.seasonPts % 1000) / 1000;
+      if (hmPct >= kmPct && hmPct >= pktPct) hints.push('\u2191 Noch ' + stats.hmBisLos.toLocaleString('de') + ' HM bis zum n\u00e4chsten Los');
+      else if (kmPct >= hmPct && kmPct >= pktPct) hints.push('\ud83e\udeb7 Noch ' + stats.kmBisLos + ' km bis zum n\u00e4chsten Los');
+      else hints.push('\u2b50 Noch ' + stats.pktBisLos.toLocaleString('de') + ' Pkt bis zum n\u00e4chsten Los');
+    }
+    nextLosHtml = '<div style="background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,165,0,0.08));border:1px solid rgba(255,215,0,0.3);border-radius:12px;padding:12px 16px;margin-bottom:1rem;text-align:center;">';
+    nextLosHtml += '<div style="font-size:0.75rem;color:var(--color-muted);margin-bottom:4px;">\ud83c\udfab N\u00e4chstes Los</div>';
+    nextLosHtml += '<div style="font-size:0.9rem;color:var(--color-gold);font-weight:600;">' + hints.join(' &middot; ') + '</div>';
+    nextLosHtml += '</div>';
+  }
+
   // Letzte 3 Aktivitäten (dedupliziert nach strava_activity_id, neueste zuerst)
   const seenRecent = new Set();
   const recentActivities = [];
@@ -565,7 +588,7 @@ async function loadMySummits(season) {
     `;
   }).join('');
 
-  container.innerHTML = statsHtml + recentHtml + regionProgressHtml + (sortedGroups.length > 0 ? '<div style="font-size:0.85rem;font-weight:600;color:var(--color-gold);margin-bottom:8px;">Deine Gipfel</div>' + cardsHtml : '');
+  container.innerHTML = statsHtml + nextLosHtml + recentHtml + regionProgressHtml + (sortedGroups.length > 0 ? '<div style="font-size:0.85rem;font-weight:600;color:var(--color-gold);margin-bottom:8px;">Deine Gipfel</div>' + cardsHtml : '');
 }
 
 // ---------------------------------------------------------------------------
