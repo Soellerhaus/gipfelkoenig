@@ -287,6 +287,14 @@
           }
         }
 
+        // Strava Posting Toggle — Initialwert setzen
+        if (profile.strava_post_summits === false) {
+          var pt = document.getElementById('strava-post-toggle');
+          var td = document.getElementById('strava-toggle-dot');
+          if (pt) { pt.checked = false; }
+          if (td) { td.style.left = '2px'; td.style.background = '#666'; }
+        }
+
         // Suunto Status
         if (profile.suunto_token) {
           document.getElementById('suunto-not-connected-top').style.display = 'none';
@@ -402,16 +410,10 @@
       document.getElementById('strava-not-connected').style.display = 'block';
     });
 
-    // Strava Posting Toggle
+    // Strava Posting Toggle (Initialwert wird in loadProfile() gesetzt)
     var postToggle = document.getElementById('strava-post-toggle');
     var toggleDot = document.getElementById('strava-toggle-dot');
     if (postToggle) {
-      // Initial-Wert laden
-      if (profile && profile.strava_post_summits === false) {
-        postToggle.checked = false;
-        toggleDot.style.left = '2px';
-        toggleDot.style.background = '#666';
-      }
       postToggle.addEventListener('change', async function() {
         var enabled = postToggle.checked;
         toggleDot.style.left = enabled ? '22px' : '2px';
