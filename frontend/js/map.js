@@ -717,8 +717,7 @@ async function loadTerritories() {
 
     // Hex-Polygone + Profilbild-Avatare zeichnen
     const hexOp = (GK.map._hexOpacity || 12) / 100;
-    const zoom = GK.map.leaflet.getZoom();
-    const iconSize = Math.max(24, Math.min(64, Math.round(8 * Math.pow(2, zoom - 10))));
+    const map = GK.map.leaflet;
 
     for (const [hexKey, king] of Object.entries(hexKings)) {
       const center = hexCenters[hexKey];
@@ -741,7 +740,14 @@ async function loadTerritories() {
       });
       territoryLayer.addLayer(polygon);
 
-      // Profilbild-Hexagon im Zentrum
+      // Profilbild so gross wie das Hexagon (Pixel-Grösse aus Geo-Koordinaten)
+      const centerPx = map.latLngToLayerPoint([center.centerLat, center.centerLng]);
+      const cornerPx = map.latLngToLayerPoint(corners[0]);
+      const hexRadiusPx = Math.sqrt(Math.pow(cornerPx.x - centerPx.x, 2) + Math.pow(cornerPx.y - centerPx.y, 2));
+      const iconSize = Math.round(hexRadiusPx * 2);
+
+      if (iconSize < 16) continue; // Zu klein zum Anzeigen
+
       const avatarHtml = buildHexAvatarHtml(profile, iconSize);
       const icon = L.divIcon({
         className: 'hex-avatar-icon',
