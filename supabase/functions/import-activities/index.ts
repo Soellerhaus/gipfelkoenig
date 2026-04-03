@@ -234,18 +234,24 @@ serve(async (req) => {
           .lte('lng', startLng + 0.3)
 
         if (!nearbyPeaks || nearbyPeaks.length === 0) {
-          // Keine Gipfel in der Nähe — Aktivität trotzdem speichern für HM/km
+          // Keine Gipfel in der Nähe — Aktivität trotzdem speichern mit Basis-Punkten
+          const nopeakHM = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0
+          const nopeakKM = activity.distance ? Math.round(activity.distance / 1000) : 0
+          const nopeakPts = Math.round(nopeakHM / 100) + nopeakKM // Basis ohne Gipfelbonus
           await supabase.from('summits').insert({
             user_id, peak_id: null,
             summited_at: new Date(activity.start_date).toISOString(),
             season: getSeason(new Date(activity.start_date)),
             strava_activity_id: activityId,
-            checkin_method: 'strava', points: 0,
+            checkin_method: 'strava', points: nopeakPts,
             is_season_first: false, is_personal_first: false,
             safety_ok: true, safety_level: 0,
-            elevation_gain: activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : null,
-            distance: activity.distance ? Math.round(activity.distance / 1000) : null
-          }).catch(() => {})
+            elevation_gain: nopeakHM,
+            distance: nopeakKM
+          }).then(() => console.log(`🏃 Aktivität ${activityId}: ${nopeakPts} Pkt (${nopeakHM} HM, ${nopeakKM} km, kein Gipfel)`))
+            .catch(() => {})
+          summitsFound++ // Zählt als verarbeitete Aktivität
+          pagePoints += nopeakPts
           continue
         }
 
@@ -280,19 +286,24 @@ serve(async (req) => {
         const activityStart = new Date(activity.start_date)
         const season = getSeason(activityStart)
 
-        // Aktivität IMMER speichern (auch ohne Gipfelmatch → HM/km werden gezählt)
+        // Aktivität IMMER speichern (auch ohne Gipfelmatch → HM/km = Basispunkte)
         if (found.size === 0) {
+          const noGipfelHM = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0
+          const noGipfelKM = activity.distance ? Math.round(activity.distance / 1000) : 0
+          const noGipfelPts = Math.round(noGipfelHM / 100) + noGipfelKM
           await supabase.from('summits').insert({
             user_id, peak_id: null,
             summited_at: activityStart.toISOString(),
             season, strava_activity_id: activityId,
-            checkin_method: 'strava', points: 0,
+            checkin_method: 'strava', points: noGipfelPts,
             is_season_first: false, is_personal_first: false,
             safety_ok: true, safety_level: 0,
-            elevation_gain: activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : null,
-            distance: activity.distance ? Math.round(activity.distance / 1000) : null
-          }).then(() => console.log(`🏃 Aktivität ${activityId} gespeichert (kein Gipfel, ${Math.round(activity.total_elevation_gain||0)} HM)`))
+            elevation_gain: noGipfelHM,
+            distance: noGipfelKM
+          }).then(() => console.log(`🏃 Aktivität ${activityId}: ${noGipfelPts} Pkt (${noGipfelHM} HM, ${noGipfelKM} km, kein Gipfel)`))
             .catch(() => {})
+          summitsFound++
+          pagePoints += noGipfelPts
           continue
         }
 
