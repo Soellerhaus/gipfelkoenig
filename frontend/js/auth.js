@@ -671,8 +671,9 @@ async function startPagedImport(userId, stravaToken) {
   const savedBefore = localStorage.getItem('import_before_' + userId);
   let beforeEpoch = savedBefore ? parseInt(savedBefore) : Math.floor(Date.now() / 1000);
 
-  // Maximum 3 Jahre zurück importieren
-  const threeYearsAgo = Math.floor(Date.now() / 1000) - (3 * 365 * 24 * 3600);
+  // Nur aktuelles Jahr + Vorjahr importieren (sonst dauert es zu lange)
+  const currentYear = new Date().getFullYear();
+  const importSince = Math.floor(new Date(currentYear - 1, 0, 1).getTime() / 1000);
   let totalSummits = 0;
   let totalPoints = 0;
   let currentPage = 1;
@@ -690,7 +691,7 @@ async function startPagedImport(userId, stravaToken) {
       if (progressEl) progressEl.style.width = progress + '%';
       if (percentEl) percentEl.textContent = progress + '%';
       const dateStr = new Date(beforeEpoch * 1000).toLocaleDateString('de', { month: 'short', year: 'numeric' });
-      if (messageEl) messageEl.textContent = totalSummits + ' Gipfel · ' + dateStr + ' · Seite ' + currentPage;
+      if (messageEl) messageEl.textContent = (totalSummits > 0 ? totalSummits + ' Gipfel gefunden · ' : '') + dateStr + ' · GPS-Abgleich mit Gipfeln...';
 
       console.log('Import: vor ' + dateStr + ' (page=' + currentPage + ', total=' + totalPages + ')');
 
@@ -792,9 +793,9 @@ async function startPagedImport(userId, stravaToken) {
         currentPage++;
       }
 
-      // Stopp wenn älter als 3 Jahre
-      if (beforeEpoch < threeYearsAgo) {
-        console.log('Import: 3-Jahres-Limit erreicht');
+      // Stopp wenn älter als 1. Januar Vorjahr
+      if (beforeEpoch < importSince) {
+        console.log('Import: Zeitlimit erreicht (ab ' + (currentYear - 1) + ')');
         result.done = true;
       }
 
@@ -802,14 +803,62 @@ async function startPagedImport(userId, stravaToken) {
         console.log('Import abgeschlossen! ' + totalSummits + ' Gipfel, ' + totalPoints + ' Punkte');
         if (progressEl) progressEl.style.width = '100%';
         if (percentEl) percentEl.textContent = '100%';
-        if (messageEl) messageEl.textContent = totalSummits + ' Gipfel · ' + totalPoints.toLocaleString('de') + ' Punkte';
+        if (messageEl) messageEl.textContent = totalSummits + ' Gipfel gefunden · ' + totalPoints.toLocaleString('de') + ' Punkte · Daten werden geladen...';
 
         await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
         localStorage.removeItem('import_before_' + userId);
 
+        // Auto-Refresh: Profil, Summits und Karte neu laden
+        try {
+          // Summits-Cache neu laden
+          var { data: freshSummits } = await GK.supabase
+            .from('summits')
+            .select('peak_id, points, summited_at, season, is_season_first, elevation_gain, distance, strava_activity_id')
+            .eq('user_id', userId)
+            .order('summited_at', { ascending: false });
+          if (freshSummits) {
+            window._allSummitsCache = freshSummits;
+            window._currentUserId = userId;
+          }
+
+          // Profil neu laden und Header aktualisieren
+          var freshProfil = await GK.api.getUserProfile(userId);
+          if (freshProfil) {
+            var punkteHeader = document.getElementById('user-points');
+            if (punkteHeader) punkteHeader.textContent = (freshProfil.total_points || 0).toLocaleString('de') + ' Pkt';
+          }
+
+          // Saison-Stats neu berechnen
+          var seasonYear = window.currentProfileSeason || new Date().getFullYear();
+          await loadProfileForSeason(seasonYear);
+
+          // Gipfel-Tab neu laden
+          if (GK.summits && GK.summits.loadMySummits) GK.summits.loadMySummits();
+
+          // Karte: Marker + Hexagone neu laden
+          if (GK.map && GK.map.loadUserSummits) GK.map.loadUserSummits();
+          if (GK.map && GK.map.loadHexagons) GK.map.loadHexagons();
+
+          // Feed neu laden
+          if (typeof loadFeed === 'function') loadFeed();
+
+          // Leaderboard aktualisieren
+          if (GK.game && GK.game.loadLeaderboard) GK.game.loadLeaderboard();
+
+          console.log('Auto-Refresh nach Import abgeschlossen');
+        } catch (refreshErr) {
+          console.warn('Auto-Refresh teilweise fehlgeschlagen:', refreshErr.message);
+        }
+
+        if (messageEl) messageEl.textContent = totalSummits + ' Gipfel gefunden · ' + totalPoints.toLocaleString('de') + ' Punkte';
+
+        if (typeof GK.showToast === 'function') {
+          GK.showToast('Import fertig! ' + totalSummits + ' Gipfel erkannt!', 'success');
+        }
+
         setTimeout(function() {
           if (bar) bar.style.display = 'none';
-        }, 3000);
+        }, 5000);
         break;
       }
 

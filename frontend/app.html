@@ -49,20 +49,21 @@
       </div>
     </header>
 
-    <!-- Import-Fortschrittsbalken (gross + auffällig) -->
+    <!-- Import-Fortschrittsbalken -->
     <div id="import-bar" style="display:none; background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,165,0,0.1)); padding: 16px 20px; border-bottom: 2px solid var(--color-gold);">
       <div style="text-align:center; margin-bottom:8px;">
-        <span style="font-size: 1.1rem; color: var(--color-gold); font-weight: 700;">🔄 Strava-Import läuft</span>
+        <span style="font-size: 1.1rem; color: var(--color-gold); font-weight: 700;">Strava-Import — Deine Touren werden analysiert</span>
       </div>
       <div style="display: flex; align-items: center; gap: 12px;">
-        <span style="font-size: 0.9rem; color: var(--color-text); min-width: 200px;" id="import-message">Importiere...</span>
+        <span style="font-size: 0.9rem; color: var(--color-text); min-width: 220px;" id="import-message">GPS-Daten werden geladen...</span>
         <div style="flex: 1; height: 12px; background: rgba(255,255,255,0.15); border-radius: 6px; overflow: hidden;">
           <div id="import-progress" style="height: 100%; width: 0%; background: linear-gradient(90deg, #ffd700, #ff8c00); border-radius: 6px; transition: width 0.5s ease;"></div>
         </div>
         <span style="font-size: 1rem; color: var(--color-gold); font-weight: 700; min-width: 45px;" id="import-percent">0%</span>
       </div>
-      <div style="text-align:center; margin-top:6px;">
-        <span style="font-size: 0.75rem; color: var(--color-muted);">Deine Touren werden auf Gipfel geprüft — bitte warten</span>
+      <div style="text-align:center; margin-top:8px; line-height: 1.5;">
+        <span style="font-size: 0.78rem; color: var(--color-muted);">Jede Aktivit&auml;t wird per GPS mit 53.000+ Alpengipfeln abgeglichen</span><br>
+        <span style="font-size: 0.72rem; color: var(--color-muted);">Nur aktuelles Jahr + Vorjahr &middot; Deine Daten erscheinen automatisch nach dem Import</span>
       </div>
     </div>
 
