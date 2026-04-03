@@ -207,6 +207,7 @@ async function loadProfileForSeason(year) {
   const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
   setEl('tickets-total', total);
   setEl('tickets-gipfel', gipfelLose);
+  setEl('lose-gipfel-count', seasonUnique);
   setEl('tickets-koenig', koenigLose);
   setEl('tickets-gebiet', gebietLose);
   setEl('tickets-potd', potdLose);
