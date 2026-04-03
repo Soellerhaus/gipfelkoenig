@@ -201,7 +201,7 @@ async function loadProfileForSeason(year) {
   const potdLose = 0;                                 // 5 Lose pro Gipfel des Tages (TODO)
   const punkteLose = Math.floor(seasonPts / 1000);    // 1 Los pro 1000 Pkt
   const hmLose = Math.floor(seasonHM / 10000);        // 1 Los pro 10.000 HM
-  const kmLose = Math.floor(seasonKM / 50);           // 1 Los pro 50 km
+  const kmLose = Math.floor(seasonKM / 100);          // 1 Los pro 100 km
   const total = gipfelLose + koenigLose + gebietLose + potdLose + punkteLose + hmLose + kmLose;
 
   const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
@@ -222,7 +222,7 @@ async function loadProfileForSeason(year) {
   // "Nächstes Los" Motivation berechnen — was ist am nächsten dran?
   const nextLosHints = [];
   const hmBisLos = 10000 - (seasonHM % 10000);
-  const kmBisLos = 50 - (seasonKM % 50);
+  const kmBisLos = 100 - (seasonKM % 100);
   const pktBisLos = 1000 - (seasonPts % 1000);
   // Das nächste Los: welches ist am schnellsten erreichbar?
   if (hmBisLos <= 3000) nextLosHints.push('Noch ' + hmBisLos.toLocaleString('de') + ' HM bis zum nächsten HM-Los!');

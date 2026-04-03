@@ -121,7 +121,7 @@ Basis = HM/100 + km + 10 (Gipfelbonus)
 - 5 Lose pro Gipfel des Tages
 - 1 Los pro 1000 Punkte
 - 1 Los pro 10.000 HM
-- 1 Los pro 50 km
+- 1 Los pro 100 km
 
 ## Karten-Features
 - Leaflet mit OpenTopoMap Tiles

@@ -370,12 +370,12 @@ async function loadMySummits(season) {
   if (stats) {
     const hints = [];
     if (stats.hmBisLos <= 5000) hints.push('\u2191 ' + stats.hmBisLos.toLocaleString('de') + ' HM \u2192 n\u00e4chstes HM-Los');
-    if (stats.kmBisLos <= 30) hints.push('\ud83e\udeb7 ' + stats.kmBisLos + ' km \u2192 n\u00e4chstes km-Los');
+    if (stats.kmBisLos <= 50) hints.push('\ud83e\udeb7 ' + stats.kmBisLos + ' km \u2192 n\u00e4chstes km-Los');
     if (stats.pktBisLos <= 500) hints.push('\u2b50 ' + stats.pktBisLos.toLocaleString('de') + ' Pkt \u2192 n\u00e4chstes Punkte-Los');
     if (hints.length === 0) {
       // Immer mindestens einen Hinweis zeigen
       const hmPct = (stats.seasonHM % 10000) / 10000;
-      const kmPct = (stats.seasonKM % 50) / 50;
+      const kmPct = (stats.seasonKM % 100) / 100;
       const pktPct = (stats.seasonPts % 1000) / 1000;
       if (hmPct >= kmPct && hmPct >= pktPct) hints.push('\u2191 Noch ' + stats.hmBisLos.toLocaleString('de') + ' HM bis zum n\u00e4chsten Los');
       else if (kmPct >= hmPct && kmPct >= pktPct) hints.push('\ud83e\udeb7 Noch ' + stats.kmBisLos + ' km bis zum n\u00e4chsten Los');
@@ -539,29 +539,20 @@ async function loadMySummits(season) {
     // Fortschrittsbalken (count/10)
     const progressWidth = Math.round(Math.min(count / 10, 1) * 100);
 
-    // Breakdown pro Besteigung (versteckt, per Klick sichtbar)
+    // Breakdown pro Besteigung — NUR Gipfel-Punkte (HM/km werden im Profil-Total gezählt)
     const breakdownHtml = entries.map(e => {
       const d = new Date(e.summited_at);
       const datum = d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const hm = e.elevation_gain || 0;
-      const km = e.distance || 0;
       const pts = e.points || 0;
-
-      // Basis-Punkte berechnen (HM/100 + km + 10 Gipfelbonus)
-      const hmPts = Math.round(hm / 100);
-      const kmPts = Math.round(km);
-      const basePts = hmPts + kmPts + 10;
 
       // Multiplikator bestimmen
       let multiLabel = '';
-      let multiValue = 1;
-      if (e.is_season_first) { multiLabel = '×3 Pionier'; multiValue = 3; }
-      else if (e.is_personal_first) { multiLabel = '×2 Erstbesuch'; multiValue = 2; }
-      else { multiLabel = '×0.5 Whg.'; multiValue = 0.5; }
+      if (e.is_season_first) { multiLabel = '×3 Pionier'; }
+      else if (e.is_personal_first) { multiLabel = '×2 Erstbesuch'; }
+      else { multiLabel = '×0.5 Whg.'; }
 
       return `<div style="font-size:0.72rem;color:var(--color-muted);padding:4px 0;border-bottom:1px solid rgba(201,168,76,0.08);font-family:var(--font-mono);">
-        <div>${datum} · ↗${hm.toLocaleString('de')} HM · ${km} km</div>
-        <div>${hmPts} HM + ${kmPts} km + 10 Gipfel = ${basePts} Basis <span style="opacity:0.6;">${multiLabel}</span> = <span style="color:var(--color-gold);">${pts} Pkt</span></div>
+        <div>${datum} <span style="opacity:0.6;">${multiLabel}</span> = <span style="color:var(--color-gold);">${pts} Pkt</span></div>
       </div>`;
     }).join('');
 
