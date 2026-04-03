@@ -741,13 +741,13 @@ async function loadTerritories() {
       const profile = userProfiles[king.userId] || { name: 'Anonym', avatarUrl: null, avatarType: null, username: 'Anonym' };
       const borderColor = getTerritoryColor(king.userId);
 
-      // Hex-Umriss (Neon-Cyan Border, gut sichtbar auf Topo-Karte)
+      // Hex-Gebiet (Neon-Cyan Border + farbiger Fill)
       const polygon = L.polygon(corners, {
         color: '#00e5ff',
         weight: 2.5,
         opacity: Math.min(hexOp * 2, 0.7),
         fillColor: borderColor,
-        fillOpacity: hexOp * 0.1,
+        fillOpacity: hexOp,
         interactive: false,
         className: 'hex-territory',
         pane: 'overlayPane',
@@ -922,7 +922,7 @@ async function initMap() {
       if (territoryLayer) {
         territoryLayer.eachLayer(function (layer) {
           if (layer.setStyle) {
-            layer.setStyle({ fillOpacity: (v / 100) * 0.1, opacity: Math.min((v / 100) * 2, 0.7) });
+            layer.setStyle({ fillOpacity: v / 100, opacity: Math.min((v / 100) * 2, 0.7) });
           }
           if (layer._icon) {
             var wrapper = layer._icon.querySelector('.hex-avatar-wrapper');
