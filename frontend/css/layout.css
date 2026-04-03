@@ -296,7 +296,7 @@
 .sponsor-header-ticker .sponsor-ticker-track {
   gap: 4rem;
   position: absolute;
-  animation: sponsorHeaderScroll 18s linear infinite;
+  animation: sponsorHeaderScroll 36s linear infinite;
   white-space: nowrap;
 }
 @keyframes sponsorHeaderScroll {
