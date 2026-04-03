@@ -50,7 +50,7 @@
         <!-- LOGO -->
         <h3 style="font-family: var(--font-display); font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--color-gold);">Logo</h3>
         <div class="form-group">
-          <label class="avatar-upload-label" for="logo-file" style="cursor:pointer;">📷 Logo hochladen</label>
+          <button type="button" class="btn btn-sm" onclick="document.getElementById('logo-file').click();" style="border-color: var(--color-gold); color: var(--color-gold);">📷 Logo hochladen</button>
           <input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;">
           <img id="logo-preview" style="display:none; max-height:80px; margin-top:0.5rem; border-radius:8px;">
           <p class="form-hint">PNG, JPG, SVG — max 2 MB</p>
@@ -71,7 +71,7 @@
           <input class="form-input" type="text" id="prize_value" placeholder="z.B. € 149">
         </div>
         <div class="form-group">
-          <label class="avatar-upload-label" for="prize-image-file" style="cursor:pointer;">📷 Preis-Bild hochladen</label>
+          <button type="button" class="btn btn-sm" onclick="document.getElementById('prize-image-file').click();" style="border-color: var(--color-gold); color: var(--color-gold);">📷 Preis-Bild hochladen</button>
           <input type="file" id="prize-image-file" accept="image/png,image/jpeg,image/webp" style="display:none;">
           <img id="prize-preview" style="display:none; max-height:120px; margin-top:0.5rem; border-radius:8px;">
         </div>
@@ -83,7 +83,7 @@
 
         <!-- REGIONEN -->
         <h3 style="font-family: var(--font-display); font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--color-gold);">Deine Regionen</h3>
-        <p class="form-hint" style="margin-bottom: 0.5rem;">Wähle auf der Karte die Hex-Gebiete aus, in denen deine Werbung erscheinen soll. Oder wähle "Gesamter Alpenraum".</p>
+        <p class="form-hint" style="margin-bottom: 0.5rem;">Spieler in diesen Regionen sehen deine Werbung. Suche eine Region oder wähle "Gesamter Alpenraum".</p>
 
         <div class="form-group">
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -92,7 +92,17 @@
           </label>
         </div>
 
-        <div id="map-container" style="height: 300px; border-radius: 10px; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.1);"></div>
+        <!-- Regionen-Suche -->
+        <div class="form-group" id="region-search-group">
+          <input class="form-input" type="text" id="region-search" placeholder="Region suchen... z.B. Kleinwalsertal, Allgäu, Zillertal" autocomplete="off">
+          <div id="region-suggestions" style="display:none; max-height:200px; overflow-y:auto; background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:8px; margin-top:4px;"></div>
+        </div>
+
+        <!-- Ausgewählte Regionen (Chips) -->
+        <div id="selected-regions" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:0.75rem;"></div>
+
+        <!-- Karte (zeigt ausgewählte Regionen) -->
+        <div id="map-container" style="height: 250px; border-radius: 10px; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.1);"></div>
         <p id="region-count" style="font-size: 0.82rem; color: var(--color-muted);">0 Regionen ausgewählt</p>
 
         <!-- VERTRAG -->
@@ -156,48 +166,170 @@
     }
 
     // =========================================================================
-    // Mini-Karte für Regionen-Auswahl
+    // Vordefinierte Regionen (aus regions.js)
     // =========================================================================
-    const selectedHexes = new Map(); // key → L.polygon
+    const REGIONS = [
+      { id:'kleinwalsertal', name:'Kleinwalsertal', latMin:47.30, latMax:47.40, lngMin:10.05, lngMax:10.22 },
+      { id:'bregenzerwald', name:'Bregenzerwald', latMin:47.30, latMax:47.52, lngMin:9.78, lngMax:10.05 },
+      { id:'arlberg', name:'Arlberg', latMin:47.05, latMax:47.20, lngMin:10.10, lngMax:10.35 },
+      { id:'montafon', name:'Montafon', latMin:46.90, latMax:47.10, lngMin:9.85, lngMax:10.15 },
+      { id:'oberallgaeu', name:'Oberallgäu', latMin:47.30, latMax:47.55, lngMin:10.20, lngMax:10.50 },
+      { id:'ostallgaeu', name:'Ostallgäu', latMin:47.45, latMax:47.70, lngMin:10.50, lngMax:10.90 },
+      { id:'lechtal', name:'Lechtal', latMin:47.10, latMax:47.35, lngMin:10.35, lngMax:10.80 },
+      { id:'inntal-west', name:'Inntal West', latMin:47.15, latMax:47.35, lngMin:10.60, lngMax:11.20 },
+      { id:'inntal-ost', name:'Inntal Ost', latMin:47.15, latMax:47.35, lngMin:11.20, lngMax:11.80 },
+      { id:'zillertal', name:'Zillertal', latMin:47.00, latMax:47.20, lngMin:11.70, lngMax:12.10 },
+      { id:'stubaier-alpen', name:'Stubaier Alpen', latMin:46.92, latMax:47.15, lngMin:11.05, lngMax:11.40 },
+      { id:'oetztaler-alpen', name:'Ötztaler Alpen', latMin:46.72, latMax:47.10, lngMin:10.65, lngMax:11.10 },
+      { id:'karwendel', name:'Karwendel', latMin:47.20, latMax:47.45, lngMin:11.20, lngMax:11.65 },
+      { id:'kitzbueheler-alpen', name:'Kitzbüheler Alpen', latMin:47.20, latMax:47.45, lngMin:12.10, lngMax:12.50 },
+      { id:'pinzgau', name:'Pinzgau', latMin:47.10, latMax:47.40, lngMin:12.40, lngMax:13.00 },
+      { id:'pongau', name:'Pongau', latMin:47.10, latMax:47.40, lngMin:13.00, lngMax:13.50 },
+      { id:'chiemgauer-alpen', name:'Chiemgauer Alpen', latMin:47.55, latMax:47.80, lngMin:12.20, lngMax:12.80 },
+      { id:'berchtesgadener-alpen', name:'Berchtesgadener Alpen', latMin:47.45, latMax:47.70, lngMin:12.80, lngMax:13.10 },
+      { id:'salzburg-sued', name:'Salzburg Süd', latMin:47.10, latMax:47.35, lngMin:13.00, lngMax:13.30 },
+      { id:'dachstein', name:'Dachstein', latMin:47.35, latMax:47.55, lngMin:13.45, lngMax:13.80 },
+      { id:'totes-gebirge', name:'Totes Gebirge', latMin:47.55, latMax:47.75, lngMin:13.65, lngMax:14.10 },
+      { id:'karawanken', name:'Karawanken', latMin:46.35, latMax:46.55, lngMin:13.80, lngMax:14.70 },
+      { id:'suedtirol-west', name:'Südtirol West', latMin:46.55, latMax:46.85, lngMin:10.40, lngMax:11.10 },
+      { id:'suedtirol-ost', name:'Südtirol Ost', latMin:46.55, latMax:46.85, lngMin:11.10, lngMax:11.80 },
+      { id:'dolomiten-nord', name:'Dolomiten Nord', latMin:46.45, latMax:46.70, lngMin:11.60, lngMax:12.30 },
+      { id:'dolomiten-sued', name:'Dolomiten Süd', latMin:46.20, latMax:46.50, lngMin:11.60, lngMax:12.20 },
+      { id:'trentino', name:'Trentino', latMin:45.85, latMax:46.25, lngMin:10.80, lngMax:11.50 },
+      { id:'gardasee', name:'Gardasee', latMin:45.55, latMax:45.90, lngMin:10.50, lngMax:10.95 },
+      { id:'berner-oberland', name:'Berner Oberland', latMin:46.45, latMax:46.75, lngMin:7.40, lngMax:8.20 },
+      { id:'wallis', name:'Wallis', latMin:46.00, latMax:46.40, lngMin:7.00, lngMax:8.20 },
+      { id:'graubuenden', name:'Graubünden', latMin:46.50, latMax:47.00, lngMin:9.20, lngMax:10.50 },
+      { id:'engadin', name:'Engadin', latMin:46.40, latMax:46.65, lngMin:9.80, lngMax:10.50 },
+      { id:'zentralschweiz', name:'Zentralschweiz', latMin:46.70, latMax:47.10, lngMin:8.10, lngMax:8.80 },
+      { id:'mont-blanc', name:'Mont Blanc', latMin:45.75, latMax:46.00, lngMin:6.70, lngMax:7.10 },
+      { id:'savoie', name:'Savoie', latMin:45.30, latMax:45.80, lngMin:5.80, lngMax:6.80 },
+      { id:'haute-savoie', name:'Haute-Savoie', latMin:45.80, latMax:46.20, lngMin:5.80, lngMax:6.80 },
+      { id:'dauphine', name:'Dauphiné', latMin:44.80, latMax:45.30, lngMin:5.50, lngMax:6.30 },
+      { id:'julische-alpen', name:'Julische Alpen', latMin:46.15, latMax:46.45, lngMin:13.50, lngMax:14.10 },
+      { id:'triglav', name:'Triglav', latMin:46.30, latMax:46.50, lngMin:13.70, lngMax:14.00 },
+    ];
+
+    // =========================================================================
+    // Regionen-Suche + Auswahl
+    // =========================================================================
+    const selectedRegions = new Map(); // id → region object
+    const selectedHexes = new Map(); // key → L.polygon (für DB)
+    const regionRects = new Map(); // id → L.rectangle
     const hexLayer = L.layerGroup();
 
     const map = L.map('map-container').setView([47.0, 11.5], 7);
     L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 15 }).addTo(map);
     hexLayer.addTo(map);
 
-    map.on('click', function(e) {
-      if (document.getElementById('all-regions').checked) return;
-      const hex = getHexCell(e.latlng.lat, e.latlng.lng);
-      const key = getHexKey(hex.col, hex.row);
+    // Suchfeld
+    const searchInput = document.getElementById('region-search');
+    const suggestionsDiv = document.getElementById('region-suggestions');
 
-      if (selectedHexes.has(key)) {
-        // Deselektieren
-        hexLayer.removeLayer(selectedHexes.get(key));
-        selectedHexes.delete(key);
-      } else {
-        // Selektieren
-        const corners = getHexPolygon(hex.centerLat, hex.centerLng);
-        const polygon = L.polygon(corners, {
-          color: '#c9a84c', weight: 2, fillColor: '#c9a84c', fillOpacity: 0.3
-        });
-        hexLayer.addLayer(polygon);
-        selectedHexes.set(key, polygon);
-      }
-      document.getElementById('region-count').textContent = selectedHexes.size + ' Regionen ausgewählt';
+    searchInput.addEventListener('input', function() {
+      const q = this.value.toLowerCase().trim();
+      if (q.length < 2) { suggestionsDiv.style.display = 'none'; return; }
+
+      const matches = REGIONS.filter(r => r.name.toLowerCase().includes(q) && !selectedRegions.has(r.id));
+      if (matches.length === 0) { suggestionsDiv.style.display = 'none'; return; }
+
+      suggestionsDiv.innerHTML = matches.slice(0, 8).map(r =>
+        '<div style="padding:8px 12px; cursor:pointer; font-size:0.85rem; border-bottom:1px solid var(--color-border);" ' +
+        'onmouseover="this.style.background=\'rgba(201,168,76,0.1)\'" onmouseout="this.style.background=\'none\'" ' +
+        'onclick="selectRegion(\'' + r.id + '\')">' + r.name + '</div>'
+      ).join('');
+      suggestionsDiv.style.display = 'block';
     });
+
+    // Klick ausserhalb schliesst Suggestions
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('#region-search-group')) suggestionsDiv.style.display = 'none';
+    });
+
+    function selectRegion(regionId) {
+      const region = REGIONS.find(r => r.id === regionId);
+      if (!region || selectedRegions.has(regionId)) return;
+
+      selectedRegions.set(regionId, region);
+      suggestionsDiv.style.display = 'none';
+      searchInput.value = '';
+
+      // Hex-Keys für diese Region berechnen
+      const colSpacing = 1.5 * S_LNG;
+      const rowSpacing = Math.sqrt(3) * S_LAT;
+      for (let lat = region.latMin; lat <= region.latMax; lat += rowSpacing * 0.8) {
+        for (let lng = region.lngMin; lng <= region.lngMax; lng += colSpacing * 0.8) {
+          const hex = getHexCell(lat, lng);
+          const key = getHexKey(hex.col, hex.row);
+          if (!selectedHexes.has(key)) {
+            selectedHexes.set(key, true);
+          }
+        }
+      }
+
+      // Rechteck auf Karte zeichnen
+      const rect = L.rectangle(
+        [[region.latMin, region.lngMin], [region.latMax, region.lngMax]],
+        { color: '#c9a84c', weight: 2, fillColor: '#c9a84c', fillOpacity: 0.2 }
+      );
+      hexLayer.addLayer(rect);
+      regionRects.set(regionId, rect);
+
+      // Karte auf Region zoomen
+      map.fitBounds(rect.getBounds().pad(0.3));
+
+      updateRegionUI();
+    }
+
+    function removeRegion(regionId) {
+      if (regionRects.has(regionId)) {
+        hexLayer.removeLayer(regionRects.get(regionId));
+        regionRects.delete(regionId);
+      }
+      selectedRegions.delete(regionId);
+
+      // Hex-Keys neu berechnen (aus verbleibenden Regionen)
+      selectedHexes.clear();
+      const colSpacing = 1.5 * S_LNG;
+      const rowSpacing = Math.sqrt(3) * S_LAT;
+      for (const [, region] of selectedRegions) {
+        for (let lat = region.latMin; lat <= region.latMax; lat += rowSpacing * 0.8) {
+          for (let lng = region.lngMin; lng <= region.lngMax; lng += colSpacing * 0.8) {
+            const hex = getHexCell(lat, lng);
+            selectedHexes.set(getHexKey(hex.col, hex.row), true);
+          }
+        }
+      }
+      updateRegionUI();
+    }
+
+    function updateRegionUI() {
+      // Chips
+      const chipsEl = document.getElementById('selected-regions');
+      chipsEl.innerHTML = Array.from(selectedRegions.values()).map(r =>
+        '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(201,168,76,0.15);border:1px solid var(--color-gold);border-radius:20px;font-size:0.8rem;color:var(--color-gold);">' +
+        r.name + ' <span onclick="removeRegion(\'' + r.id + '\')" style="cursor:pointer;font-size:1rem;line-height:1;">&times;</span></span>'
+      ).join('');
+
+      // Counter
+      document.getElementById('region-count').textContent =
+        selectedRegions.size + ' Regionen ausgewählt (' + selectedHexes.size + ' Hex-Gebiete)';
+    }
 
     // "Alle Alpen" Toggle
     document.getElementById('all-regions').addEventListener('change', function() {
       const mapEl = document.getElementById('map-container');
+      const searchGroup = document.getElementById('region-search-group');
+      const chipsEl = document.getElementById('selected-regions');
       const countEl = document.getElementById('region-count');
       if (this.checked) {
-        mapEl.style.opacity = '0.3';
-        mapEl.style.pointerEvents = 'none';
+        mapEl.style.opacity = '0.3'; mapEl.style.pointerEvents = 'none';
+        searchGroup.style.display = 'none'; chipsEl.style.display = 'none';
         countEl.textContent = 'Gesamter Alpenraum ausgewählt';
       } else {
-        mapEl.style.opacity = '1';
-        mapEl.style.pointerEvents = 'auto';
-        countEl.textContent = selectedHexes.size + ' Regionen ausgewählt';
+        mapEl.style.opacity = '1'; mapEl.style.pointerEvents = 'auto';
+        searchGroup.style.display = 'block'; chipsEl.style.display = 'flex';
+        updateRegionUI();
       }
     });
 

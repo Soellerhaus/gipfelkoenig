@@ -1694,13 +1694,15 @@ document.addEventListener('DOMContentLoaded', async function () {
 });
 
 // Sponsor-Ticker im App Header laden
+// Sponsor-Ticker — zeigt nur Sponsoren die für die Heimat-Region des Users relevant sind
 async function loadSponsorTicker() {
   const container = document.getElementById('sponsor-header-ticker');
   if (!container) return;
   try {
+    // Alle aktiven Sponsoren laden
     const { data: sponsors } = await GK.supabase
       .from('sponsors')
-      .select('company_name, logo_url, website_url, product_url, prize_name')
+      .select('company_name, logo_url, website_url, product_url, prize_name, hex_regions, all_regions')
       .eq('status', 'active');
 
     if (!sponsors || sponsors.length === 0) { container.style.display = 'none'; return; }
@@ -1709,8 +1711,37 @@ async function loadSponsorTicker() {
     GK.map = GK.map || {};
     GK.map._sponsors = sponsors;
 
-    const items = [...sponsors, ...sponsors]; // Doppelt für nahtlosen Loop
-    const track = document.createElement('div');
+    // User-Heimatort für Filterung (aus Profil oder Browser-GPS)
+    var userHexKey = null;
+    try {
+      var userId = GK.map._currentUserId;
+      if (userId) {
+        var profil = await GK.api.getUserProfile(userId);
+        if (profil && profil.home_lat && profil.home_lng) {
+          // Hex-Zelle des Heimatorts berechnen
+          var HEX_SIZE = 5, LAT_KM = 111.32, LNG_KM = 75.9;
+          var sLat = HEX_SIZE/LAT_KM, sLng = HEX_SIZE/LNG_KM;
+          var colSp = 1.5*sLng, rowSp = Math.sqrt(3)*sLat;
+          var col = Math.round(profil.home_lng/colSp);
+          var rowOff = (col%2!==0) ? rowSp/2 : 0;
+          var row = Math.round((profil.home_lat-rowOff)/rowSp);
+          userHexKey = col+','+row;
+        }
+      }
+    } catch(e) {}
+
+    // Filtern: all_regions ODER User-Hex in hex_regions
+    var filtered = sponsors.filter(function(s) {
+      if (s.all_regions) return true;
+      if (!userHexKey || !s.hex_regions || s.hex_regions.length === 0) return s.all_regions;
+      return s.hex_regions.indexOf(userHexKey) !== -1;
+    });
+
+    // Fallback: wenn keine regionalen Sponsoren, zeige alle
+    if (filtered.length === 0) filtered = sponsors;
+
+    var items = filtered.concat(filtered); // Doppelt für nahtlosen Loop
+    var track = document.createElement('div');
     track.className = 'sponsor-ticker-track';
     track.innerHTML = items.map(function(s) {
       var link = s.product_url || s.website_url || '#';
