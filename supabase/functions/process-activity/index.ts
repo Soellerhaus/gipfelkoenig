@@ -103,6 +103,7 @@ serve(async (req) => {
         const { data: peaks } = await supabase
           .from('peaks')
           .select('id, name, lat, lng, elevation, osm_region, season_from, season_to')
+          .eq('reachable', true)
           .gte('lat', lat - 0.001)
           .lte('lat', lat + 0.001)
           .gte('lng', lng - 0.001)
@@ -140,11 +141,12 @@ serve(async (req) => {
 
     // 4. Für jeden gefundenen Gipfel verarbeiten
     for (const [peakId, gpsData] of foundPeaks) {
-      // Peak-Daten laden
+      // Peak-Daten laden (nur erreichbare Gipfel)
       const { data: peak } = await supabase
         .from('peaks')
         .select('*')
         .eq('id', peakId)
+        .eq('reachable', true)
         .single()
 
       if (!peak) continue

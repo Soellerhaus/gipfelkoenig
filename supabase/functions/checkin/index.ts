@@ -77,6 +77,7 @@ serve(async (req) => {
       .gte('lng', lng - 0.001)
       .lte('lng', lng + 0.001)
       .eq('is_active', true)
+      .eq('reachable', true)
 
     if (peakError) {
       console.error('Peak-Suche Fehler:', peakError)

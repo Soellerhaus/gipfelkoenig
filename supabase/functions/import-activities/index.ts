@@ -231,6 +231,7 @@ serve(async (req) => {
           .from('peaks')
           .select('id, name, lat, lng, elevation, osm_region, season_from, season_to, difficulty')
           .eq('is_active', true)
+          .eq('reachable', true)
           .gte('lat', startLat - 0.3)
           .lte('lat', startLat + 0.3)
           .gte('lng', startLng - 0.3)
