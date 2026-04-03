@@ -358,7 +358,10 @@
       });
 
       if (fnError || (data && data.error)) {
-        alert('Strava-Fehler: ' + (data?.error || fnError?.message || 'Unbekannt') + (data?.step ? ' [' + data.step + ']' : ''));
+        alert('Strava-Fehler: ' + (data?.error || fnError?.message || 'Unbekannt') +
+          (data?.step ? ' [' + data.step + ']' : '') +
+          (data?.strava_body ? '\n\nStrava sagt: ' + JSON.stringify(data.strava_body) : '') +
+          (data?.strava_status ? '\nHTTP ' + data.strava_status : ''));
       } else {
         // Import starten: import_status auf 'pending' setzen
         if (currentUser) {
