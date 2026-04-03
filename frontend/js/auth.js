@@ -308,13 +308,13 @@ async function syncRaffleTickets(userId, season, expected) {
           let num;
           let attempts = 0;
           do {
-            num = Math.floor(Math.random() * 10000) + 1;
+            num = Math.floor(Math.random() * 100000) + 1;
             attempts++;
           } while (taken.has(num) && attempts < 100);
 
           if (taken.has(num)) {
             // Alle beliebt Nummern vergeben? Sequenziell suchen
-            for (let n = 1; n <= 10000; n++) {
+            for (let n = 1; n <= 100000; n++) {
               if (!taken.has(n)) { num = n; break; }
             }
           }

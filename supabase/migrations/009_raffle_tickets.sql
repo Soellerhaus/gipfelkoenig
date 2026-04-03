@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS raffle_tickets (
   id SERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
   season TEXT NOT NULL,
-  ticket_number INT NOT NULL CHECK (ticket_number BETWEEN 1 AND 10000),
+  ticket_number INT NOT NULL CHECK (ticket_number BETWEEN 1 AND 100000),
   source TEXT NOT NULL,   -- 'gipfel', 'krone', 'punkte', 'hm', 'km'
   source_ref TEXT,        -- z.B. peak_id, 'punkte-3000', 'hm-20000', 'km-150'
   created_at TIMESTAMPTZ DEFAULT NOW(),
