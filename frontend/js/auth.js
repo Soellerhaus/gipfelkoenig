@@ -1746,7 +1746,7 @@ async function loadSponsorTicker() {
     track.innerHTML = items.map(function(s) {
       var link = s.product_url || s.website_url || '#';
       var logo = s.logo_url ? '<img src="' + s.logo_url + '">' : '';
-      return '<a href="' + link + '" target="_blank" class="sponsor-ticker-item">' + logo + '<span>' + s.prize_name + '</span></a>';
+      return '<a href="' + link + '" target="_blank" class="sponsor-ticker-item">' + logo + '<span>' + s.company_name + '</span> <span class="sponsor-prize">sponsert: ' + s.prize_name + '</span></a>';
     }).join('');
     container.appendChild(track);
   } catch (e) {
