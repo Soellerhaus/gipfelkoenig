@@ -249,16 +249,13 @@
 .app-header-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: 2px;
   background: var(--color-bg-card);
-  border: 1.5px solid var(--color-gold);
+  border: 1px solid var(--color-gold);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.85rem;
-  color: var(--color-gold);
-  cursor: pointer;
-  overflow: hidden;
 }
 
 /* === MAP + INFO LAYOUT === */
@@ -266,7 +263,6 @@
   flex: 1;
   min-height: 0;
   position: relative;
-  overflow: hidden;
 }
 
 #map {
@@ -278,12 +274,10 @@
   z-index: 1;
 }
 
-/* Nav als fester Teil des Layouts — NICHT fixed/absolute */
-
-/* Gipfel-Info Panel — schwebt über der Karte */
+/* Gipfel-Info Panel — schwebt über der Karte, oberhalb der Nav */
 .peak-info-panel {
   position: absolute;
-  bottom: 0;
+  bottom: var(--nav-height);
   left: 0;
   right: 0;
   z-index: 500;
@@ -392,25 +386,20 @@
 }
 
 /* Bergkönig zweifarbig — überall nutzbar */
-.brand-name { color: var(--snow); font-family: var(--font-display); }
 .brand-name .brand-king { color: var(--color-gold); }
 
 /* === BOTTOM NAVIGATION === */
 .app-nav {
   height: var(--nav-height);
-  min-height: var(--nav-height);
   display: flex;
   align-items: center;
   background: var(--color-bg);
   border-top: 1px solid var(--granite);
-  flex-shrink: 0;
-  position: relative;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
-  isolation: isolate;
-  cursor: pointer;
-}
-.app-nav * {
-  pointer-events: auto !important;
 }
 
 .nav-item {
@@ -462,36 +451,8 @@
 /* === PEAK GRID === */
 .peak-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.5rem;
-}
-
-/* === PEAK CARDS (spielerisch) === */
-.peak-card {
-  background: rgba(201,168,76,0.08);
-  border: 1px solid rgba(201,168,76,0.2);
-  border-radius: 12px;
-  padding: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-  overflow: hidden;
-}
-.peak-card:hover { border-color: var(--color-gold); }
-.peak-card.gold { border-color: rgba(255,215,0,0.5); background: rgba(255,215,0,0.08); }
-.peak-card.silver { border-color: rgba(192,192,192,0.4); background: rgba(192,192,192,0.08); }
-.peak-card.diamond { border-color: rgba(185,242,255,0.5); background: rgba(185,242,255,0.08); box-shadow: 0 0 15px rgba(185,242,255,0.1); }
-.peak-card .progress-bar { position: absolute; bottom: 0; left: 0; height: 3px; background: var(--color-gold); border-radius: 0 3px 0 12px; transition: width 0.3s; }
-.peak-card .peak-name { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; }
-.peak-card .peak-meta { font-size: 0.75rem; color: var(--color-muted); margin: 2px 0; }
-.peak-card .peak-points { font-size: 1.4rem; font-weight: 700; color: var(--color-gold); font-family: var(--font-mono); }
-.peak-card .badge-pill { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; display: inline-block; margin: 2px; }
-.peak-card .breakdown { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(201,168,76,0.15); }
-.peak-card.expanded .breakdown { display: block; }
-
-@media (max-width: 600px) {
-  .peak-card .peak-name { font-size: 1rem; }
-  .peak-card .peak-points { font-size: 1.2rem; }
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
 }
 
 /* === LEADERBOARD LIST === */
@@ -510,16 +471,14 @@
 .profile-avatar {
   width: 80px;
   height: 80px;
-  border-radius: 50%;
+  border-radius: 2px;
   background: var(--color-bg-card);
-  border: 2px solid var(--color-gold);
+  border: 1px solid var(--color-gold);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2rem;
-  color: var(--color-gold);
   margin: 0 auto 1rem;
-  overflow: hidden;
 }
 
 .profile-stats {
@@ -583,27 +542,6 @@
 .peak-marker.king {
   font-size: 1.5rem;
   filter: drop-shadow(0 0 6px rgba(212,162,76,0.6));
-  animation: crown-hop 2s ease-in-out infinite;
-}
-@keyframes crown-hop {
-  0%, 100% { transform: translateY(0); }
-  25% { transform: translateY(-6px); }
-  50% { transform: translateY(0); }
-  75% { transform: translateY(-3px); }
-}
-
-/* Gipfel des Tages — animierter Würfel */
-.potd-dice {
-  font-size: 1.8rem;
-  animation: dice-wobble 3s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px rgba(255,215,0,0.7));
-}
-@keyframes dice-wobble {
-  0%, 100% { transform: rotate(0deg) scale(1); }
-  15% { transform: rotate(12deg) scale(1.1); }
-  30% { transform: rotate(-8deg) scale(1); }
-  45% { transform: rotate(5deg) scale(1.05); }
-  60% { transform: rotate(0deg) scale(1); }
 }
 
 .peak-marker.normal {
@@ -612,21 +550,8 @@
 }
 
 .peak-marker.summited {
-  color: #2ecc40;
+  color: var(--color-muted);
   font-size: 1rem;
-  border-color: #2ecc40;
-  filter: drop-shadow(0 0 4px rgba(46,204,64,0.4));
-}
-
-/* Krone unter Angriff — goldenes Blinken */
-.peak-marker.attacked {
-  font-size: 1.5rem;
-  filter: drop-shadow(0 0 6px rgba(212,162,76,0.6));
-  animation: attack-blink 0.8s ease-in-out infinite;
-}
-@keyframes attack-blink {
-  0%, 100% { opacity: 1; filter: drop-shadow(0 0 6px rgba(212,162,76,0.6)); }
-  50% { opacity: 0.5; filter: drop-shadow(0 0 12px rgba(255,215,0,0.9)); }
 }
 
 .peak-marker.danger {
@@ -680,8 +605,7 @@
   position: absolute;
   top: 10px;
   left: 50px;
-  right: auto;
-  max-width: 250px;
+  right: 50px;
   z-index: 1000;
 }
 .map-search-input {
@@ -788,7 +712,7 @@
     padding: 20px 24px;
   }
 
-  /* Infobox auf Mobile — GROSS und lesbar */
+  /* Infobox auf Mobile — GROSS und gut lesbar */
   .peak-info-panel {
     padding: 0.5rem 0.7rem;
   }
@@ -803,27 +727,24 @@
     overflow-x: auto;
   }
   .trophy-slot {
-    padding: 3px 8px;
-    gap: 2px;
+    padding: 5px 10px;
+    gap: 3px;
     min-width: 0;
     flex-shrink: 1;
   }
   .trophy-slot .trophy-emoji {
-    font-size: 1rem;
+    font-size: 1.3rem;
   }
   .trophy-slot .trophy-label {
-    font-size: 0.7rem;
+    font-size: 0.95rem;
   }
   .trophy-slot .trophy-user {
-    font-size: 0.7rem;
-    max-width: 70px;
-  }
-  .trophy-extra {
-    display: none !important;
+    font-size: 0.95rem;
+    max-width: 80px;
   }
   .peak-bottom-name {
-    font-size: 1.2rem;
-    margin-top: 0.1rem;
+    font-size: 1.3rem;
+    margin-top: 0.2rem;
   }
   .peak-bottom-name .peak-elev {
     font-size: 1rem;
@@ -832,16 +753,12 @@
     margin-left: 4px;
   }
   .peak-description {
-    font-size: 0.85rem;
-    line-height: 1.3;
-    margin-top: 0.1rem;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    font-size: 1rem;
+    line-height: 1.4;
+    margin-top: 0.2rem;
   }
   .peak-history {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     margin-top: 0.2rem;
   }
 }
@@ -1014,309 +931,3 @@
 .consent-item a {
   color: var(--color-gold);
 }
-
-/* === AVATAR UPLOAD === */
-.avatar-upload {
-  margin-top: 0.5rem;
-}
-
-.avatar-upload-label {
-  display: inline-block;
-  padding: 6px 14px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  color: var(--color-muted);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: border-color var(--transition), color var(--transition);
-}
-
-.avatar-upload-label:hover {
-  border-color: var(--color-gold);
-  color: var(--color-gold);
-}
-
-.avatar-upload-preview {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--color-gold);
-  margin-top: 0.5rem;
-  display: none;
-}
-
-.avatar-upload-preview.visible {
-  display: block;
-}
-
-.avatar-upload-hint {
-  font-size: 0.7rem;
-  color: var(--color-muted);
-  margin-top: 0.25rem;
-}
-
-/* Profile avatar image (circular) */
-.profile-avatar img,
-.app-header-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-.profile-avatar.has-image {
-  border-radius: 50%;
-  overflow: hidden;
-  padding: 0;
-}
-
-.app-header-avatar.has-image {
-  border-radius: 50%;
-  overflow: hidden;
-  padding: 0;
-}
-
-/* Settings avatar current display */
-.avatar-current {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  border: 2px solid var(--color-gold);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  background: var(--color-bg-card);
-  overflow: hidden;
-  margin-bottom: 0.5rem;
-}
-
-.avatar-current img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Region-Fortschrittsbalken */
-.region-progress {
-  margin-bottom: 8px;
-  padding: 6px 10px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
-}
-.region-progress-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.8rem;
-  margin-bottom: 4px;
-}
-.region-progress-name {
-  font-weight: 600;
-  color: var(--color-text);
-}
-.region-progress-count {
-  font-family: var(--font-mono);
-  color: var(--color-gold);
-  font-size: 0.75rem;
-}
-.region-progress-bar {
-  height: 6px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.region-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #2ecc40, var(--color-gold));
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-.region-progress-bar.complete .region-progress-fill {
-  background: var(--color-gold);
-}
-
-/* Rang-Fortschritt */
-.rank-progress {
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: rgba(201,168,76,0.08);
-  border: 1px solid rgba(201,168,76,0.2);
-  border-radius: 8px;
-  text-align: center;
-}
-.rank-current {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-gold);
-  margin-bottom: 4px;
-}
-.rank-next-hint {
-  font-size: 0.75rem;
-  color: var(--color-muted);
-}
-
-/* Gipfel des Tages — pulsierender Stern-Marker */
-@keyframes potdPulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 15px rgba(255,215,0,0.7); }
-  50% { transform: scale(1.15); box-shadow: 0 0 25px rgba(255,215,0,0.9); }
-}
-
-/* === GAME ANIMATIONS === */
-
-/* Confetti */
-.confetti-container {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  pointer-events: none; z-index: 9999; overflow: hidden;
-}
-.confetti-particle {
-  position: absolute; top: -10px;
-  width: 8px; height: 8px; border-radius: 2px;
-  animation: confetti-fall linear forwards;
-}
-@keyframes confetti-fall {
-  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-}
-
-/* Points flying up */
-.points-fly {
-  position: fixed; transform: translateX(-50%);
-  font-size: 1.8rem; font-weight: 900; color: var(--color-gold);
-  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
-  pointer-events: none; z-index: 9999;
-  animation: points-up 2s ease-out forwards;
-}
-@keyframes points-up {
-  0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-  50% { opacity: 1; transform: translateX(-50%) translateY(-60px) scale(1.3); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-120px) scale(0.8); }
-}
-
-/* Crown/König overlay */
-.crown-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
-  z-index: 9999; opacity: 0; transition: opacity 0.4s;
-  pointer-events: none;
-}
-.crown-overlay.active { opacity: 1; }
-.crown-content { text-align: center; }
-.crown-emoji { font-size: 4rem; animation: crown-bounce 0.6s ease-out; }
-@keyframes crown-bounce {
-  0% { transform: scale(0) rotate(-20deg); }
-  50% { transform: scale(1.3) rotate(10deg); }
-  100% { transform: scale(1) rotate(0deg); }
-}
-.crown-title {
-  font-size: 2rem; font-weight: 900; color: var(--color-gold);
-  text-shadow: 0 0 20px rgba(255,215,0,0.5);
-  margin: 0.5rem 0;
-}
-.crown-peak { font-size: 1.2rem; color: #fff; }
-
-/* Gold flash */
-.gold-flash {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: radial-gradient(circle, rgba(255,215,0,0.3), transparent);
-  pointer-events: none; z-index: 9998;
-  animation: flash-fade 0.8s ease-out forwards;
-}
-@keyframes flash-fade {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-/* === TERRITORY HEX GRID === */
-.territory-tooltip {
-  background: var(--color-bg-card, #2d2a26) !important;
-  color: var(--color-text, #f5f0e8) !important;
-  border: 1px solid var(--color-border, #444) !important;
-  border-radius: 4px !important;
-  font-family: var(--font-body, sans-serif);
-  font-size: 0.85rem !important;
-  padding: 6px 10px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
-}
-.territory-tooltip::before {
-  border-top-color: var(--color-bg-card, #2d2a26) !important;
-}
-.hex-territory {
-  transition: fill-opacity 0.15s ease;
-}
-
-/* === TERRITORY COLOR PICKER === */
-.color-picker-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0;
-}
-.color-option {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 3px solid transparent;
-  cursor: pointer;
-  transition: transform 0.2s;
-  padding: 0;
-  outline: none;
-}
-.color-option:hover {
-  transform: scale(1.2);
-}
-.color-option.selected {
-  border-color: white;
-  box-shadow: 0 0 10px rgba(255,255,255,0.5);
-}
-.hex-preview {
-  width: 60px;
-  height: 52px;
-  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-  margin: 10px 0;
-}
-.color-preview {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* === HEX OPACITY SLIDER === */
-.hex-opacity-control {
-  background: rgba(0,0,0,0.7);
-  border-radius: 8px;
-  padding: 4px 6px;
-  margin-top: 4px;
-  margin-left: 0;
-}
-.hex-opacity-control input[type="range"] {
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 4px;
-  height: 70px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: linear-gradient(to top, rgba(255,215,0,0.2), rgba(255,215,0,1));
-  border-radius: 2px;
-  outline: none;
-}
-.hex-opacity-control input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #ffd700;
-  cursor: pointer;
-}
-.hex-opacity-control input[type="range"]::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #ffd700;
-  cursor: pointer;
-  border: none;
-}
-
