@@ -67,6 +67,17 @@ function createAttackedIcon() {
   });
 }
 
+/** Verfügbar-Marker: Grünes Dreieck — Krone frei, kann erobert werden */
+function createAvailableIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="peak-marker available"><span>▲</span></div>',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -18],
+  });
+}
+
 /** Gefahr-Marker: Rotes Kreuz — Heute gesperrt */
 function createDangerIcon() {
   return L.divIcon({
@@ -147,12 +158,17 @@ function getMarkerIcon(peak, ownership, userSummited, isSafe, isAttacked) {
     return createKingIcon();
   }
 
-  // Benutzer hat den Gipfel schon bestiegen (aber ist nicht König) → GRÜN
+  // Benutzer hat den Gipfel schon bestiegen (aber ist nicht König)
   if (userSummited) {
     return createSummitedIcon();
   }
 
-  // Noch nie bestiegen
+  // Kein König → Krone frei → grün (eroberbar!)
+  if (!ownership) {
+    return createAvailableIcon();
+  }
+
+  // Hat einen König, aber User war noch nie da
   return createNormalIcon();
 }
 
