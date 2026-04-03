@@ -213,6 +213,11 @@ async function loadProfileForSeason(year) {
   setEl('tickets-punkte', punkteLose);
   setEl('tickets-hm', hmLose);
   setEl('tickets-km', kmLose);
+  // Neue Detail-Werte für die Saison-Übersicht
+  setEl('tickets-koenig-count', currentSeasonCrownCount);
+  setEl('tickets-punkte-val', seasonPts.toLocaleString('de'));
+  setEl('tickets-hm-val', seasonHM.toLocaleString('de'));
+  setEl('tickets-km-val', seasonKM.toLocaleString('de'));
 
   // "Nächstes Los" Motivation berechnen — was ist am nächsten dran?
   const nextLosHints = [];

@@ -494,10 +494,15 @@ async function loadMySummits(season) {
           </div>
         `);
       }
+      // Top 3 immer sichtbar, Rest per Dropdown
+      const top3 = regionBars.slice(0, 3).join('');
+      const rest = regionBars.slice(3).join('');
+      const hasMore = regionBars.length > 3;
       regionProgressHtml = `
         <div style="margin-bottom:1rem;">
           <div style="font-size:0.85rem;font-weight:600;color:var(--color-gold);margin-bottom:6px;">Regionen-Fortschritt</div>
-          ${regionBars.join('')}
+          ${top3}
+          ${hasMore ? '<div id="regions-more" style="display:none;">' + rest + '</div><div style="text-align:center;margin-top:4px;"><button onclick="var el=document.getElementById(\'regions-more\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';this.textContent=el.style.display===\'none\'?\'\u25BC Alle ' + regionBars.length + ' Regionen zeigen\':\'\u25B2 Weniger zeigen\';" style="background:none;border:1px solid rgba(201,168,76,0.2);color:var(--color-gold);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:0.72rem;">\u25BC Alle ' + regionBars.length + ' Regionen zeigen</button></div>' : ''}
         </div>
       `;
     }

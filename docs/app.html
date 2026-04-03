@@ -202,69 +202,58 @@
           <div id="season-points" style="display:none;">0</div>
         </div>
 
-        <!-- Trophäen — stylisches Grid -->
-        <div class="card">
-          <h3>🏆 Trophäen <span id="trophy-season" style="font-size:0.8rem;color:#888;">2025</span></h3>
-          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:10px 0;">
-            <div style="text-align:center; background:rgba(255,215,0,0.1); border:1px solid rgba(255,215,0,0.2); border-radius:8px; padding:10px 4px;">
-              <div style="font-size:1.5rem;">👑</div>
-              <div id="trophy-koenig" style="font-size:1.2rem; font-weight:bold; color:#ffd700;">0</div>
-              <div style="font-size:0.65rem; color:#888;">König</div>
-            </div>
-            <div style="text-align:center; background:rgba(255,215,0,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 4px;">
-              <div style="font-size:1.5rem;">⭐</div>
-              <div id="trophy-pionier" style="font-size:1.2rem; font-weight:bold; color:#ffd700;">0</div>
-              <div style="font-size:0.65rem; color:#888;">Pionier</div>
-            </div>
-            <div style="text-align:center; background:rgba(255,165,0,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 4px;">
-              <div style="font-size:1.5rem;">🔥</div>
-              <div id="trophy-combo" style="font-size:1.2rem; font-weight:bold; color:#ffd700;">0</div>
-              <div style="font-size:0.65rem; color:#888;">Combo</div>
-            </div>
-            <div style="text-align:center; background:rgba(255,165,0,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 4px;">
-              <div style="font-size:1.5rem;">🌅</div>
-              <div id="trophy-frueh" style="font-size:1.2rem; font-weight:bold; color:#ffd700;">0</div>
-              <div style="font-size:0.65rem; color:#888;">Früh</div>
-            </div>
-          </div>
-          <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px;">
-            <div style="text-align:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:8px;">
-              <div style="font-size:1.3rem;">⛰️</div>
-              <div id="trophy-gipfel" style="font-size:1.1rem; font-weight:bold; color:white;">0</div>
-              <div style="font-size:0.65rem; color:#888;">Gipfel</div>
-            </div>
-            <div style="text-align:center; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:8px;">
-              <div style="font-size:1.3rem;">📈</div>
-              <div id="trophy-hm" style="font-size:1.1rem; font-weight:bold; color:white;">0</div>
-              <div style="font-size:0.65rem; color:#888;">HM</div>
-            </div>
-          </div>
+        <!-- Hidden Trophy-IDs für Backward Compatibility -->
+        <div style="display:none;">
+          <span id="trophy-season">2026</span>
+          <span id="trophy-koenig">0</span>
+          <span id="trophy-pionier">0</span>
+          <span id="trophy-combo">0</span>
+          <span id="trophy-frueh">0</span>
+          <span id="trophy-gipfel">0</span>
+          <span id="trophy-hm">0</span>
         </div>
 
-        <!-- Letzte Besteigungen entfernt — sind im Feed-Tab -->
-
-        <!-- Los-System (neues Ritterspiel) -->
+        <!-- Saison-Leistung + Lose — kompakte Übersicht -->
         <div class="card" style="margin-bottom: 0.75rem; padding: 0.75rem; border-color: rgba(255,215,0,0.3);">
-          <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.5rem;">🎟️ Deine Lose</h4>
-          <div id="raffle-tickets" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0;">
-            <div style="text-align:center; padding:8px; background:rgba(255,215,0,0.1); border-radius:6px;">
-              <div id="tickets-total" style="font-size:1.5rem; font-weight:bold; color:#ffd700;">0</div>
-              <div style="font-size:0.7rem; color:#888;">GESAMT</div>
+          <h4 style="font-family: var(--font-display); font-size: 0.9rem; margin-bottom: 0.75rem;">🎟️ Deine Saison-Lose</h4>
+
+          <!-- Gesamt prominent -->
+          <div style="text-align:center; margin-bottom:12px;">
+            <div id="tickets-total" style="font-size:2.2rem; font-weight:bold; color:#ffd700;">0</div>
+            <div style="font-size:0.75rem; color:#888;">LOSE GESAMT</div>
+          </div>
+
+          <!-- Lose-Breakdown als klare Tabelle: Leistung → Lose -->
+          <div style="font-size:0.78rem; color:#ccc; line-height:2;">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <span>⛰️ <span id="stat-summits" style="color:white;font-weight:600;">1</span> Gipfel</span>
+              <span style="color:#ffd700;font-weight:600;"><span id="tickets-gipfel">0</span> Lose</span>
             </div>
-            <div style="text-align:center; padding:8px; background:rgba(255,255,255,0.05); border-radius:6px;">
-              <div id="tickets-breakdown" style="font-size:0.75rem; color:#ccc; text-align:left;">
-                <div>⛰️ <span id="tickets-gipfel">0</span> Gipfel (1/Gipfel)</div>
-                <div>👑 <span id="tickets-koenig">0</span> Kronen (2/Krone)</div>
-                <div>🗺️ <span id="tickets-gebiet">0</span> Gebiete (5/Gebiet)</div>
-                <div>🃏 <span id="tickets-potd">0</span> Gipfel d. Tages (5/POTD)</div>
-                <div>📊 <span id="tickets-punkte">0</span> Punkte (1/1000 Pkt)</div>
-                <div>🏔️ <span id="tickets-hm">0</span> HM (1/10.000 HM)</div>
-                <div>🏃 <span id="tickets-km">0</span> km (1/50 km)</div>
-              </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <span>👑 <span id="tickets-koenig-count" style="color:white;font-weight:600;">0</span> Kronen (aktuelle Saison)</span>
+              <span style="color:#ffd700;font-weight:600;"><span id="tickets-koenig">0</span> Lose</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <span>📊 <span id="tickets-punkte-val" style="color:white;font-weight:600;">0</span> Punkte</span>
+              <span style="color:#ffd700;font-weight:600;"><span id="tickets-punkte">0</span> Lose <span style="color:#666;font-size:0.7rem;">(1/1.000)</span></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <span>🏔️ <span id="tickets-hm-val" style="color:white;font-weight:600;">0</span> H&ouml;henmeter</span>
+              <span style="color:#ffd700;font-weight:600;"><span id="tickets-hm">0</span> Lose <span style="color:#666;font-size:0.7rem;">(1/10.000)</span></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;">
+              <span>🥾 <span id="tickets-km-val" style="color:white;font-weight:600;">0</span> Kilometer</span>
+              <span style="color:#ffd700;font-weight:600;"><span id="tickets-km">0</span> Lose <span style="color:#666;font-size:0.7rem;">(1/50)</span></span>
             </div>
           </div>
-          <div id="next-los-hint" style="font-size:0.82rem; color:var(--color-gold); text-align:center; margin-top:8px; font-weight:600; padding:8px; background:rgba(255,215,0,0.08); border-radius:8px;"></div>
-          <p style="font-size:0.75rem; color:#ccc; text-align:center; margin-top:6px;">Je mehr Lose, desto h&ouml;here Gewinnchance! 🍀</p>
+
+          <!-- Hidden elements for gebiet/potd -->
+          <div style="display:none;"><span id="tickets-gebiet">0</span><span id="tickets-potd">0</span></div>
+
+          <!-- Nächstes Los Motivation -->
+          <div id="next-los-hint" style="font-size:0.82rem; color:var(--color-gold); text-align:center; margin-top:12px; font-weight:600; padding:10px; background:linear-gradient(135deg,rgba(255,215,0,0.1),rgba(255,165,0,0.06)); border:1px solid rgba(255,215,0,0.2); border-radius:8px;"></div>
+
+          <p style="font-size:0.72rem; color:#888; text-align:center; margin-top:8px;">Lose verfallen am 31.12. &middot; Vorjahres-Kronen z&auml;hlen nicht</p>
 
           <!-- Losnummern Dropdown -->
           <div style="margin-top:10px; text-align:center;">
