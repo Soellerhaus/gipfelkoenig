@@ -85,8 +85,8 @@
         </div>
 
         <!-- REGIONEN -->
-        <h3 style="font-family: var(--font-display); font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--color-gold);">Deine Regionen</h3>
-        <p class="form-hint" style="margin-bottom: 0.5rem;">Spieler in diesen Regionen sehen deine Werbung. Suche eine Region oder wähle "Gesamter Alpenraum".</p>
+        <h3 style="font-family: var(--font-display); font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--color-gold);">Dein Werbegebiet</h3>
+        <p class="form-hint" style="margin-bottom: 0.5rem;">Zeichne auf der Karte 1-3 Rechtecke wo deine Werbung erscheinen soll. Klicke und ziehe um ein Gebiet zu markieren.</p>
 
         <div class="form-group">
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -95,18 +95,14 @@
           </label>
         </div>
 
-        <!-- Regionen-Suche -->
-        <div class="form-group" id="region-search-group">
-          <input class="form-input" type="text" id="region-search" placeholder="Region suchen... z.B. Kleinwalsertal, Allgäu, Zillertal" autocomplete="off">
-          <div id="region-suggestions" style="display:none; max-height:200px; overflow-y:auto; background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:8px; margin-top:4px;"></div>
+        <div id="map-wrapper" style="position:relative;">
+          <div id="map-container" style="height: 350px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);"></div>
+          <div style="position:absolute; top:10px; right:10px; z-index:1000; display:flex; gap:6px;">
+            <button type="button" id="draw-rect-btn" class="btn btn-sm" style="background:#ff1493; color:#fff; border:none; font-size:0.75rem; padding:4px 10px;">✏️ Gebiet zeichnen</button>
+            <button type="button" id="clear-rects-btn" class="btn btn-sm" style="background:rgba(0,0,0,0.5); color:#ff1493; border:1px solid #ff1493; font-size:0.75rem; padding:4px 10px;">🗑️ Alle löschen</button>
+          </div>
         </div>
-
-        <!-- Ausgewählte Regionen (Chips) -->
-        <div id="selected-regions" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:0.75rem;"></div>
-
-        <!-- Karte (zeigt ausgewählte Regionen) -->
-        <div id="map-container" style="height: 250px; border-radius: 10px; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.1);"></div>
-        <p id="region-count" style="font-size: 0.82rem; color: var(--color-muted);">0 Regionen ausgewählt</p>
+        <p id="region-count" style="font-size: 0.82rem; color: var(--color-muted); margin-top:0.5rem;">0 Gebiete markiert (max. 3)</p>
 
         <!-- VERTRAG -->
         <div style="margin-top: 1.5rem; padding: 12px; border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; background: rgba(255,215,0,0.03);">
@@ -151,190 +147,171 @@
       const col = Math.round(lng / colSpacing);
       const rowOffset = (col % 2 !== 0) ? rowSpacing / 2 : 0;
       const row = Math.round((lat - rowOffset) / rowSpacing);
-      const centerLng = col * colSpacing;
-      const centerLat = row * rowSpacing + rowOffset;
-      return { col, row, centerLat, centerLng };
+      return { col, row };
     }
 
     function getHexKey(col, row) { return col + ',' + row; }
 
-    function getHexPolygon(centerLat, centerLng) {
-      const points = [];
-      for (let i = 0; i < 6; i++) {
-        const angleDeg = 60 * i;
-        const angleRad = angleDeg * Math.PI / 180;
-        points.push([centerLat + S_LAT * Math.sin(angleRad), centerLng + S_LNG * Math.cos(angleRad)]);
-      }
-      return points;
-    }
+    // =========================================================================
+    // Karte: Rechtecke zeichnen (1-3 Gebiete, Neon-Pink)
+    // =========================================================================
+    const NEON_PINK = '#ff1493';
+    const drawnRects = []; // Array von {rect: L.rectangle, bounds: LatLngBounds}
+    let isDrawing = false;
+    let drawStart = null;
+    let drawPreview = null;
+    const selectedHexes = new Map();
 
-    // =========================================================================
-    // Vordefinierte Regionen (aus regions.js)
-    // =========================================================================
-    const REGIONS = [
-      { id:'kleinwalsertal', name:'Kleinwalsertal', latMin:47.30, latMax:47.40, lngMin:10.05, lngMax:10.22 },
-      { id:'bregenzerwald', name:'Bregenzerwald', latMin:47.30, latMax:47.52, lngMin:9.78, lngMax:10.05 },
-      { id:'arlberg', name:'Arlberg', latMin:47.05, latMax:47.20, lngMin:10.10, lngMax:10.35 },
-      { id:'montafon', name:'Montafon', latMin:46.90, latMax:47.10, lngMin:9.85, lngMax:10.15 },
-      { id:'oberallgaeu', name:'Oberallgäu', latMin:47.30, latMax:47.55, lngMin:10.20, lngMax:10.50 },
-      { id:'ostallgaeu', name:'Ostallgäu', latMin:47.45, latMax:47.70, lngMin:10.50, lngMax:10.90 },
-      { id:'lechtal', name:'Lechtal', latMin:47.10, latMax:47.35, lngMin:10.35, lngMax:10.80 },
-      { id:'inntal-west', name:'Inntal West', latMin:47.15, latMax:47.35, lngMin:10.60, lngMax:11.20 },
-      { id:'inntal-ost', name:'Inntal Ost', latMin:47.15, latMax:47.35, lngMin:11.20, lngMax:11.80 },
-      { id:'zillertal', name:'Zillertal', latMin:47.00, latMax:47.20, lngMin:11.70, lngMax:12.10 },
-      { id:'stubaier-alpen', name:'Stubaier Alpen', latMin:46.92, latMax:47.15, lngMin:11.05, lngMax:11.40 },
-      { id:'oetztaler-alpen', name:'Ötztaler Alpen', latMin:46.72, latMax:47.10, lngMin:10.65, lngMax:11.10 },
-      { id:'karwendel', name:'Karwendel', latMin:47.20, latMax:47.45, lngMin:11.20, lngMax:11.65 },
-      { id:'kitzbueheler-alpen', name:'Kitzbüheler Alpen', latMin:47.20, latMax:47.45, lngMin:12.10, lngMax:12.50 },
-      { id:'pinzgau', name:'Pinzgau', latMin:47.10, latMax:47.40, lngMin:12.40, lngMax:13.00 },
-      { id:'pongau', name:'Pongau', latMin:47.10, latMax:47.40, lngMin:13.00, lngMax:13.50 },
-      { id:'chiemgauer-alpen', name:'Chiemgauer Alpen', latMin:47.55, latMax:47.80, lngMin:12.20, lngMax:12.80 },
-      { id:'berchtesgadener-alpen', name:'Berchtesgadener Alpen', latMin:47.45, latMax:47.70, lngMin:12.80, lngMax:13.10 },
-      { id:'salzburg-sued', name:'Salzburg Süd', latMin:47.10, latMax:47.35, lngMin:13.00, lngMax:13.30 },
-      { id:'dachstein', name:'Dachstein', latMin:47.35, latMax:47.55, lngMin:13.45, lngMax:13.80 },
-      { id:'totes-gebirge', name:'Totes Gebirge', latMin:47.55, latMax:47.75, lngMin:13.65, lngMax:14.10 },
-      { id:'karawanken', name:'Karawanken', latMin:46.35, latMax:46.55, lngMin:13.80, lngMax:14.70 },
-      { id:'suedtirol-west', name:'Südtirol West', latMin:46.55, latMax:46.85, lngMin:10.40, lngMax:11.10 },
-      { id:'suedtirol-ost', name:'Südtirol Ost', latMin:46.55, latMax:46.85, lngMin:11.10, lngMax:11.80 },
-      { id:'dolomiten-nord', name:'Dolomiten Nord', latMin:46.45, latMax:46.70, lngMin:11.60, lngMax:12.30 },
-      { id:'dolomiten-sued', name:'Dolomiten Süd', latMin:46.20, latMax:46.50, lngMin:11.60, lngMax:12.20 },
-      { id:'trentino', name:'Trentino', latMin:45.85, latMax:46.25, lngMin:10.80, lngMax:11.50 },
-      { id:'gardasee', name:'Gardasee', latMin:45.55, latMax:45.90, lngMin:10.50, lngMax:10.95 },
-      { id:'berner-oberland', name:'Berner Oberland', latMin:46.45, latMax:46.75, lngMin:7.40, lngMax:8.20 },
-      { id:'wallis', name:'Wallis', latMin:46.00, latMax:46.40, lngMin:7.00, lngMax:8.20 },
-      { id:'graubuenden', name:'Graubünden', latMin:46.50, latMax:47.00, lngMin:9.20, lngMax:10.50 },
-      { id:'engadin', name:'Engadin', latMin:46.40, latMax:46.65, lngMin:9.80, lngMax:10.50 },
-      { id:'zentralschweiz', name:'Zentralschweiz', latMin:46.70, latMax:47.10, lngMin:8.10, lngMax:8.80 },
-      { id:'mont-blanc', name:'Mont Blanc', latMin:45.75, latMax:46.00, lngMin:6.70, lngMax:7.10 },
-      { id:'savoie', name:'Savoie', latMin:45.30, latMax:45.80, lngMin:5.80, lngMax:6.80 },
-      { id:'haute-savoie', name:'Haute-Savoie', latMin:45.80, latMax:46.20, lngMin:5.80, lngMax:6.80 },
-      { id:'dauphine', name:'Dauphiné', latMin:44.80, latMax:45.30, lngMin:5.50, lngMax:6.30 },
-      { id:'julische-alpen', name:'Julische Alpen', latMin:46.15, latMax:46.45, lngMin:13.50, lngMax:14.10 },
-      { id:'triglav', name:'Triglav', latMin:46.30, latMax:46.50, lngMin:13.70, lngMax:14.00 },
-    ];
-
-    // =========================================================================
-    // Regionen-Suche + Auswahl
-    // =========================================================================
-    const selectedRegions = new Map(); // id → region object
-    const selectedHexes = new Map(); // key → L.polygon (für DB)
-    const regionRects = new Map(); // id → L.rectangle
-    const hexLayer = L.layerGroup();
-
-    const map = L.map('map-container').setView([47.0, 11.5], 7);
+    const map = L.map('map-container', { zoomControl: true }).setView([47.0, 11.5], 7);
     L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 15 }).addTo(map);
-    hexLayer.addTo(map);
 
-    // Suchfeld
-    const searchInput = document.getElementById('region-search');
-    const suggestionsDiv = document.getElementById('region-suggestions');
-
-    searchInput.addEventListener('input', function() {
-      const q = this.value.toLowerCase().trim();
-      if (q.length < 2) { suggestionsDiv.style.display = 'none'; return; }
-
-      const matches = REGIONS.filter(r => r.name.toLowerCase().includes(q) && !selectedRegions.has(r.id));
-      if (matches.length === 0) { suggestionsDiv.style.display = 'none'; return; }
-
-      suggestionsDiv.innerHTML = matches.slice(0, 8).map(r =>
-        '<div style="padding:8px 12px; cursor:pointer; font-size:0.85rem; border-bottom:1px solid var(--color-border);" ' +
-        'onmouseover="this.style.background=\'rgba(201,168,76,0.1)\'" onmouseout="this.style.background=\'none\'" ' +
-        'onclick="selectRegion(\'' + r.id + '\')">' + r.name + '</div>'
-      ).join('');
-      suggestionsDiv.style.display = 'block';
+    // Zeichnen starten
+    document.getElementById('draw-rect-btn').addEventListener('click', function() {
+      if (drawnRects.length >= 3) { alert('Maximal 3 Gebiete!'); return; }
+      isDrawing = true;
+      map.dragging.disable();
+      document.getElementById('map-container').style.cursor = 'crosshair';
+      this.textContent = '📍 Klicke auf Startpunkt...';
+      this.style.background = '#ff69b4';
     });
 
-    // Klick ausserhalb schliesst Suggestions
-    document.addEventListener('click', function(e) {
-      if (!e.target.closest('#region-search-group')) suggestionsDiv.style.display = 'none';
+    map.on('mousedown', function(e) {
+      if (!isDrawing) return;
+      drawStart = e.latlng;
+      drawPreview = L.rectangle([drawStart, drawStart], {
+        color: NEON_PINK, weight: 2, fillColor: NEON_PINK, fillOpacity: 0.15, dashArray: '6,4'
+      }).addTo(map);
     });
 
-    function selectRegion(regionId) {
-      const region = REGIONS.find(r => r.id === regionId);
-      if (!region || selectedRegions.has(regionId)) return;
+    map.on('mousemove', function(e) {
+      if (!isDrawing || !drawStart || !drawPreview) return;
+      drawPreview.setBounds([drawStart, e.latlng]);
+    });
 
-      selectedRegions.set(regionId, region);
-      suggestionsDiv.style.display = 'none';
-      searchInput.value = '';
+    map.on('mouseup', function(e) {
+      if (!isDrawing || !drawStart) return;
+      isDrawing = false;
+      map.dragging.enable();
+      document.getElementById('map-container').style.cursor = '';
+      var btn = document.getElementById('draw-rect-btn');
+      btn.textContent = '✏️ Gebiet zeichnen';
+      btn.style.background = NEON_PINK;
 
-      // Hex-Keys für diese Region berechnen
-      const colSpacing = 1.5 * S_LNG;
-      const rowSpacing = Math.sqrt(3) * S_LAT;
-      for (let lat = region.latMin; lat <= region.latMax; lat += rowSpacing * 0.8) {
-        for (let lng = region.lngMin; lng <= region.lngMax; lng += colSpacing * 0.8) {
-          const hex = getHexCell(lat, lng);
-          const key = getHexKey(hex.col, hex.row);
-          if (!selectedHexes.has(key)) {
-            selectedHexes.set(key, true);
-          }
-        }
+      if (drawPreview) map.removeLayer(drawPreview);
+      drawPreview = null;
+
+      // Mindestgrösse prüfen (nicht zu klein)
+      var bounds = L.latLngBounds(drawStart, e.latlng);
+      if (Math.abs(bounds.getNorth() - bounds.getSouth()) < 0.02 || Math.abs(bounds.getEast() - bounds.getWest()) < 0.02) {
+        drawStart = null;
+        return; // Zu klein, ignorieren
       }
 
-      // Rechteck auf Karte zeichnen
-      const rect = L.rectangle(
-        [[region.latMin, region.lngMin], [region.latMax, region.lngMax]],
-        { color: '#c9a84c', weight: 2, fillColor: '#c9a84c', fillOpacity: 0.2 }
-      );
-      hexLayer.addLayer(rect);
-      regionRects.set(regionId, rect);
+      // Rechteck zeichnen
+      var rect = L.rectangle(bounds, {
+        color: NEON_PINK, weight: 3, fillColor: NEON_PINK, fillOpacity: 0.12, dashArray: '8,4'
+      }).addTo(map);
 
-      // Karte auf Region zoomen
-      map.fitBounds(rect.getBounds().pad(0.3));
+      // X-Button zum Löschen
+      var center = bounds.getCenter();
+      var marker = L.marker(center, {
+        icon: L.divIcon({
+          className: '', iconSize: [24, 24], iconAnchor: [12, 12],
+          html: '<div style="width:24px;height:24px;background:rgba(0,0,0,0.7);border:2px solid ' + NEON_PINK + ';border-radius:50%;color:' + NEON_PINK + ';display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;font-weight:bold;" onclick="removeRect(' + drawnRects.length + ')">×</div>'
+        })
+      }).addTo(map);
 
-      updateRegionUI();
-    }
+      drawnRects.push({ rect: rect, marker: marker, bounds: bounds });
+      drawStart = null;
+      recalcHexKeys();
+    });
 
-    function removeRegion(regionId) {
-      if (regionRects.has(regionId)) {
-        hexLayer.removeLayer(regionRects.get(regionId));
-        regionRects.delete(regionId);
+    // Rechteck entfernen
+    window.removeRect = function(idx) {
+      if (drawnRects[idx]) {
+        map.removeLayer(drawnRects[idx].rect);
+        map.removeLayer(drawnRects[idx].marker);
+        drawnRects.splice(idx, 1);
+        // Marker-Indices neu setzen (onclick)
+        drawnRects.forEach(function(r, i) {
+          var center = r.bounds.getCenter();
+          map.removeLayer(r.marker);
+          r.marker = L.marker(center, {
+            icon: L.divIcon({
+              className: '', iconSize: [24, 24], iconAnchor: [12, 12],
+              html: '<div style="width:24px;height:24px;background:rgba(0,0,0,0.7);border:2px solid ' + NEON_PINK + ';border-radius:50%;color:' + NEON_PINK + ';display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;font-weight:bold;" onclick="removeRect(' + i + ')">×</div>'
+            })
+          }).addTo(map);
+        });
+        recalcHexKeys();
       }
-      selectedRegions.delete(regionId);
+    };
 
-      // Hex-Keys neu berechnen (aus verbleibenden Regionen)
+    // Alle löschen
+    document.getElementById('clear-rects-btn').addEventListener('click', function() {
+      drawnRects.forEach(function(r) { map.removeLayer(r.rect); map.removeLayer(r.marker); });
+      drawnRects.length = 0;
       selectedHexes.clear();
-      const colSpacing = 1.5 * S_LNG;
-      const rowSpacing = Math.sqrt(3) * S_LAT;
-      for (const [, region] of selectedRegions) {
-        for (let lat = region.latMin; lat <= region.latMax; lat += rowSpacing * 0.8) {
-          for (let lng = region.lngMin; lng <= region.lngMax; lng += colSpacing * 0.8) {
-            const hex = getHexCell(lat, lng);
+      updateRegionCount();
+    });
+
+    // Hex-Keys aus Rechtecken berechnen
+    function recalcHexKeys() {
+      selectedHexes.clear();
+      var colSpacing = 1.5 * S_LNG;
+      var rowSpacing = Math.sqrt(3) * S_LAT;
+      drawnRects.forEach(function(r) {
+        var b = r.bounds;
+        for (var lat = b.getSouth(); lat <= b.getNorth(); lat += rowSpacing * 0.8) {
+          for (var lng = b.getWest(); lng <= b.getEast(); lng += colSpacing * 0.8) {
+            var hex = getHexCell(lat, lng);
             selectedHexes.set(getHexKey(hex.col, hex.row), true);
           }
         }
-      }
-      updateRegionUI();
+      });
+      updateRegionCount();
     }
 
-    function updateRegionUI() {
-      // Chips
-      const chipsEl = document.getElementById('selected-regions');
-      chipsEl.innerHTML = Array.from(selectedRegions.values()).map(r =>
-        '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(201,168,76,0.15);border:1px solid var(--color-gold);border-radius:20px;font-size:0.8rem;color:var(--color-gold);">' +
-        r.name + ' <span onclick="removeRegion(\'' + r.id + '\')" style="cursor:pointer;font-size:1rem;line-height:1;">&times;</span></span>'
-      ).join('');
-
-      // Counter
+    function updateRegionCount() {
       document.getElementById('region-count').textContent =
-        selectedRegions.size + ' Regionen ausgewählt (' + selectedHexes.size + ' Hex-Gebiete)';
+        drawnRects.length + ' Gebiet' + (drawnRects.length !== 1 ? 'e' : '') + ' markiert (max. 3) — ' + selectedHexes.size + ' Hex-Zellen';
     }
 
     // "Alle Alpen" Toggle
     document.getElementById('all-regions').addEventListener('change', function() {
-      const mapEl = document.getElementById('map-container');
-      const searchGroup = document.getElementById('region-search-group');
-      const chipsEl = document.getElementById('selected-regions');
-      const countEl = document.getElementById('region-count');
+      var wrapper = document.getElementById('map-wrapper');
+      var countEl = document.getElementById('region-count');
       if (this.checked) {
-        mapEl.style.opacity = '0.3'; mapEl.style.pointerEvents = 'none';
-        searchGroup.style.display = 'none'; chipsEl.style.display = 'none';
+        wrapper.style.opacity = '0.3'; wrapper.style.pointerEvents = 'none';
         countEl.textContent = 'Gesamter Alpenraum ausgewählt';
       } else {
-        mapEl.style.opacity = '1'; mapEl.style.pointerEvents = 'auto';
-        searchGroup.style.display = 'block'; chipsEl.style.display = 'flex';
-        updateRegionUI();
+        wrapper.style.opacity = '1'; wrapper.style.pointerEvents = 'auto';
+        updateRegionCount();
       }
     });
+
+    // Touch-Support für Mobile
+    map.on('touchstart', function(e) {
+      if (!isDrawing || e.originalEvent.touches.length !== 1) return;
+      var touch = e.originalEvent.touches[0];
+      var latlng = map.containerPointToLatLng([touch.clientX - map.getContainer().getBoundingClientRect().left, touch.clientY - map.getContainer().getBoundingClientRect().top]);
+      drawStart = latlng;
+      drawPreview = L.rectangle([drawStart, drawStart], { color: NEON_PINK, weight: 2, fillColor: NEON_PINK, fillOpacity: 0.15 }).addTo(map);
+    });
+    map.on('touchmove', function(e) {
+      if (!isDrawing || !drawStart || !drawPreview) return;
+      e.originalEvent.preventDefault();
+      var touch = e.originalEvent.touches[0];
+      var latlng = map.containerPointToLatLng([touch.clientX - map.getContainer().getBoundingClientRect().left, touch.clientY - map.getContainer().getBoundingClientRect().top]);
+      drawPreview.setBounds([drawStart, latlng]);
+    });
+    map.on('touchend', function(e) {
+      if (!isDrawing || !drawStart) return;
+      // Simuliere mouseup mit letzter Position
+      map.fire('mouseup', { latlng: drawPreview ? drawPreview.getBounds().getNorthEast() : drawStart });
+    });
+
+    // (Regionen-Logik ist oben im Rechteck-Zeichner integriert)
 
     // =========================================================================
     // Bild-Upload Helfer
