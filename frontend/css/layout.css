@@ -284,25 +284,25 @@
   100% { transform: translateX(-50%); }
 }
 
-/* Sponsor-Ticker — eigene Zeile unter dem Header */
+/* Sponsor-Ticker im Header (zwischen Logo und User-Bereich) */
 .sponsor-header-ticker {
-  width: 100%;
+  flex: 1;
   overflow: hidden;
-  height: 36px;
-  background: rgba(0,0,0,0.4);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin: 0 1rem;
+  height: 100%;
   display: flex;
   align-items: center;
 }
 .sponsor-header-ticker .sponsor-ticker-track {
   gap: 3rem;
-  animation-duration: 15s;
+  animation-duration: 12s;
 }
 .sponsor-header-ticker .sponsor-ticker-item {
   font-size: 0.85rem;
   gap: 8px;
   white-space: nowrap;
   color: var(--color-text);
+  opacity: 0.9;
 }
 .sponsor-header-ticker .sponsor-ticker-item img {
   height: 22px;
@@ -312,6 +312,11 @@
 .sponsor-header-ticker .sponsor-ticker-item .sponsor-prize {
   color: var(--color-gold);
   font-size: 0.8rem;
+}
+@media (max-width: 500px) {
+  .sponsor-header-ticker .sponsor-ticker-item { font-size: 0.7rem; }
+  .sponsor-header-ticker .sponsor-ticker-item img { height: 16px; }
+  .sponsor-header-ticker { margin: 0 0.3rem; }
 }
 
 .app-header-user {
