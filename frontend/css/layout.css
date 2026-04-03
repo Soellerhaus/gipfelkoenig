@@ -256,6 +256,58 @@
   pointer-events: none;
 }
 
+/* Sponsor-Ticker (Landing Page + App Header) */
+.sponsor-ticker-wrapper {
+  overflow: hidden;
+  position: relative;
+}
+.sponsor-ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  animation: sponsorScroll 30s linear infinite;
+  width: max-content;
+}
+.sponsor-ticker-item {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.sponsor-ticker-item:hover { opacity: 1; }
+@keyframes sponsorScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Sponsor-Ticker im App Header */
+.sponsor-header-ticker {
+  flex: 1;
+  overflow: hidden;
+  margin: 0 0.5rem;
+  height: 28px;
+}
+.sponsor-header-ticker .sponsor-ticker-track {
+  gap: 1.5rem;
+  animation-duration: 20s;
+}
+.sponsor-header-ticker .sponsor-ticker-item {
+  font-size: 0.65rem;
+  gap: 4px;
+}
+.sponsor-header-ticker .sponsor-ticker-item img {
+  height: 18px;
+  max-width: 60px;
+  object-fit: contain;
+}
+@media (max-width: 480px) {
+  .sponsor-header-ticker { display: none; }
+}
+
 .app-header-user {
   display: flex;
   align-items: center;

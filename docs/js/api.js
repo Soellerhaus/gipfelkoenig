@@ -308,3 +308,21 @@ GK.api.getBadges = async function (userId) {
     return [];
   }
 };
+
+/**
+ * Aktive Sponsoren abrufen.
+ * @returns {Promise<Array>} Liste aktiver Sponsoren
+ */
+GK.api.getActiveSponsors = async function () {
+  try {
+    const { data, error } = await supabaseClient
+      .from('sponsors')
+      .select('id, company_name, logo_url, website_url, product_url, prize_name, prize_description, prize_image_url, hex_regions, all_regions');
+
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('Fehler beim Laden der Sponsoren:', err);
+    return [];
+  }
+};

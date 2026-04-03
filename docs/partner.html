@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partner werden — Bergkönig</title>
+  <meta name="description" content="Werde Partner von Bergkönig. Dein Unternehmen. Deine Region. Dein Preis an der Bergspitze.">
+  <meta name="theme-color" content="#d4a24c">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div class="auth-page" style="max-width: 720px;">
+    <a href="/index.html" class="auth-logo brand-name">Berg<span class="brand-king">könig</span></a>
+
+    <div class="auth-card">
+      <h1 style="text-align: center; margin-bottom: 0.25rem;">Werde Partner</h1>
+      <p style="color: var(--color-muted); text-align: center; margin-bottom: 1.5rem; font-size: 0.9rem;">
+        Dein Unternehmen. Deine Region. Dein Preis an der Bergspitze.
+      </p>
+
+      <form id="partner-form">
+        <!-- UNTERNEHMEN -->
+        <h3 style="font-family: var(--font-display); font-size: 1rem; margin-bottom: 0.5rem; color: var(--color-gold);">Unternehmen</h3>
+        <div class="form-group">
+          <label class="form-label" for="company_name">Firmenname *</label>
+          <input class="form-input" type="text" id="company_name" required placeholder="z.B. Alpensport GmbH">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="contact_name">Ansprechperson *</label>
+          <input class="form-input" type="text" id="contact_name" required placeholder="Vor- und Nachname">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="contact_email">E-Mail *</label>
+          <input class="form-input" type="email" id="contact_email" required placeholder="partner@firma.at">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="website_url">Website</label>
+          <input class="form-input" type="url" id="website_url" placeholder="https://www.firma.at">
+        </div>
+
+        <!-- LOGO -->
+        <h3 style="font-family: var(--font-display); font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--color-gold);">Logo</h3>
+        <div class="form-group">
+          <label class="avatar-upload-label" for="logo-file" style="cursor:pointer;">📷 Logo hochladen</label>
+          <input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;">
+          <img id="logo-preview" style="display:none; max-height:80px; margin-top:0.5rem; border-radius:8px;">
+          <p class="form-hint">PNG, JPG, SVG — max 2 MB</p>
+        </div>
+
+        <!-- PREIS -->
+        <h3 style="font-family: var(--font-display); font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--color-gold);">Preis für die Verlosung</h3>
+        <div class="form-group">
+          <label class="form-label" for="prize_name">Preis-Name *</label>
+          <input class="form-input" type="text" id="prize_name" required placeholder="z.B. Trekking-Rucksack 45L">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="prize_description">Beschreibung</label>
+          <textarea class="form-input" id="prize_description" rows="3" placeholder="Was genau wird verlost?"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="prize_value">Wert (ca.)</label>
+          <input class="form-input" type="text" id="prize_value" placeholder="z.B. € 149">
+        </div>
+        <div class="form-group">
+          <label class="avatar-upload-label" for="prize-image-file" style="cursor:pointer;">📷 Preis-Bild hochladen</label>
+          <input type="file" id="prize-image-file" accept="image/png,image/jpeg,image/webp" style="display:none;">
+          <img id="prize-preview" style="display:none; max-height:120px; margin-top:0.5rem; border-radius:8px;">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="product_url">Produkt-Link (optional)</label>
+          <input class="form-input" type="url" id="product_url" placeholder="https://shop.firma.at/produkt">
+          <p class="form-hint">Direkter Link zum Produkt — Spieler können es auch kaufen.</p>
+        </div>
+
+        <!-- REGIONEN -->
+        <h3 style="font-family: var(--font-display); font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--color-gold);">Deine Regionen</h3>
+        <p class="form-hint" style="margin-bottom: 0.5rem;">Wähle auf der Karte die Hex-Gebiete aus, in denen deine Werbung erscheinen soll. Oder wähle "Gesamter Alpenraum".</p>
+
+        <div class="form-group">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="all-regions">
+            <span style="color: var(--color-gold); font-weight: 500;">Gesamter Alpenraum</span>
+          </label>
+        </div>
+
+        <div id="map-container" style="height: 300px; border-radius: 10px; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.1);"></div>
+        <p id="region-count" style="font-size: 0.82rem; color: var(--color-muted);">0 Regionen ausgewählt</p>
+
+        <!-- VERTRAG -->
+        <div style="margin-top: 1.5rem; padding: 12px; border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; background: rgba(255,215,0,0.03);">
+          <label style="display:flex; gap:10px; cursor:pointer; align-items:flex-start;">
+            <input type="checkbox" id="contract-accept" required style="margin-top:4px;">
+            <span style="font-size: 0.85rem; color: var(--color-muted); line-height: 1.5;">
+              Ich bestätige, dass der angegebene Preis im Gewinnfall an den Gewinner ausgehändigt wird.
+              Ich akzeptiere die <a href="/teilnahmebedingungen.html" target="_blank">Teilnahmebedingungen</a> und
+              <a href="/datenschutz.html" target="_blank">Datenschutzerklärung</a> von Bergkönig.
+            </span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn" style="margin-top: 1.5rem;">
+          Partner-Antrag einreichen
+        </button>
+
+        <p id="submit-error" style="color: var(--color-danger); font-size: 0.85rem; margin-top: 0.75rem; display: none;"></p>
+        <p id="submit-success" style="color: var(--color-safe); font-size: 0.85rem; margin-top: 0.75rem; display: none;"></p>
+      </form>
+    </div>
+
+    <div class="auth-footer">
+      <a href="/impressum.html">Impressum</a> · <a href="/datenschutz.html">Datenschutz</a>
+    </div>
+  </div>
+
+  <script src="./js/api.js"></script>
+  <script>
+    // =========================================================================
+    // Hex-Grid Konstanten (IDENTISCH mit map.js — NICHT ÄNDERN!)
+    // =========================================================================
+    const HEX_SIZE_KM = 5;
+    const LAT_KM = 111.32;
+    const LNG_KM = 75.9;
+    const S_LAT = HEX_SIZE_KM / LAT_KM;
+    const S_LNG = HEX_SIZE_KM / LNG_KM;
+
+    function getHexCell(lat, lng) {
+      const colSpacing = 1.5 * S_LNG;
+      const rowSpacing = Math.sqrt(3) * S_LAT;
+      const col = Math.round(lng / colSpacing);
+      const rowOffset = (col % 2 !== 0) ? rowSpacing / 2 : 0;
+      const row = Math.round((lat - rowOffset) / rowSpacing);
+      const centerLng = col * colSpacing;
+      const centerLat = row * rowSpacing + rowOffset;
+      return { col, row, centerLat, centerLng };
+    }
+
+    function getHexKey(col, row) { return col + ',' + row; }
+
+    function getHexPolygon(centerLat, centerLng) {
+      const points = [];
+      for (let i = 0; i < 6; i++) {
+        const angleDeg = 60 * i;
+        const angleRad = angleDeg * Math.PI / 180;
+        points.push([centerLat + S_LAT * Math.sin(angleRad), centerLng + S_LNG * Math.cos(angleRad)]);
+      }
+      return points;
+    }
+
+    // =========================================================================
+    // Mini-Karte für Regionen-Auswahl
+    // =========================================================================
+    const selectedHexes = new Map(); // key → L.polygon
+    const hexLayer = L.layerGroup();
+
+    const map = L.map('map-container').setView([47.0, 11.5], 7);
+    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 15 }).addTo(map);
+    hexLayer.addTo(map);
+
+    map.on('click', function(e) {
+      if (document.getElementById('all-regions').checked) return;
+      const hex = getHexCell(e.latlng.lat, e.latlng.lng);
+      const key = getHexKey(hex.col, hex.row);
+
+      if (selectedHexes.has(key)) {
+        // Deselektieren
+        hexLayer.removeLayer(selectedHexes.get(key));
+        selectedHexes.delete(key);
+      } else {
+        // Selektieren
+        const corners = getHexPolygon(hex.centerLat, hex.centerLng);
+        const polygon = L.polygon(corners, {
+          color: '#c9a84c', weight: 2, fillColor: '#c9a84c', fillOpacity: 0.3
+        });
+        hexLayer.addLayer(polygon);
+        selectedHexes.set(key, polygon);
+      }
+      document.getElementById('region-count').textContent = selectedHexes.size + ' Regionen ausgewählt';
+    });
+
+    // "Alle Alpen" Toggle
+    document.getElementById('all-regions').addEventListener('change', function() {
+      const mapEl = document.getElementById('map-container');
+      const countEl = document.getElementById('region-count');
+      if (this.checked) {
+        mapEl.style.opacity = '0.3';
+        mapEl.style.pointerEvents = 'none';
+        countEl.textContent = 'Gesamter Alpenraum ausgewählt';
+      } else {
+        mapEl.style.opacity = '1';
+        mapEl.style.pointerEvents = 'auto';
+        countEl.textContent = selectedHexes.size + ' Regionen ausgewählt';
+      }
+    });
+
+    // =========================================================================
+    // Bild-Upload Helfer
+    // =========================================================================
+    let logoFile = null, prizeImageFile = null;
+
+    document.getElementById('logo-file').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { alert('Max 2 MB'); return; }
+      logoFile = file;
+      const preview = document.getElementById('logo-preview');
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+    });
+
+    document.getElementById('prize-image-file').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { alert('Max 2 MB'); return; }
+      prizeImageFile = file;
+      const preview = document.getElementById('prize-preview');
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+    });
+
+    async function uploadFile(file, folder) {
+      const ext = file.name.split('.').pop();
+      const path = folder + '/' + crypto.randomUUID() + '.' + ext;
+      const { error } = await GK.supabase.storage.from('SPONSORS').upload(path, file, { upsert: true });
+      if (error) throw new Error('Upload fehlgeschlagen: ' + error.message);
+      const { data } = GK.supabase.storage.from('SPONSORS').getPublicUrl(path);
+      return data.publicUrl;
+    }
+
+    // =========================================================================
+    // Formular absenden
+    // =========================================================================
+    document.getElementById('partner-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const errEl = document.getElementById('submit-error');
+      const successEl = document.getElementById('submit-success');
+      const btn = document.getElementById('submit-btn');
+      errEl.style.display = 'none';
+
+      btn.disabled = true;
+      btn.textContent = 'Wird gesendet...';
+
+      try {
+        // Bilder hochladen
+        let logoUrl = null, prizeImageUrl = null;
+        if (logoFile) logoUrl = await uploadFile(logoFile, 'logos');
+        if (prizeImageFile) prizeImageUrl = await uploadFile(prizeImageFile, 'prizes');
+
+        // Hex-Regionen sammeln
+        const allRegions = document.getElementById('all-regions').checked;
+        const hexRegions = allRegions ? [] : Array.from(selectedHexes.keys());
+
+        // Edge Function aufrufen
+        const { data, error } = await GK.supabase.functions.invoke('submit-sponsor', {
+          body: {
+            company_name: document.getElementById('company_name').value,
+            contact_name: document.getElementById('contact_name').value,
+            contact_email: document.getElementById('contact_email').value,
+            website_url: document.getElementById('website_url').value || null,
+            product_url: document.getElementById('product_url').value || null,
+            logo_url: logoUrl,
+            prize_name: document.getElementById('prize_name').value,
+            prize_description: document.getElementById('prize_description').value || null,
+            prize_value: document.getElementById('prize_value').value || null,
+            prize_image_url: prizeImageUrl,
+            hex_regions: hexRegions,
+            all_regions: allRegions,
+            contract_accepted: document.getElementById('contract-accept').checked
+          }
+        });
+
+        if (error || (data && data.error)) {
+          throw new Error(data?.error || error?.message || 'Unbekannter Fehler');
+        }
+
+        // Erfolg
+        document.getElementById('partner-form').style.display = 'none';
+        successEl.innerHTML = '<strong>Vielen Dank!</strong><br>Dein Partner-Antrag wurde eingereicht. Wir prüfen ihn und melden uns per E-Mail bei dir.<br><br><a href="/index.html">Zurück zur Startseite</a>';
+        successEl.style.display = 'block';
+
+      } catch (err) {
+        errEl.textContent = err.message || 'Fehler beim Senden';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Partner-Antrag einreichen';
+      }
+    });
+  </script>
+</body>
+</html>

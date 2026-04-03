@@ -1689,5 +1689,36 @@ document.addEventListener('DOMContentLoaded', async function () {
       return;
     }
     initAppPage();
+    loadSponsorTicker();
   }
 });
+
+// Sponsor-Ticker im App Header laden
+async function loadSponsorTicker() {
+  const container = document.getElementById('sponsor-header-ticker');
+  if (!container) return;
+  try {
+    const { data: sponsors } = await GK.supabase
+      .from('sponsors')
+      .select('company_name, logo_url, website_url, product_url, prize_name')
+      .eq('status', 'active');
+
+    if (!sponsors || sponsors.length === 0) { container.style.display = 'none'; return; }
+
+    // Cache für Karten-Overlay
+    GK.map = GK.map || {};
+    GK.map._sponsors = sponsors;
+
+    const items = [...sponsors, ...sponsors]; // Doppelt für nahtlosen Loop
+    const track = document.createElement('div');
+    track.className = 'sponsor-ticker-track';
+    track.innerHTML = items.map(function(s) {
+      var link = s.product_url || s.website_url || '#';
+      var logo = s.logo_url ? '<img src="' + s.logo_url + '">' : '';
+      return '<a href="' + link + '" target="_blank" class="sponsor-ticker-item">' + logo + '<span>' + s.prize_name + '</span></a>';
+    }).join('');
+    container.appendChild(track);
+  } catch (e) {
+    console.warn('Sponsor-Ticker Fehler:', e);
+  }
+}
