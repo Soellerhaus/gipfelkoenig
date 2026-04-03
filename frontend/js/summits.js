@@ -283,7 +283,10 @@ async function loadMySummits(season) {
   const container = document.getElementById('my-peaks-grid');
   if (!container) return;
 
-  if (!summits || summits.length === 0) {
+  // Einträge ohne Gipfel (peak_id=null) rausfiltern — die sind nur für HM/km Tracking
+  summits = (summits || []).filter(s => s.peak_id !== null);
+
+  if (summits.length === 0) {
     container.innerHTML = `<p class="empty-state">Noch keine Besteigungen${targetSeason ? ' in der Saison ' + targetSeason : ''}.</p>`;
     return;
   }

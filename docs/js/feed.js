@@ -17,6 +17,7 @@ async function loadFeed() {
     const { data: summits, error } = await GK.supabase
       .from('summits')
       .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first, elevation_gain, distance')
+      .not('peak_id', 'is', null)
       .order('summited_at', { ascending: false })
       .limit(30);
 
