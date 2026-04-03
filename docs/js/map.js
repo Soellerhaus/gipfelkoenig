@@ -754,13 +754,11 @@ async function loadTerritories() {
       });
       territoryLayer.addLayer(polygon);
 
-      // Profilbild so gross wie das Hexagon (Pixel-Grösse aus Geo-Koordinaten)
-      // Flat-top Hex: Breite = 2*r, Höhe = sqrt(3)*r
+      // Profilbild als Badge im Hex-Zentrum (40% des Hex-Durchmessers)
       const centerPx = map.latLngToLayerPoint([center.centerLat, center.centerLng]);
       const cornerPx = map.latLngToLayerPoint(corners[0]);
       const hexRadiusPx = Math.sqrt(Math.pow(cornerPx.x - centerPx.x, 2) + Math.pow(cornerPx.y - centerPx.y, 2));
-      // iconSize = Breite des Hex (2*r), clip-path schneidet es auf die richtige Form
-      const iconSize = Math.round(hexRadiusPx * 2);
+      const iconSize = Math.max(24, Math.min(56, Math.round(hexRadiusPx * 0.8)));
 
       if (iconSize < 20) continue; // Zu klein zum Anzeigen
 
