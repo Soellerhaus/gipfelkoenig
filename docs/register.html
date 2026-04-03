@@ -113,8 +113,8 @@
         return;
       }
 
-      // Username aus E-Mail-Prefix generieren
-      const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 30);
+      // Username aus E-Mail-Prefix generieren (mit Zufallszahl falls vergeben)
+      let username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 25);
 
       registerBtn.disabled = true;
       registerBtn.textContent = 'Registriere...';
@@ -126,13 +126,21 @@
         });
         if (authError) throw authError;
 
-        const { error: profileError } = await GK.supabase.from('user_profiles').insert({
-          id: authData.user.id,
-          username,
-          avatar_type: 'mountain',
-          consent_given_at: new Date().toISOString(),
-          consent_version: '1.0'
-        });
+        // Profil anlegen — bei doppeltem Username Zufallszahl anhängen
+        let profileError;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const tryName = attempt === 0 ? username : username + Math.floor(Math.random() * 9999);
+          const result = await GK.supabase.from('user_profiles').insert({
+            id: authData.user.id,
+            username: tryName,
+            avatar_type: 'mountain',
+            consent_given_at: new Date().toISOString(),
+            consent_version: '1.0'
+          });
+          profileError = result.error;
+          if (!profileError) { username = tryName; break; }
+          if (!profileError.message.includes('username_key')) throw profileError;
+        }
         if (profileError) throw profileError;
 
         // Direkt weiter zu Strava/Suunto-Verbindung
