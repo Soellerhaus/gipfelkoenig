@@ -90,28 +90,64 @@ async function loadProfileForSeason(year) {
   }
   if (el('trophy-hm')) el('trophy-hm').textContent = yearHM.toLocaleString('de');
 
-  // Kronen berechnen: Prüfe auf welchen Gipfeln der User die meisten Besteigungen hat (König ist)
+  // Kronen berechnen: König bleibt bis jemand anderes den Berg in der neuen Saison besteigt
   let crownCount = 0;
   const userId = window._currentUserId;
-  const peakIds = [...new Set(seasonSummits.map(s => s.peak_id))];
-  if (userId && peakIds.length > 0) {
-    // Für jeden Gipfel des Users: Summits dieser Saison laden und prüfen ob User König ist
-    for (const pid of peakIds) {
-      const { data: allSummits } = await GK.supabase
+  const peakIds = [...new Set(seasonSummits.filter(s => s.peak_id).map(s => s.peak_id))];
+
+  // Auch Gipfel laden, auf denen der User im Vorjahr König war (Kronen-Übernahme)
+  const prevYear = (year - 1).toString();
+  let carryOverPeakIds = [];
+  if (userId) {
+    const { data: prevSummits } = await GK.supabase
+      .from('summits')
+      .select('peak_id')
+      .eq('user_id', userId)
+      .eq('season', prevYear)
+      .not('peak_id', 'is', null);
+    if (prevSummits) {
+      carryOverPeakIds = [...new Set(prevSummits.map(s => s.peak_id))].filter(pid => !peakIds.includes(pid));
+    }
+  }
+
+  const allCrownPeakIds = [...peakIds, ...carryOverPeakIds];
+
+  if (userId && allCrownPeakIds.length > 0) {
+    for (const pid of allCrownPeakIds) {
+      // Aktuelle Saison prüfen
+      const { data: currentSummits } = await GK.supabase
         .from('summits')
         .select('user_id')
         .eq('peak_id', pid)
         .eq('season', yearStr);
-      if (!allSummits || allSummits.length === 0) continue;
-      // Zähle Besteigungen pro User
-      const counts = {};
-      for (const s of allSummits) {
-        counts[s.user_id] = (counts[s.user_id] || 0) + 1;
-      }
-      const maxCount = Math.max(...Object.values(counts));
-      // User ist König wenn er die meisten Besteigungen hat (bei Gleichstand alle Könige)
-      if ((counts[userId] || 0) === maxCount) {
-        crownCount++;
+
+      if (currentSummits && currentSummits.length > 0) {
+        // Jemand war in dieser Saison dort → normal zählen
+        const counts = {};
+        for (const s of currentSummits) {
+          counts[s.user_id] = (counts[s.user_id] || 0) + 1;
+        }
+        const maxCount = Math.max(...Object.values(counts));
+        if ((counts[userId] || 0) === maxCount) {
+          crownCount++;
+        }
+      } else {
+        // Niemand war in dieser Saison dort → Vorjahres-König bleibt König
+        const { data: prevSeasonSummits } = await GK.supabase
+          .from('summits')
+          .select('user_id')
+          .eq('peak_id', pid)
+          .eq('season', prevYear);
+        if (prevSeasonSummits && prevSeasonSummits.length > 0) {
+          const counts = {};
+          for (const s of prevSeasonSummits) {
+            counts[s.user_id] = (counts[s.user_id] || 0) + 1;
+          }
+          const maxCount = Math.max(...Object.values(counts));
+          if ((counts[userId] || 0) === maxCount) {
+            crownCount++; // König vom Vorjahr bleibt!
+          }
+        }
       }
     }
   }

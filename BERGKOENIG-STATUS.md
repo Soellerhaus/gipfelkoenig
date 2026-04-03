@@ -100,13 +100,19 @@ SUUNTO_SUBSCRIPTION_KEY=b19a9773d9574f83a4e9d950c3ec9d5b
 4. STEIG IM RANG AUF — Neuling → Wanderer → Bergsteiger → Ritter → Baron → Graf → Herzog → Bergkönig
 5. VERTEIDIGE DEIN REICH — Andere können Kronen + Gebiete angreifen
 
-### Punkte-Formel
+### Punkte-Formel (EINHEITLICH überall!)
 Basis = HM/100 + km + 10 (Gipfelbonus)
+- Pionier (Erster der Saison): ×3
 - Erstbesuch: ×2
-- Wiederholung: ×0.2
+- Wiederholung: ×0.5
 - Frühaufsteher (<07:00): +15
-- Nachtwanderer (>20:00): +15
 - Combo (2+ Gipfel/Tag): +50%
+- Kein AT-08 Heimat-Bonus
+
+### Kronen-Regel
+- König = meiste Besteigungen auf einem Gipfel in der Saison
+- König vom Vorjahr BLEIBT König, bis jemand anderes den Berg in der neuen Saison besteigt
+- Bei Gleichstand: beide sind König
 
 ### Lose (NUR aktuelle Saison — verfallen am Jahresende!)
 - 1 Los pro Gipfel
@@ -157,5 +163,5 @@ Basis = HM/100 + km + 10 (Gipfelbonus)
 - Betreiber: Claudio Scheiwiller
 - Adresse: Schöntalweg 10, 6992 Hirschegg, Österreich
 - Email: claudio.scheiwiller@bergkoenig.app (Weiterleitung → claudio-sch@hotmail.com)
-- Supabase Access Token: sbp_64bb47cc198ca1dfc2226cbbf0740cd863b2eb68
+- Supabase Access Token: sbp_8661f991dc5e77813dad60705b92258e356979c6
 - Supabase Service Role Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndicnZrd2VlemJlYWtmcGhzc3hwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDA4OTg2MSwiZXhwIjoyMDg5NjY1ODYxfQ.rIP9qn1gsgAYg9BJE7VJFBbYm0-YBXABiHhUkOChSDc
