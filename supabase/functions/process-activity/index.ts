@@ -314,7 +314,69 @@ serve(async (req) => {
         .eq('id', user_id)
     }
 
-    // TODO: Push Notification senden
+    // Strava-Beschreibung ergänzen (nur wenn Gipfel gefunden + User hat strava_write opt-in)
+    if (summitResults.length > 0 && strava_token) {
+      try {
+        // Prüfe ob User Strava-Posting aktiviert hat (Default: true für neue User)
+        const { data: userSettings } = await supabase
+          .from('user_profiles')
+          .select('strava_post_summits')
+          .eq('id', user_id)
+          .single()
+
+        const postEnabled = userSettings?.strava_post_summits !== false // Default true
+
+        if (postEnabled) {
+          // Bestehende Beschreibung laden
+          const actRes = await fetch(`https://www.strava.com/api/v3/activities/${activity_id}`, {
+            headers: { 'Authorization': `Bearer ${strava_token}` }
+          })
+          const actData = await actRes.json()
+          const existingDesc = actData.description || ''
+
+          // Bergkönig-Text nur anhängen wenn noch nicht drin
+          if (!existingDesc.includes('bergkoenig.app')) {
+            // Text zusammenbauen
+            const peakLines = summitResults.map((s: any) => {
+              let line = `⛰️ ${s.peak} (${s.elevation}m) · +${s.points} Pkt`
+              if (s.isSeasonFirst) line += ' ⭐ Pionier'
+              return line
+            }).join('\n')
+
+            // Prüfe ob User auf einem Gipfel König geworden ist
+            let kingLine = ''
+            for (const s of summitResults) {
+              const peakId = [...foundPeaks.keys()].find(k => {
+                const p = foundPeaks.get(k)
+                return p !== undefined
+              })
+              // Vereinfacht: König-Status nur erwähnen wenn Punkte hoch
+              if (s.isSeasonFirst) kingLine = '👑 Neuer Bergkönig!'
+            }
+
+            const bergkoenigText = '\n---\n' + peakLines +
+              (kingLine ? '\n' + kingLine : '') +
+              '\n🏆 bergkoenig.app'
+
+            const newDesc = existingDesc + bergkoenigText
+
+            // Beschreibung updaten
+            await fetch(`https://www.strava.com/api/v3/activities/${activity_id}`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${strava_token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ description: newDesc })
+            })
+            console.log('Strava-Beschreibung aktualisiert für Aktivität', activity_id)
+          }
+        }
+      } catch (stravaErr) {
+        // Nicht kritisch — Gipfel wurden trotzdem gespeichert
+        console.warn('Strava-Beschreibung konnte nicht aktualisiert werden:', stravaErr)
+      }
+    }
 
     return new Response(JSON.stringify({
       message: `${summitResults.length} Gipfel verarbeitet`,

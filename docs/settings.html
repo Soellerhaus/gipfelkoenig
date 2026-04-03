@@ -182,6 +182,21 @@
         <p style="color: var(--color-muted); font-size: 0.8rem;">Verbunden seit: <span id="strava-connected-since">—</span></p>
         <button id="disconnect-strava-btn" class="btn btn-sm" style="color: var(--color-danger); border-color: var(--color-danger);">Strava trennen</button>
       </div>
+
+      <!-- Strava Posting Toggle -->
+      <div id="strava-posting-toggle" style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.08);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:0.85rem; color:var(--color-text);">Gipfel in Strava posten</div>
+            <div style="font-size:0.72rem; color:var(--color-muted);">Schreibt erkannte Gipfel + Punkte in die Aktivit&auml;ts-Beschreibung</div>
+          </div>
+          <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
+            <input type="checkbox" id="strava-post-toggle" checked style="opacity:0; width:0; height:0;">
+            <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.15); border-radius:12px; transition:0.3s;"></span>
+            <span id="strava-toggle-dot" style="position:absolute; top:2px; left:22px; width:20px; height:20px; background:var(--color-gold); border-radius:50%; transition:0.3s;"></span>
+          </label>
+        </div>
+      </div>
     </div>
 
     <!-- GPX/CSV UPLOAD -->
@@ -272,7 +287,7 @@
 
       const { data: profile } = await GK.supabase
         .from('user_profiles')
-        .select('username, avatar_type, avatar_url, territory_color, strava_token, strava_connected_at, suunto_token, suunto_connected_at')
+        .select('username, avatar_type, avatar_url, territory_color, strava_token, strava_connected_at, strava_post_summits, suunto_token, suunto_connected_at')
         .eq('id', currentUser.id)
         .single();
 
@@ -382,7 +397,7 @@
         '?client_id=' + STRAVA_CLIENT_ID +
         '&redirect_uri=' + encodeURIComponent(redirectUri) +
         '&response_type=code' +
-        '&scope=activity:read_all' +
+        '&scope=read,activity:read_all,activity:write' +
         '&state=' + state +
         '&approval_prompt=auto';
     };
@@ -473,6 +488,26 @@
       document.getElementById('strava-connected').style.display = 'none';
       document.getElementById('strava-not-connected').style.display = 'block';
     });
+
+    // Strava Posting Toggle
+    var postToggle = document.getElementById('strava-post-toggle');
+    var toggleDot = document.getElementById('strava-toggle-dot');
+    if (postToggle) {
+      // Initial-Wert laden
+      if (profile && profile.strava_post_summits === false) {
+        postToggle.checked = false;
+        toggleDot.style.left = '2px';
+        toggleDot.style.background = '#666';
+      }
+      postToggle.addEventListener('change', async function() {
+        var enabled = postToggle.checked;
+        toggleDot.style.left = enabled ? '22px' : '2px';
+        toggleDot.style.background = enabled ? 'var(--color-gold)' : '#666';
+        await GK.supabase.from('user_profiles').update({
+          strava_post_summits: enabled
+        }).eq('id', currentUser.id);
+      });
+    }
 
     // Suunto OAuth starten — globale Funktion für Quick-Button + normalen Button
     window.startSuuntoOAuth = function() {

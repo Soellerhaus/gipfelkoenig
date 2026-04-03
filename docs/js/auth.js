@@ -397,7 +397,7 @@ const STRAVA_AUTH_URL =
   '?client_id=' + STRAVA_CLIENT_ID +
   '&redirect_uri=' + encodeURIComponent(STRAVA_REDIRECT_URI) +
   '&response_type=code' +
-  '&scope=read,activity:read_all';
+  '&scope=read,activity:read_all,activity:write';
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktionen für UI-Meldungen
