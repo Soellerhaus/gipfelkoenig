@@ -43,9 +43,9 @@ async function loadProfileForSeason(year) {
   if (el('stat-crowns')) el('stat-crowns').textContent = '0';
   if (el('season-summits')) el('season-summits').textContent = seasonUnique;
   if (el('season-points')) el('season-points').textContent = seasonPts.toLocaleString('de');
-  // Header-Punkte auf aktuelle Saison setzen (nicht total_points)
-  const punkteEl = document.querySelector('.header-points');
-  if (punkteEl) punkteEl.textContent = seasonPts.toLocaleString('de') + ' Pkt';
+  // Header-Punkte auf aktuelle Saison setzen
+  const headerPunkteEl = document.getElementById('user-points');
+  if (headerPunkteEl) headerPunkteEl.textContent = seasonPts.toLocaleString('de') + ' Pkt';
 
   // HM berechnen — dedupliziert nach Aktivität
   let seasonHM = 0;
@@ -206,6 +206,7 @@ async function loadProfileForSeason(year) {
 
   const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
   setEl('tickets-total', total);
+  setEl('header-lose', total > 0 ? total + ' Lose' : '');
   setEl('tickets-gipfel', gipfelLose);
   setEl('lose-gipfel-count', seasonUnique);
   setEl('tickets-koenig', koenigLose);
@@ -599,7 +600,7 @@ async function initAppPage() {
         nameEl.textContent = avatarEmoji || (profil.username || 'B').charAt(0).toUpperCase();
       }
     }
-    if (punkteEl) punkteEl.textContent = (profil.total_points || 0).toLocaleString('de') + ' Pkt';
+    // Punkte werden von loadProfileForSeason auf Saison-Punkte gesetzt (nicht hier)
 
     // Laufenden Import erkennen (bei Seiten-Reload während Import)
     if ((profil.import_status === 'importing' || profil.import_status === 'pending') && profil.strava_token) {
