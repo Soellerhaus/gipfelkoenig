@@ -754,11 +754,11 @@ async function loadTerritories() {
       });
       territoryLayer.addLayer(polygon);
 
-      // Profilbild als Badge im Hex-Zentrum (40% des Hex-Durchmessers)
+      // Profilbild füllt das ganze Hexagon aus
       const centerPx = map.latLngToLayerPoint([center.centerLat, center.centerLng]);
       const cornerPx = map.latLngToLayerPoint(corners[0]);
       const hexRadiusPx = Math.sqrt(Math.pow(cornerPx.x - centerPx.x, 2) + Math.pow(cornerPx.y - centerPx.y, 2));
-      const iconSize = Math.max(24, Math.min(56, Math.round(hexRadiusPx * 0.8)));
+      const iconSize = Math.round(hexRadiusPx * 2);
 
       if (iconSize < 20) continue; // Zu klein zum Anzeigen
 
