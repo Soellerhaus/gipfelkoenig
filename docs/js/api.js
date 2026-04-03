@@ -34,7 +34,7 @@ GK.api.getPeaks = async function (bounds) {
     const { data, error } = await supabaseClient
       .from('peaks')
       .select('*')
-      .eq('reachable', true)
+      .neq('reachable', false)
       .gte('lat', bounds.south)
       .lte('lat', bounds.north)
       .gte('lng', bounds.west)

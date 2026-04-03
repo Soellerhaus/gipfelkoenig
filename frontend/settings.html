@@ -64,7 +64,7 @@
           <input type="file" id="avatar-file-settings" accept="image/png,image/jpeg,image/webp" style="display:none;">
         </div>
       </div>
-      <img id="avatar-preview-settings" class="avatar-upload-preview" alt="Vorschau" style="margin-bottom: 0.5rem;">
+      <img id="avatar-preview-settings" class="avatar-upload-preview" alt="Vorschau" style="margin-bottom: 0.5rem; display: none;">
       <p class="avatar-upload-hint">Max. 2 MB — PNG, JPG oder WebP</p>
       <button id="save-avatar-btn" class="btn btn-primary btn-sm" style="margin-top: 0.5rem; display: none;">Profilbild speichern</button>
       <p id="avatar-message" style="margin-top: 0.5rem; font-size: 0.85rem; display: none;"></p>
@@ -850,11 +850,11 @@
       var preview = document.getElementById('avatar-preview-settings');
       var saveBtn = document.getElementById('save-avatar-btn');
       var msgEl = document.getElementById('avatar-message');
-      if (!file) { preview.classList.remove('visible'); saveBtn.style.display = 'none'; selectedAvatarFile = null; return; }
+      if (!file) { preview.style.display = 'none'; saveBtn.style.display = 'none'; selectedAvatarFile = null; return; }
       selectedAvatarFile = file;
       // Vorschau direkt anzeigen
       preview.src = URL.createObjectURL(file);
-      preview.classList.add('visible');
+      preview.style.display = 'block';
       saveBtn.style.display = 'inline-block';
       if (msgEl) { msgEl.style.display = 'none'; }
     });
@@ -918,7 +918,7 @@
         msg.textContent = 'Profilbild gespeichert ✓';
         msg.style.color = 'var(--color-safe)';
         msg.style.display = 'block';
-        document.getElementById('avatar-preview-settings').classList.remove('visible');
+        document.getElementById('avatar-preview-settings').style.display = 'none';
         saveBtn.style.display = 'none';
       } catch (err) {
         msg.textContent = 'Fehler: ' + (err.message || 'Upload fehlgeschlagen');

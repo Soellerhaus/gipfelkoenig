@@ -510,11 +510,7 @@ const S_LNG = HEX_SIZE_KM / LNG_KM;           // Circumradius in Grad Longitude 
  */
 function getTerritoryColor(userId) {
   if (!userId) return '#888888';
-  // Zuerst Cache prüfen (Farbe aus DB)
-  if (territoryColorCache.has(userId)) {
-    return territoryColorCache.get(userId);
-  }
-  // Fallback: Hash-basierte Farbe generieren
+  // Hash-basierte Farbe generieren (deterministisch pro User)
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
     hash = ((hash << 5) - hash) + userId.charCodeAt(i);
