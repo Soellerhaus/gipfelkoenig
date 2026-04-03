@@ -727,13 +727,13 @@ async function loadTerritories() {
       const profile = userProfiles[king.userId] || { name: 'Anonym', avatarUrl: null, avatarType: null, username: 'Anonym' };
       const borderColor = getTerritoryColor(king.userId);
 
-      // Hex-Umriss (subtiler Fill + Border)
+      // Hex-Umriss (Neon-Cyan Border, gut sichtbar auf Topo-Karte)
       const polygon = L.polygon(corners, {
-        color: borderColor,
-        weight: 1.5,
-        opacity: Math.min(hexOp * 1.5, 0.6),
+        color: '#00e5ff',
+        weight: 2.5,
+        opacity: Math.min(hexOp * 2, 0.7),
         fillColor: borderColor,
-        fillOpacity: hexOp * 0.15,
+        fillOpacity: hexOp * 0.1,
         interactive: false,
         className: 'hex-territory',
         pane: 'overlayPane',
@@ -773,8 +773,10 @@ async function loadTerritories() {
 /** Debounced-Version von loadPeaks */
 const loadPeaksDebounced = debounce(loadPeaks, DEBOUNCE_DELAY);
 
-/** Debounced-Version von loadTerritories (länger, da schwerer) */
+/** Debounced-Version von loadTerritories */
 const loadTerritoriesDebounced = debounce(loadTerritories, 1500);
+/** Schnellere Version für Zoom (Hex-Pixel-Grösse ändert sich) */
+const loadTerritoriesOnZoom = debounce(loadTerritories, 300);
 
 // ---------------------------------------------------------------------------
 // Karte initialisieren
@@ -908,7 +910,7 @@ async function initMap() {
       if (territoryLayer) {
         territoryLayer.eachLayer(function (layer) {
           if (layer.setStyle) {
-            layer.setStyle({ fillOpacity: (v / 100) * 0.15, opacity: Math.min((v / 100) * 1.5, 0.6) });
+            layer.setStyle({ fillOpacity: (v / 100) * 0.1, opacity: Math.min((v / 100) * 2, 0.7) });
           }
           if (layer._icon) {
             var wrapper = layer._icon.querySelector('.hex-avatar-wrapper');
@@ -958,7 +960,7 @@ async function initMap() {
   map.on('moveend', loadPeaksDebounced);
   map.on('zoomend', loadPeaksDebounced);
   map.on('moveend', loadTerritoriesDebounced);
-  map.on('zoomend', loadTerritoriesDebounced);
+  map.on('zoomend', loadTerritoriesOnZoom);
 
   // Gipfel des Tages bei Kartenverschiebung aktualisieren (debounced 2s)
   let potdTimer;
