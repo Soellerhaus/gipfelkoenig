@@ -931,3 +931,110 @@
 .consent-item a {
   color: var(--color-gold);
 }
+
+/* === REGIONEN-FORTSCHRITT === */
+.region-progress {
+  margin-bottom: 8px;
+}
+.region-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+.region-progress-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.region-progress-count {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+}
+.region-progress-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.region-progress-bar.complete {
+  box-shadow: 0 0 6px rgba(255,215,0,0.4);
+}
+.region-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  border-radius: 3px;
+  min-width: 2px;
+  transition: width 0.5s ease;
+}
+.region-progress-bar.complete .region-progress-fill {
+  background: linear-gradient(90deg, #ffd700, #ff8c00);
+}
+
+/* === GIPFEL-KACHELN === */
+.peak-card {
+  position: relative;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.peak-card:hover {
+  border-color: rgba(201,168,76,0.3);
+}
+.peak-card.gold {
+  border-color: rgba(201,168,76,0.2);
+  background: rgba(201,168,76,0.04);
+}
+.peak-card.diamond {
+  border-color: rgba(255,215,0,0.3);
+  background: rgba(255,215,0,0.06);
+}
+.peak-card .progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-gold), #ff8c00);
+  border-radius: 0 3px 0 0;
+}
+.peak-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-family: var(--font-display);
+}
+.peak-meta {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  margin-top: 2px;
+}
+.peak-points {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-gold);
+  font-family: var(--font-display);
+}
+.badge-pill {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Breakdown: versteckt, per Klick aufklappbar */
+.peak-card .breakdown {
+  display: none;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(201,168,76,0.1);
+}
+.peak-card.expanded .breakdown {
+  display: block;
+}
