@@ -92,6 +92,7 @@ async function loadProfileForSeason(year) {
 
   // Kronen berechnen: König bleibt bis jemand anderes den Berg in der neuen Saison besteigt
   let crownCount = 0;
+  let currentSeasonCrownCount = 0; // NUR Kronen aus aktueller Saison (für Lose!)
   const userId = window._currentUserId;
   const peakIds = [...new Set(seasonSummits.filter(s => s.peak_id).map(s => s.peak_id))];
 
@@ -130,9 +131,11 @@ async function loadProfileForSeason(year) {
         const maxCount = Math.max(...Object.values(counts));
         if ((counts[userId] || 0) === maxCount) {
           crownCount++;
+          currentSeasonCrownCount++; // Aktuelle Saison → zählt für Lose!
         }
       } else {
         // Niemand war in dieser Saison dort → Vorjahres-König bleibt König
+        // ABER: Vorjahres-Kronen geben KEINE Lose!
         const { data: prevSeasonSummits } = await GK.supabase
           .from('summits')
           .select('user_id')
@@ -145,7 +148,8 @@ async function loadProfileForSeason(year) {
           }
           const maxCount = Math.max(...Object.values(counts));
           if ((counts[userId] || 0) === maxCount) {
-            crownCount++; // König vom Vorjahr bleibt!
+            crownCount++; // König vom Vorjahr bleibt (für Anzeige)
+            // KEIN currentSeasonCrownCount++ → keine Lose für Vorjahres-Kronen!
           }
         }
       }
@@ -192,7 +196,7 @@ async function loadProfileForSeason(year) {
 
   // Lose NUR fuer diese Saison (nicht uebertragbar!)
   const gipfelLose = seasonUnique;                    // 1 Los pro Gipfel (unique)
-  const koenigLose = crownCount * 2;                  // 2 Lose pro Krone
+  const koenigLose = currentSeasonCrownCount * 2;      // 2 Lose pro Krone (NUR aktuelle Saison!)
   let gebietLose = 0;                                 // 5 Lose pro Gebiet (TODO)
   const potdLose = 0;                                 // 5 Lose pro Gipfel des Tages (TODO)
   const punkteLose = Math.floor(seasonPts / 1000);    // 1 Los pro 1000 Pkt
@@ -235,8 +239,135 @@ async function loadProfileForSeason(year) {
   // Global speichern für Gipfel-Tab
   window._nextLosHints = nextLosHints;
   window._seasonStats = { seasonHM, seasonKM, seasonPts, hmBisLos, kmBisLos, pktBisLos };
+
+  // Losnummern mit DB synchronisieren (zufällige Nummern 1-10000)
+  if (userId) {
+    await syncRaffleTickets(userId, yearStr, {
+      gipfel: gipfelLose,
+      krone: koenigLose,
+      punkte: punkteLose,
+      hm: hmLose,
+      km: kmLose
+    });
+  }
+
   } catch (err) {
     console.warn('loadProfileForSeason Fehler (nicht kritisch):', err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Losnummern-Sync: DB ↔ berechnete Ansprüche
+// Jedes Los bekommt eine zufällige Nummer 1-10000 (pro Saison einzigartig)
+// ---------------------------------------------------------------------------
+async function syncRaffleTickets(userId, season, expected) {
+  try {
+    // Aktuelle Tickets aus DB laden
+    const { data: existing, error } = await GK.supabase
+      .from('raffle_tickets')
+      .select('id, ticket_number, source, source_ref')
+      .eq('user_id', userId)
+      .eq('season', season)
+      .order('source', { ascending: true });
+
+    if (error) {
+      // Tabelle existiert evtl. noch nicht — still ignorieren
+      console.warn('Raffle-Tickets konnten nicht geladen werden:', error.message);
+      return;
+    }
+
+    // Nach Quelle gruppieren
+    const bySource = {};
+    for (const t of (existing || [])) {
+      if (!bySource[t.source]) bySource[t.source] = [];
+      bySource[t.source].push(t);
+    }
+
+    // Pro Quelle: fehlende hinzufügen, überschüssige löschen
+    for (const [source, count] of Object.entries(expected)) {
+      const current = bySource[source] || [];
+      const diff = count - current.length;
+
+      if (diff > 0) {
+        // Fehlende Tickets hinzufügen mit zufälligen Nummern
+        // Bereits vergebene Nummern dieser Saison laden
+        const { data: allNums } = await GK.supabase
+          .from('raffle_tickets')
+          .select('ticket_number')
+          .eq('season', season);
+        const taken = new Set((allNums || []).map(t => t.ticket_number));
+
+        for (let i = 0; i < diff; i++) {
+          // Zufällige Nummer finden die noch nicht vergeben ist
+          let num;
+          let attempts = 0;
+          do {
+            num = Math.floor(Math.random() * 10000) + 1;
+            attempts++;
+          } while (taken.has(num) && attempts < 100);
+
+          if (taken.has(num)) {
+            // Alle beliebt Nummern vergeben? Sequenziell suchen
+            for (let n = 1; n <= 10000; n++) {
+              if (!taken.has(n)) { num = n; break; }
+            }
+          }
+
+          taken.add(num);
+          const ref = source === 'punkte' ? 'punkte-' + (count * 1000) :
+                      source === 'hm' ? 'hm-' + (count * 10000) :
+                      source === 'km' ? 'km-' + (count * 50) : null;
+
+          await GK.supabase.from('raffle_tickets').insert({
+            user_id: userId, season, ticket_number: num,
+            source, source_ref: ref
+          }).catch(function(e) { console.warn('Ticket insert fehlgeschlagen:', e.message); });
+        }
+      } else if (diff < 0) {
+        // Überschüssige Tickets löschen (z.B. Krone verloren)
+        const toDelete = current.slice(0, Math.abs(diff));
+        for (const t of toDelete) {
+          await GK.supabase.from('raffle_tickets').delete().eq('id', t.id);
+        }
+      }
+    }
+
+    // Tickets für Anzeige neu laden
+    const { data: tickets } = await GK.supabase
+      .from('raffle_tickets')
+      .select('ticket_number, source')
+      .eq('user_id', userId)
+      .eq('season', season)
+      .order('ticket_number', { ascending: true });
+
+    // In Dropdown rendern
+    const dropdownEl = document.getElementById('ticket-numbers-list');
+    if (dropdownEl && tickets && tickets.length > 0) {
+      const sourceEmoji = { gipfel: '⛰️', krone: '👑', punkte: '📊', hm: '🏔️', km: '🥾' };
+      const sourceLabel = { gipfel: 'Gipfel', krone: 'Krone', punkte: 'Punkte', hm: 'Höhenmeter', km: 'Kilometer' };
+      let html = '';
+      // Nach Quelle gruppieren
+      const grouped = {};
+      for (const t of tickets) {
+        if (!grouped[t.source]) grouped[t.source] = [];
+        grouped[t.source].push(t.ticket_number);
+      }
+      for (const [src, nums] of Object.entries(grouped)) {
+        html += '<div style="margin-bottom:6px;">';
+        html += '<div style="font-size:0.72rem;color:var(--color-gold);font-weight:600;">' + (sourceEmoji[src] || '🎫') + ' ' + (sourceLabel[src] || src) + ' (' + nums.length + ')</div>';
+        html += '<div style="font-size:0.7rem;color:var(--color-muted);font-family:var(--font-mono);line-height:1.6;">';
+        html += nums.map(function(n) { return '<span style="display:inline-block;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);border-radius:4px;padding:1px 6px;margin:2px;">#' + String(n).padStart(4, '0') + '</span>'; }).join(' ');
+        html += '</div></div>';
+      }
+      dropdownEl.innerHTML = html;
+    } else if (dropdownEl) {
+      dropdownEl.innerHTML = '<div style="font-size:0.75rem;color:var(--color-muted);text-align:center;">Noch keine Losnummern</div>';
+    }
+
+    window._raffleTickets = tickets || [];
+
+  } catch (err) {
+    console.warn('syncRaffleTickets Fehler:', err.message);
   }
 }
 

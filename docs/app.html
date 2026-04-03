@@ -265,8 +265,17 @@
           </div>
           <div id="next-los-hint" style="font-size:0.82rem; color:var(--color-gold); text-align:center; margin-top:8px; font-weight:600; padding:8px; background:rgba(255,215,0,0.08); border-radius:8px;"></div>
           <p style="font-size:0.75rem; color:#ccc; text-align:center; margin-top:6px;">Je mehr Lose, desto h&ouml;here Gewinnchance! 🍀</p>
-          <p style="font-size:0.7rem; color:#e74c3c; text-align:center; font-weight:bold;">⚠️ Lose verfallen am Saisonende und sind nicht übertragbar!</p>
-          <p style="font-size:0.7rem; color:#888; text-align:center;">Nächste Verlosung: Saisonende 2026</p>
+
+          <!-- Losnummern Dropdown -->
+          <div style="margin-top:10px; text-align:center;">
+            <button id="toggle-ticket-numbers" onclick="var el=document.getElementById('ticket-numbers-container');el.style.display=el.style.display==='none'?'block':'none';this.textContent=el.style.display==='none'?'🎫 Meine Losnummern anzeigen':'🎫 Losnummern ausblenden';" style="background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);color:var(--color-gold);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;">🎫 Meine Losnummern anzeigen</button>
+            <div id="ticket-numbers-container" style="display:none;margin-top:10px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,215,0,0.15);border-radius:10px;padding:12px;text-align:left;max-height:300px;overflow-y:auto;">
+              <div id="ticket-numbers-list" style="font-size:0.75rem;color:var(--color-muted);">Lade Losnummern...</div>
+            </div>
+          </div>
+
+          <p style="font-size:0.7rem; color:#e74c3c; text-align:center; font-weight:bold; margin-top:8px;">⚠️ Lose verfallen am Saisonende und sind nicht &uuml;bertragbar!</p>
+          <p style="font-size:0.7rem; color:#888; text-align:center;">N&auml;chste Verlosung: Saisonende 2026</p>
         </div>
 
         <!-- Spielregeln v4 — Das Ritterspiel -->
