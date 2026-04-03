@@ -28,24 +28,28 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-// Einheitliche Punkte-Berechnung: HM/100 + km + 10 Gipfelbonus
-// Pässe/Hütten/Scharten: feste 2 Basispunkte (kein HM/km Bonus)
+// Punkte-Berechnung:
+// - Erster Gipfel einer Aktivität: HM/100 + km + 10 Gipfelbonus × Multiplikator
+// - Weitere Gipfel (Combo): NUR 10 Gipfelbonus × Multiplikator (HM/km nur 1× pro Aktivität!)
+// - isFirstPeakInActivity: true = erster Gipfel, false = weiterer Combo-Gipfel
 function calculatePoints(
   elevationGain: number,
   distanceKm: number,
   isSeasonFirst: boolean,
   isPersonalFirst: boolean,
   isEarly: boolean,
-  isCombo: boolean,
+  isFirstPeakInActivity: boolean,
   difficulty?: string
 ): number {
-  // Pässe, Hütten, Scharten: feste 2 Basispunkte
   let basePts: number
   if (difficulty === 'pass' || difficulty === 'hut' || difficulty === 'saddle') {
     basePts = 2
-  } else {
-    // Gipfel: HM/100 + km + 10 Gipfelbonus
+  } else if (isFirstPeakInActivity) {
+    // Erster Gipfel: volle Formel HM/100 + km + 10
     basePts = Math.round((elevationGain || 0) / 100) + Math.round(distanceKm || 0) + 10
+  } else {
+    // Combo-Gipfel: NUR Gipfelbonus (HM/km zählen nur 1× pro Aktivität)
+    basePts = 10
   }
 
   // Multiplikatoren
@@ -54,9 +58,8 @@ function calculatePoints(
   else if (isPersonalFirst) pts = Math.round(basePts * 2)
   else pts = Math.round(basePts * 0.5)
 
-  // Boni
-  if (isEarly) pts += 15
-  if (isCombo) pts += Math.round(basePts * 0.5)
+  // Frühaufsteher Bonus
+  if (isEarly && isFirstPeakInActivity) pts += 15
 
   return Math.round(pts)
 }
@@ -335,8 +338,10 @@ serve(async (req) => {
           const elevGain = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0
           const distKm = activity.distance ? Math.round(activity.distance / 1000) : 0
           const isEarly = activityStart.getHours() < 7
-          const isCombo = found.size >= 2
-          const points = calculatePoints(elevGain, distKm, isSeasonFirst, isPersonalFirst, isEarly, isCombo, peak.difficulty)
+          // Erster Gipfel dieser Aktivität bekommt HM/km, weitere nur Gipfelbonus
+          const peakIndex = [...found.keys()].indexOf(peakId)
+          const isFirstPeakInActivity = peakIndex === 0
+          const points = calculatePoints(elevGain, distKm, isSeasonFirst, isPersonalFirst, isEarly, isFirstPeakInActivity, peak.difficulty)
 
           await supabase.from('summits').insert({
             user_id, peak_id: peakId,

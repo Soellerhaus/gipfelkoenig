@@ -5,27 +5,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Einheitliche Punkte-Berechnung: HM/100 + km + 10 Gipfelbonus
+// Punkte-Berechnung: HM/km nur beim ersten Gipfel, Combo-Gipfel nur Gipfelbonus
 function calculatePoints(
   elevationGain: number,
   distanceKm: number,
   isPersonalFirst: boolean,
   isSeasonFirst: boolean,
-  combo: boolean,
+  isFirstPeakInActivity: boolean,
   isEarly: boolean
 ): number {
-  // Basis: HM/100 + km + 10 Gipfelbonus
-  let basePts = Math.round((elevationGain || 0) / 100) + Math.round(distanceKm || 0) + 10
+  let basePts: number
+  if (isFirstPeakInActivity) {
+    basePts = Math.round((elevationGain || 0) / 100) + Math.round(distanceKm || 0) + 10
+  } else {
+    basePts = 10 // Combo-Gipfel: nur Gipfelbonus
+  }
 
-  // Multiplikatoren
   let pts = basePts
   if (isSeasonFirst) pts = Math.round(basePts * 3)
   else if (isPersonalFirst) pts = Math.round(basePts * 2)
   else pts = Math.round(basePts * 0.5)
 
-  // Boni
-  if (isEarly) pts += 15
-  if (combo) pts += Math.round(basePts * 0.5)
+  if (isEarly && isFirstPeakInActivity) pts += 15
 
   return Math.round(pts)
 }
@@ -214,12 +215,16 @@ serve(async (req) => {
       const distKm = activity.distance ? Math.round(activity.distance / 1000) : 0
       const isEarly = summitTime.getHours() < 7
 
+      // Erster Gipfel bekommt HM/km, weitere nur Gipfelbonus
+      const peakIndex = [...foundPeaks.keys()].indexOf(peakId)
+      const isFirstPeakInActivity = peakIndex === 0
+
       const points = calculatePoints(
         elevGain,
         distKm,
         isPersonalFirst,
         isSeasonFirst,
-        isCombo,
+        isFirstPeakInActivity,
         isEarly
       )
 
