@@ -283,32 +283,34 @@ async function loadMySummits(season) {
   const container = document.getElementById('my-peaks-grid');
   if (!container) return;
 
-  // Einträge ohne Gipfel (peak_id=null) rausfiltern — die sind nur für HM/km Tracking
-  summits = (summits || []).filter(s => s.peak_id !== null);
+  // Alle Aktivitäten behalten (auch peak_id=null für HM/km Zusammenfassung)
+  const allActivities = (summits || []);
+  // Nur echte Gipfel-Einträge für Peak-Karten
+  const peakSummits = allActivities.filter(s => s.peak_id !== null);
 
-  if (summits.length === 0) {
-    container.innerHTML = `<p class="empty-state">Noch keine Besteigungen${targetSeason ? ' in der Saison ' + targetSeason : ''}.</p>`;
+  if (allActivities.length === 0) {
+    container.innerHTML = `<p class="empty-state">Noch keine Aktivitäten${targetSeason ? ' in der Saison ' + targetSeason : ''}.</p>`;
     return;
   }
 
-  // Peak-Daten laden
-  const peakIds = [...new Set(summits.map(s => s.peak_id))];
+  // Peak-Daten laden (nur für echte Gipfel)
+  const peakIds = [...new Set(peakSummits.map(s => s.peak_id))];
   const peakMap = new Map();
   for (const pid of peakIds) {
     const peak = await GK.api.getPeakById(pid);
     if (peak) peakMap.set(pid, peak);
   }
 
-  // Nach Gipfel gruppieren
+  // Nach Gipfel gruppieren (nur echte)
   const grouped = new Map();
-  for (const s of summits) {
+  for (const s of peakSummits) {
     if (!grouped.has(s.peak_id)) grouped.set(s.peak_id, []);
     grouped.get(s.peak_id).push(s);
   }
 
   // Combo-Tage erkennen
   const byDate = {};
-  for (const s of summits) {
+  for (const s of peakSummits) {
     const date = s.summited_at.slice(0, 10);
     if (!byDate[date]) byDate[date] = new Set();
     byDate[date].add(s.peak_id);
@@ -323,28 +325,100 @@ async function loadMySummits(season) {
     return new Date(b[1][0].summited_at).getTime() - new Date(a[1][0].summited_at).getTime();
   });
 
-  // Statistiken
+  // Gesamt-Statistiken (ALLE Aktivitäten, dedupliziert nach strava_activity_id)
   const totalPeaks = sortedGroups.length;
-  const totalSummits = summits.length;
-  const totalPoints = summits.reduce((s, e) => s + (e.points || 0), 0);
+  const totalPoints = allActivities.reduce((s, e) => s + (e.points || 0), 0);
+  const seenAct = new Set();
+  let totalHM = 0, totalKM = 0, totalActivitiesCount = 0;
+  for (const a of allActivities) {
+    const key = a.strava_activity_id || a.id;
+    if (seenAct.has(key)) continue;
+    seenAct.add(key);
+    totalActivitiesCount++;
+    if (a.elevation_gain > 0) totalHM += a.elevation_gain;
+    if (a.distance > 0) totalKM += a.distance;
+  }
 
-  // Header Stats
+  // Header Stats — 4 Kacheln
   const statsHtml = `
-    <div style="display:flex;gap:12px;margin-bottom:1rem;flex-wrap:wrap;">
-      <div style="flex:1;min-width:80px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:12px;text-align:center;">
-        <div style="font-size:1.6rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalPeaks}</div>
-        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Gipfel</div>
+    <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;">
+      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:10px 6px;text-align:center;">
+        <div style="font-size:1.4rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalPeaks}</div>
+        <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Gipfel</div>
       </div>
-      <div style="flex:1;min-width:80px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:12px;text-align:center;">
-        <div style="font-size:1.6rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalSummits}</div>
-        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Touren</div>
+      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:10px 6px;text-align:center;">
+        <div style="font-size:1.4rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalActivitiesCount}</div>
+        <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Touren</div>
       </div>
-      <div style="flex:1;min-width:80px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:12px;text-align:center;">
-        <div style="font-size:1.6rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalPoints.toLocaleString('de')}</div>
-        <div style="font-size:0.7rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Punkte</div>
+      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:10px 6px;text-align:center;">
+        <div style="font-size:1.4rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalHM.toLocaleString('de')}</div>
+        <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">H\u00f6henmeter</div>
+      </div>
+      <div style="flex:1;min-width:70px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:10px 6px;text-align:center;">
+        <div style="font-size:1.4rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalKM.toLocaleString('de')}</div>
+        <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Kilometer</div>
       </div>
     </div>
+    <div style="text-align:center;margin-bottom:1rem;">
+      <div style="font-size:1.8rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalPoints.toLocaleString('de')} Punkte</div>
+    </div>
   `;
+
+  // Letzte 3 Aktivitäten (dedupliziert nach strava_activity_id, neueste zuerst)
+  const seenRecent = new Set();
+  const recentActivities = [];
+  for (const a of allActivities) {
+    const key = a.strava_activity_id || a.id;
+    if (seenRecent.has(key)) continue;
+    seenRecent.add(key);
+    recentActivities.push(a);
+    if (recentActivities.length >= 3) break;
+  }
+
+  let recentHtml = '<div style="margin-bottom:1rem;">';
+  recentHtml += '<div style="font-size:0.85rem;font-weight:600;color:var(--color-gold);margin-bottom:8px;">Letzte Aktivit\u00e4ten</div>';
+  for (const a of recentActivities) {
+    const d = new Date(a.summited_at);
+    const datum = d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const hm = a.elevation_gain || 0;
+    const km = a.distance || 0;
+    const pts = a.points || 0;
+    const peak = a.peak_id ? peakMap.get(a.peak_id) : null;
+    const peakLabel = peak ? peak.name : 'Tour ohne Gipfel';
+    const peakElev = peak ? ' (' + peak.elevation + ' m)' : '';
+
+    // Punkte-Breakdown
+    const hmPts = Math.round(hm / 100);
+    const kmPts = Math.round(km);
+    const hasPeak = !!a.peak_id;
+    const gipfelBonus = hasPeak ? 10 : 0;
+    const basePts = hmPts + kmPts + gipfelBonus;
+
+    let multiLabel = '';
+    if (!hasPeak) { multiLabel = 'Basis'; }
+    else if (a.is_season_first) { multiLabel = '\u00d73 Pionier'; }
+    else if (a.is_personal_first) { multiLabel = '\u00d72 Erstbesuch'; }
+    else { multiLabel = '\u00d70.5 Whg.'; }
+
+    recentHtml += '<div style="background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:10px;padding:10px 12px;margin-bottom:6px;">';
+    recentHtml += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+    recentHtml += '<div>';
+    recentHtml += '<div style="font-size:0.82rem;font-weight:600;color:var(--color-text);">' + peakLabel + peakElev + '</div>';
+    recentHtml += '<div style="font-size:0.72rem;color:var(--color-muted);">' + datum + '</div>';
+    recentHtml += '</div>';
+    recentHtml += '<div style="text-align:right;">';
+    recentHtml += '<div style="font-size:1.1rem;font-weight:700;color:var(--color-gold);">+' + pts + '</div>';
+    recentHtml += '<div style="font-size:0.6rem;color:var(--color-muted);">Pkt</div>';
+    recentHtml += '</div></div>';
+    recentHtml += '<div style="font-size:0.7rem;color:var(--color-muted);margin-top:4px;font-family:var(--font-mono);">';
+    recentHtml += '\u2191' + hm.toLocaleString('de') + ' HM + ' + km + ' km';
+    if (hasPeak) recentHtml += ' + 10 Gipfel';
+    recentHtml += ' = ' + basePts + ' Basis';
+    if (hasPeak) recentHtml += ' <span style="opacity:0.7;">' + multiLabel + '</span>';
+    recentHtml += ' = <span style="color:var(--color-gold);">' + pts + ' Pkt</span>';
+    recentHtml += '</div></div>';
+  }
+  recentHtml += '</div>';
 
   // --- Region-Fortschrittsbalken ---
   let regionProgressHtml = '';
@@ -442,13 +516,13 @@ async function loadMySummits(season) {
       const d = new Date(e.summited_at);
       const datum = d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
       const hm = e.elevation_gain || 0;
-      const km = e.distance_km || 0;
+      const km = e.distance || 0;
       const pts = e.points || 0;
 
-      // Basis-Punkte berechnen
+      // Basis-Punkte berechnen (HM/100 + km + 10 Gipfelbonus)
       const hmPts = Math.round(hm / 100);
-      const kmPts = Math.round(km * 1);
-      const basePts = hmPts + kmPts;
+      const kmPts = Math.round(km);
+      const basePts = hmPts + kmPts + 10;
 
       // Multiplikator bestimmen
       let multiLabel = '';
@@ -457,11 +531,9 @@ async function loadMySummits(season) {
       else if (e.is_personal_first) { multiLabel = '×2 Erstbesuch'; multiValue = 2; }
       else { multiLabel = '×0.5 Whg.'; multiValue = 0.5; }
 
-      const hmStr = hm ? `↗${hm} HM` : '';
-
       return `<div style="font-size:0.72rem;color:var(--color-muted);padding:4px 0;border-bottom:1px solid rgba(201,168,76,0.08);font-family:var(--font-mono);">
-        <div>${datum}${hmStr ? ' · ' + hmStr : ''}</div>
-        <div>${hmPts} HM + ${kmPts} km = ${basePts} Basis <span style="opacity:0.6;">${multiLabel}</span> = <span style="color:var(--color-gold);">${pts} Pkt</span></div>
+        <div>${datum} · ↗${hm.toLocaleString('de')} HM · ${km} km</div>
+        <div>${hmPts} HM + ${kmPts} km + 10 Gipfel = ${basePts} Basis <span style="opacity:0.6;">${multiLabel}</span> = <span style="color:var(--color-gold);">${pts} Pkt</span></div>
       </div>`;
     }).join('');
 
@@ -493,7 +565,7 @@ async function loadMySummits(season) {
     `;
   }).join('');
 
-  container.innerHTML = statsHtml + regionProgressHtml + cardsHtml || '<p class="text-muted">Keine Gipfel gefunden.</p>';
+  container.innerHTML = statsHtml + recentHtml + regionProgressHtml + (sortedGroups.length > 0 ? '<div style="font-size:0.85rem;font-weight:600;color:var(--color-gold);margin-bottom:8px;">Deine Gipfel</div>' + cardsHtml : '');
 }
 
 // ---------------------------------------------------------------------------
