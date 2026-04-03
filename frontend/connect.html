@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verbinden — Bergkönig</title>
+  <meta name="theme-color" content="#d4a24c">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div class="auth-page">
+    <a href="/index.html" class="auth-logo brand-name">Berg<span class="brand-king">könig</span></a>
+
+    <div class="auth-card">
+      <h1 style="text-align: center; margin-bottom: 0.5rem;">Verbinde deine Plattform</h1>
+      <p style="color: var(--color-muted); text-align: center; margin-bottom: 1.5rem; font-size: 0.9rem;">
+        Deine Gipfel werden automatisch erkannt — kein manuelles Hochladen nötig.
+      </p>
+
+      <!-- Suunto -->
+      <button id="connect-suunto-btn" class="btn btn-block" style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; margin-bottom: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; cursor: pointer; transition: border-color 0.2s;">
+        <img src="/img/suunto-logo.png" alt="Suunto" style="height: 24px;">
+        <span style="flex: 1; text-align: left; font-size: 1rem; color: var(--color-text);">Mit Suunto verbinden</span>
+        <span style="font-size: 0.75rem; color: var(--color-safe); font-weight: 500;">Partner</span>
+      </button>
+
+      <!-- Strava -->
+      <button id="connect-strava-btn" class="btn btn-block" style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; margin-bottom: 1.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; cursor: pointer; transition: border-color 0.2s;">
+        <img src="/img/strava-btn.svg" alt="Strava" style="height: 24px;">
+        <span style="flex: 1; text-align: left; font-size: 1rem; color: var(--color-text);">Mit Strava verbinden</span>
+        <span style="font-size: 0.75rem; color: var(--color-gold);">Compatible</span>
+      </button>
+
+      <div style="text-align: center;">
+        <a href="/app.html" style="color: var(--color-muted); font-size: 0.85rem; text-decoration: none;">
+          Später verbinden →
+        </a>
+      </div>
+
+      <!-- Status-Meldungen -->
+      <p id="connect-status" style="margin-top: 1rem; font-size: 0.85rem; text-align: center; display: none;"></p>
+    </div>
+
+    <div class="auth-footer">
+      <a href="/impressum.html">Impressum</a> · <a href="/datenschutz.html">Datenschutz</a>
+    </div>
+  </div>
+
+  <script src="./js/api.js"></script>
+  <script>
+    const STRAVA_CLIENT_ID = '211591';
+    let currentUser = null;
+
+    // Session prüfen
+    ;(async () => {
+      const { data: { session } } = await GK.supabase.auth.getSession();
+      if (!session) { window.location.href = '/register.html'; return; }
+      currentUser = session.user;
+
+    })();
+
+    // OAuth Redirect geht zu settings.html (dort bereits registriert bei Strava/Suunto)
+    // settings.html erkennt via localStorage dass es von connect.html kam und leitet zu /app.html weiter
+    const OAUTH_REDIRECT = 'https://bergkoenig.app/settings.html';
+
+    // Strava OAuth starten
+    document.getElementById('connect-strava-btn').addEventListener('click', () => {
+      const state = crypto.randomUUID();
+      localStorage.setItem('strava_oauth_state', state);
+      localStorage.setItem('pending_oauth', 'strava');
+      localStorage.setItem('oauth_source', 'connect');
+      window.location.href =
+        'https://www.strava.com/oauth/authorize' +
+        '?client_id=' + STRAVA_CLIENT_ID +
+        '&redirect_uri=' + encodeURIComponent(OAUTH_REDIRECT) +
+        '&response_type=code' +
+        '&scope=read,activity:read_all,activity:write' +
+        '&state=' + state +
+        '&approval_prompt=auto';
+    });
+
+    // Suunto OAuth starten
+    document.getElementById('connect-suunto-btn').addEventListener('click', () => {
+      const state = crypto.randomUUID();
+      localStorage.setItem('suunto_oauth_state', state);
+      localStorage.setItem('pending_oauth', 'suunto');
+      localStorage.setItem('oauth_source', 'connect');
+      window.location.href =
+        'https://cloudapi-oauth.suunto.com/oauth/authorize' +
+        '?response_type=code' +
+        '&client_id=32db5831-859b-4ba5-888d-4b35d8dba7fe' +
+        '&redirect_uri=' + encodeURIComponent(OAUTH_REDIRECT) +
+        '&scope=workout' +
+        '&state=' + state;
+    });
+
+    // OAuth-Callbacks werden von settings.html verarbeitet (dort ist die Redirect-URI registriert)
+    // settings.html erkennt oauth_source='connect' und leitet nach Erfolg zu /app.html weiter
+  </script>
+</body>
+</html>

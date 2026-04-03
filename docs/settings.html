@@ -358,7 +358,7 @@
             import_status: 'pending'
           }).eq('id', currentUser.id);
         }
-        alert('Strava erfolgreich verbunden! Deine Aktivitäten werden jetzt importiert. Gehe zur Karte um den Fortschritt zu sehen.');
+        localStorage.removeItem('oauth_source');
         document.getElementById('strava-not-connected').style.display = 'none';
         document.getElementById('strava-connected').style.display = 'block';
         document.getElementById('strava-connected-since').textContent =
@@ -484,6 +484,13 @@
         document.getElementById('suunto-connected-top').style.display = 'block';
         document.getElementById('suunto-connected-since-top').textContent =
           new Date().toLocaleDateString('de-AT');
+
+        // Von connect.html kommend? Direkt zur App
+        if (localStorage.getItem('oauth_source') === 'connect') {
+          localStorage.removeItem('oauth_source');
+          window.location.href = '/app.html';
+          return;
+        }
         alert('Suunto erfolgreich verbunden!');
       }
 

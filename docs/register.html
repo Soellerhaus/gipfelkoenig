@@ -39,69 +39,19 @@
           <input class="form-input" type="password" id="password-confirm" required autocomplete="new-password" placeholder="Passwort bestätigen">
         </div>
 
-        <!-- Spieler-Identität -->
-        <div class="form-group">
-          <label class="form-label" for="username">Dein Bergkönig-Name</label>
-          <input class="form-input" type="text" id="username" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9äöüÄÖÜ _.,-]+" autocomplete="off" placeholder="z.B. Hans Müller oder AlpinMax">
-          <div id="username-availability" class="form-hint"></div>
-          <small class="form-hint">Dein Name oder ein Fantasiename. Erscheint in der Rangliste.</small>
+        <!-- Einwilligungen — kompakt -->
+        <div class="consent-section" style="margin-top: 1rem; font-size: 0.82rem; color: var(--color-muted); line-height: 1.5;">
+          <p>Mit der Registrierung akzeptierst du:</p>
+          <ul style="margin: 0.3rem 0 0.75rem 1.2rem; padding: 0;">
+            <li><a href="/datenschutz.html" target="_blank">Datenschutzerklärung</a></li>
+            <li><a href="/teilnahmebedingungen.html" target="_blank">Teilnahmebedingungen</a> & <a href="/nutzungsbedingungen.html" target="_blank">Nutzungsbedingungen</a></li>
+            <li>Bergkönig ist ein Spiel — Lawinenlagen prüfst du auf <a href="https://lawinen.report" target="_blank">lawinen.report</a></li>
+            <li>Dein Name und Punkte erscheinen in der Rangliste</li>
+          </ul>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Profilbild (optional)</label>
-          <div class="avatar-upload">
-            <label class="avatar-upload-label" for="avatar-file">📷 Foto hochladen</label>
-            <input type="file" id="avatar-file" accept="image/png,image/jpeg,image/webp" style="display:none;">
-            <img id="avatar-preview" class="avatar-upload-preview" alt="Vorschau">
-            <p class="avatar-upload-hint">Max. 2 MB — PNG, JPG oder WebP</p>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Oder wähle einen Emoji-Avatar</label>
-          <div class="avatar-selector">
-            <button type="button" class="avatar-option selected" data-avatar="mountain">🏔️</button>
-            <button type="button" class="avatar-option" data-avatar="eagle">🦅</button>
-            <button type="button" class="avatar-option" data-avatar="ski">⛷️</button>
-            <button type="button" class="avatar-option" data-avatar="climber">🧗</button>
-            <button type="button" class="avatar-option" data-avatar="tree">🌲</button>
-            <button type="button" class="avatar-option" data-avatar="snow">❄️</button>
-            <button type="button" class="avatar-option" data-avatar="deer">🦌</button>
-            <button type="button" class="avatar-option" data-avatar="rock">🪨</button>
-          </div>
-          <input type="hidden" id="avatar-type" value="mountain">
-        </div>
-
-        <!-- Einwilligungen -->
-        <div class="consent-section">
-          <div class="consent-item">
-            <input type="checkbox" id="consent-privacy" required>
-            <label for="consent-privacy">
-              Ich habe die <a href="/datenschutz.html" target="_blank">Datenschutzerklärung</a> gelesen und bin einverstanden.
-            </label>
-          </div>
-          <div class="consent-item">
-            <input type="checkbox" id="consent-terms" required>
-            <label for="consent-terms">
-              Ich akzeptiere die <a href="/teilnahmebedingungen.html" target="_blank">Teilnahmebedingungen</a> und <a href="/nutzungsbedingungen.html" target="_blank">Nutzungsbedingungen</a>.
-            </label>
-          </div>
-          <div class="consent-item">
-            <input type="checkbox" id="consent-safety" required>
-            <label for="consent-safety">
-              Ich verstehe dass Bergkönig ein <strong>Spiel</strong> ist. Lawinenlagen prüfe ich eigenverantwortlich auf <a href="https://lawinen.report" target="_blank">lawinen.report</a>.
-            </label>
-          </div>
-          <div class="consent-item">
-            <input type="checkbox" id="consent-leaderboard" required>
-            <label for="consent-leaderboard">
-              Mein Name und Punkte dürfen in der öffentlichen Rangliste erscheinen.
-            </label>
-          </div>
-        </div>
-
-        <button type="submit" class="btn btn-primary btn-block btn-lg" id="register-btn" disabled>
-          Berge warten nicht — Registrieren ⛰️
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="register-btn">
+          Alles akzeptieren & Registrieren
         </button>
 
         <div style="margin-top: 1rem; padding: 10px; border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;">
@@ -143,85 +93,7 @@
       else { el.textContent = '💪 Stark'; el.style.color = 'var(--color-safe)'; }
     });
 
-    // Username Verfügbarkeit
-    let usernameTimer;
-    document.getElementById('username').addEventListener('input', (e) => {
-      clearTimeout(usernameTimer);
-      const username = e.target.value.trim();
-      const el = document.getElementById('username-availability');
-      if (username.length < 3) { el.textContent = ''; return; }
-      el.textContent = '⏳ Prüfe...';
-      el.style.color = 'var(--color-muted)';
-      usernameTimer = setTimeout(async () => {
-        const { data } = await GK.supabase.from('user_profiles').select('username').eq('username', username).single();
-        if (data) { el.textContent = '❌ Bereits vergeben'; el.style.color = 'var(--color-danger)'; }
-        else { el.textContent = '✅ Verfügbar'; el.style.color = 'var(--color-safe)'; }
-      }, 500);
-    });
-
-    // Checkboxen → Button aktivieren
-    const checkboxes = document.querySelectorAll('.consent-item input[type="checkbox"]');
     const registerBtn = document.getElementById('register-btn');
-    checkboxes.forEach(cb => {
-      cb.addEventListener('change', () => {
-        registerBtn.disabled = ![...checkboxes].every(c => c.checked);
-      });
-    });
-
-    // Globale Variable für komprimiertes Bild
-    let compressedAvatarFile = null;
-
-    // Bild komprimieren via Canvas
-    function compressImage(file) {
-      return new Promise(function(resolve) {
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-          var img = new Image();
-          img.onload = function() {
-            var canvas = document.createElement('canvas');
-            var maxDim = 800;
-            var w = img.width, h = img.height;
-            if (w > maxDim || h > maxDim) {
-              if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
-              else { w = Math.round(w * maxDim / h); h = maxDim; }
-            }
-            canvas.width = w;
-            canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            canvas.toBlob(function(blob) {
-              resolve(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
-            }, 'image/jpeg', 0.8);
-          };
-          img.src = ev.target.result;
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // Profilbild-Vorschau
-    document.getElementById('avatar-file').addEventListener('change', function(e) {
-      var file = e.target.files[0];
-      var preview = document.getElementById('avatar-preview');
-      if (!file) { preview.classList.remove('visible'); compressedAvatarFile = null; return; }
-      compressImage(file).then(function(compressed) {
-        compressedAvatarFile = compressed;
-        var r = new FileReader();
-        r.onload = function(ev) {
-          preview.src = ev.target.result;
-          preview.classList.add('visible');
-        };
-        r.readAsDataURL(compressed);
-      });
-    });
-
-    // Avatar-Auswahl
-    document.querySelectorAll('.avatar-option').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.avatar-option').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        document.getElementById('avatar-type').value = btn.dataset.avatar;
-      });
-    });
 
     // Registrierung
     document.getElementById('register-form').addEventListener('submit', async (e) => {
@@ -229,8 +101,6 @@
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       const passwordConfirm = document.getElementById('password-confirm').value;
-      const username = document.getElementById('username').value.trim();
-      const avatarType = document.getElementById('avatar-type').value;
       const errEl = document.getElementById('register-error');
       const successEl = document.getElementById('register-success');
 
@@ -242,11 +112,9 @@
         errEl.style.display = 'block';
         return;
       }
-      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-        errEl.textContent = 'Username: nur Buchstaben, Zahlen und _ erlaubt.';
-        errEl.style.display = 'block';
-        return;
-      }
+
+      // Username aus E-Mail-Prefix generieren
+      const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 30);
 
       registerBtn.disabled = true;
       registerBtn.textContent = 'Registriere...';
@@ -261,28 +129,14 @@
         const { error: profileError } = await GK.supabase.from('user_profiles').insert({
           id: authData.user.id,
           username,
-          avatar_type: avatarType,
+          avatar_type: 'mountain',
           consent_given_at: new Date().toISOString(),
           consent_version: '1.0'
         });
         if (profileError) throw profileError;
 
-        // Profilbild hochladen (falls komprimiert vorhanden)
-        if (compressedAvatarFile) {
-          const path = authData.user.id + '/avatar.jpg';
-          const { data: uploadData, error: uploadError } = await GK.supabase.storage
-            .from('AVATARS').upload(path, compressedAvatarFile, { upsert: true });
-          if (!uploadError) {
-            const { data: urlData } = GK.supabase.storage.from('AVATARS').getPublicUrl(path);
-            await GK.supabase.from('user_profiles')
-              .update({ avatar_url: urlData.publicUrl })
-              .eq('id', authData.user.id);
-          }
-        }
-
-        document.getElementById('register-form').style.display = 'none';
-        successEl.textContent = 'Fast geschafft! Bitte bestätige deine E-Mail-Adresse. Wir haben dir einen Link geschickt.';
-        successEl.style.display = 'block';
+        // Direkt weiter zu Strava/Suunto-Verbindung
+        window.location.href = '/connect.html';
       } catch (error) {
         errEl.textContent = error.message || 'Registrierung fehlgeschlagen.';
         errEl.style.display = 'block';
