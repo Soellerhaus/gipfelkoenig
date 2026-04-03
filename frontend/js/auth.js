@@ -33,7 +33,7 @@ async function loadProfileForSeason(year) {
   const yearStr = year.toString();
   const seasonSummits = summits.filter(s => s.season === yearStr);
   const seasonPts = seasonSummits.reduce((sum, s) => sum + (s.points || 0), 0);
-  const seasonUnique = new Set(seasonSummits.map(s => s.peak_id)).size;
+  const seasonUnique = new Set(seasonSummits.filter(s => s.peak_id !== null).map(s => s.peak_id)).size;
 
   const el = (id) => document.getElementById(id);
 
@@ -267,6 +267,7 @@ async function loadProfileForSeason(year) {
 // ---------------------------------------------------------------------------
 async function syncRaffleTickets(userId, season, expected) {
   try {
+    console.log('syncRaffleTickets gestartet:', userId, season, expected);
     // Aktuelle Tickets aus DB laden
     const { data: existing, error } = await GK.supabase
       .from('raffle_tickets')
@@ -323,10 +324,19 @@ async function syncRaffleTickets(userId, season, expected) {
                       source === 'hm' ? 'hm-' + (count * 10000) :
                       source === 'km' ? 'km-' + (count * 50) : null;
 
-          await GK.supabase.from('raffle_tickets').insert({
-            user_id: userId, season, ticket_number: num,
-            source, source_ref: ref
-          }).catch(function(e) { console.warn('Ticket insert fehlgeschlagen:', e.message); });
+          var insertResult = await GK.supabase.from('raffle_tickets').insert({
+            user_id: userId, season: season, ticket_number: num,
+            source: source, source_ref: ref
+          });
+          if (insertResult.error) {
+            console.warn('Ticket #' + num + ' insert fehlgeschlagen:', insertResult.error.message, insertResult.error.code);
+            // Bei UNIQUE violation (Nummer schon vergeben) → nächste Nummer versuchen
+            if (insertResult.error.code === '23505') {
+              taken.add(num);
+              i--; // Retry mit anderer Nummer
+              continue;
+            }
+          }
         }
       } else if (diff < 0) {
         // Überschüssige Tickets löschen (z.B. Krone verloren)
