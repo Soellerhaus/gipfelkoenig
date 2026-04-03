@@ -455,7 +455,7 @@ async function loadMySummits(season) {
       let multiValue = 1;
       if (e.is_season_first) { multiLabel = '×3 Pionier'; multiValue = 3; }
       else if (e.is_personal_first) { multiLabel = '×2 Erstbesuch'; multiValue = 2; }
-      else { multiLabel = '×0.2 Whg.'; multiValue = 0.2; }
+      else { multiLabel = '×0.5 Whg.'; multiValue = 0.5; }
 
       const hmStr = hm ? `↗${hm} HM` : '';
 

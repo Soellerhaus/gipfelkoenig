@@ -100,7 +100,7 @@ window.GK.game = (() => {
    * Base = Math.round(elevation_gain / 100) + Math.round(distance_km) + 10
    * Pionier (Saison-Erster) = x3
    * Erstbesuch (Persönlich-Erster) = x2
-   * Wiederholung = x0.2
+   * Wiederholung = x0.5
    * Frühaufsteher (Tour vor 07:00) = +15
    * Combo (2+ Gipfel/Tag) = +50% pro Extra-Gipfel
    */
@@ -119,7 +119,7 @@ window.GK.game = (() => {
     } else if (isPersonalFirst) {
       points = Math.round(basePts * 2);   // Erstbesuch: Persönlich erster Besuch
     } else {
-      points = Math.round(basePts * 0.2); // Wiederholung
+      points = Math.round(basePts * 0.5); // Wiederholung
     }
 
     // Frühaufsteher Bonus (Tour vor 07:00)

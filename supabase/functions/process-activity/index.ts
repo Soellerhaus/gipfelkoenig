@@ -5,7 +5,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Punkte-Berechnung: HM/100 + km×1 + Gipfel-Bonus
+// Einheitliche Punkte-Berechnung: HM/100 + km + 10 Gipfelbonus
 function calculatePoints(
   elevationGain: number,
   distanceKm: number,
@@ -14,14 +14,14 @@ function calculatePoints(
   combo: boolean,
   isEarly: boolean
 ): number {
-  // Basis: HM/100 + km×1 + Gipfel-Bonus
+  // Basis: HM/100 + km + 10 Gipfelbonus
   let basePts = Math.round((elevationGain || 0) / 100) + Math.round(distanceKm || 0) + 10
 
   // Multiplikatoren
   let pts = basePts
   if (isSeasonFirst) pts = Math.round(basePts * 3)
   else if (isPersonalFirst) pts = Math.round(basePts * 2)
-  else pts = Math.round(basePts * 0.2)
+  else pts = Math.round(basePts * 0.5)
 
   // Boni
   if (isEarly) pts += 15

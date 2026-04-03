@@ -4,22 +4,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Punkte-Berechnung (identisch mit process-activity)
+// Einheitliche Punkte-Berechnung: HM/100 + km + 10 Gipfelbonus
+// Bei manuellem Check-in: Höhe/2 als HM-Schätzung (Aufstieg ~halbe Gipfelhöhe), km=0
 function calculatePoints(
   elevation: number,
   isPersonalFirst: boolean,
   isSeasonFirst: boolean,
-  osmRegion: string
+  isEarly: boolean
 ): number {
-  let points = elevation || 1000
+  // Schätzung: Aufstiegs-HM ≈ Gipfelhöhe/2 (typischer Start auf halber Höhe)
+  const estimatedHM = Math.round((elevation || 1000) / 2)
+  const basePts = Math.round(estimatedHM / 100) + 10 // HM/100 + Gipfelbonus, keine km bei Check-in
 
-  if (isSeasonFirst) points *= 3
-  else if (isPersonalFirst) points *= 1.5
-  else points *= 0.2
+  let pts = basePts
+  if (isSeasonFirst) pts = Math.round(basePts * 3)
+  else if (isPersonalFirst) pts = Math.round(basePts * 2)
+  else pts = Math.round(basePts * 0.5)
 
-  if (osmRegion === 'AT-08') points += 100
+  if (isEarly) pts += 15
 
-  return Math.round(points)
+  return Math.round(pts)
 }
 
 serve(async (req) => {
@@ -174,11 +178,12 @@ serve(async (req) => {
 
     const isSeasonFirst = (seasonCount || 0) === 0
 
+    const isEarly = now.getHours() < 7
     const points = calculatePoints(
       peak.elevation,
       isPersonalFirst,
       isSeasonFirst,
-      peak.osm_region
+      isEarly
     )
 
     // Summit speichern (summited_at = aktuelle Uhrzeit)
