@@ -246,6 +246,16 @@
   cursor: pointer;
 }
 
+/* Hex-Avatar Marker (Profilbild im Gebiet) */
+.hex-avatar-icon {
+  background: none !important;
+  border: none !important;
+}
+.hex-avatar-wrapper {
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
 .app-header-user {
   display: flex;
   align-items: center;

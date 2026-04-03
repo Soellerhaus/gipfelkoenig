@@ -70,42 +70,6 @@
       <p id="avatar-message" style="margin-top: 0.5rem; font-size: 0.85rem; display: none;"></p>
     </div>
 
-    <!-- GEBIETSFARBE -->
-    <div class="auth-card" style="margin-bottom: 1rem;">
-      <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Meine Gebietsfarbe</h2>
-      <div class="setting-row">
-        <label style="color: var(--color-muted); font-size: 0.85rem;">Gebietsfarbe</label>
-        <p class="setting-hint" style="color: var(--color-muted); font-size: 0.82rem; margin-bottom: 0.5rem;">Wähle deine Farbe für eroberte Gebiete auf der Karte.</p>
-        <div class="color-picker-grid" id="color-picker-grid">
-          <button class="color-option" data-color="#FF6B6B" style="background:#FF6B6B"></button>
-          <button class="color-option" data-color="#4ECDC4" style="background:#4ECDC4"></button>
-          <button class="color-option" data-color="#45B7D1" style="background:#45B7D1"></button>
-          <button class="color-option" data-color="#96CEB4" style="background:#96CEB4"></button>
-          <button class="color-option" data-color="#FFEAA7" style="background:#FFEAA7"></button>
-          <button class="color-option" data-color="#DDA0DD" style="background:#DDA0DD"></button>
-          <button class="color-option" data-color="#98D8C8" style="background:#98D8C8"></button>
-          <button class="color-option" data-color="#F7DC6F" style="background:#F7DC6F"></button>
-          <button class="color-option" data-color="#BB8FCE" style="background:#BB8FCE"></button>
-          <button class="color-option" data-color="#85C1E9" style="background:#85C1E9"></button>
-          <button class="color-option" data-color="#F0B27A" style="background:#F0B27A"></button>
-          <button class="color-option" data-color="#82E0AA" style="background:#82E0AA"></button>
-          <button class="color-option" data-color="#F1948A" style="background:#F1948A"></button>
-          <button class="color-option" data-color="#AED6F1" style="background:#AED6F1"></button>
-          <button class="color-option" data-color="#D7BDE2" style="background:#D7BDE2"></button>
-          <button class="color-option" data-color="#A3E4D7" style="background:#A3E4D7"></button>
-          <button class="color-option" data-color="#FAD7A0" style="background:#FAD7A0"></button>
-          <button class="color-option" data-color="#A9CCE3" style="background:#A9CCE3"></button>
-          <button class="color-option" data-color="#D5F5E3" style="background:#D5F5E3"></button>
-          <button class="color-option" data-color="#FADBD8" style="background:#FADBD8"></button>
-        </div>
-        <div class="color-preview">
-          <span style="color: var(--color-muted); font-size: 0.85rem;">Vorschau:</span>
-          <div class="hex-preview" id="hex-preview"></div>
-        </div>
-        <p id="color-message" style="margin-top: 0.5rem; font-size: 0.85rem; display: none;"></p>
-      </div>
-    </div>
-
     <!-- PASSWORT ÄNDERN -->
     <div class="auth-card" style="margin-bottom: 1rem;">
       <h2 style="font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 0.75rem;">Passwort ändern</h2>
@@ -287,7 +251,7 @@
 
       const { data: profile } = await GK.supabase
         .from('user_profiles')
-        .select('username, avatar_type, avatar_url, territory_color, strava_token, strava_connected_at, strava_post_summits, suunto_token, suunto_connected_at')
+        .select('username, avatar_type, avatar_url, strava_token, strava_connected_at, strava_post_summits, suunto_token, suunto_connected_at')
         .eq('id', currentUser.id)
         .single();
 
@@ -313,9 +277,6 @@
           avatarCurrentDisplay.textContent = emojiAvatar;
         }
 
-        // Gebietsfarbe initialisieren
-        initColorPicker(profile.territory_color);
-
         // Strava Status
         if (profile.strava_token) {
           document.getElementById('strava-not-connected').style.display = 'none';
@@ -336,54 +297,6 @@
           }
         }
       }
-    }
-
-    // Gebietsfarbe-Picker
-    function initColorPicker(currentColor) {
-      const grid = document.getElementById('color-picker-grid');
-      const preview = document.getElementById('hex-preview');
-      if (!grid || !preview) return;
-
-      // Vorschau setzen
-      if (currentColor) {
-        preview.style.background = currentColor;
-      }
-
-      // Aktive Farbe markieren
-      const buttons = grid.querySelectorAll('.color-option');
-      buttons.forEach(btn => {
-        const btnColor = btn.getAttribute('data-color');
-        if (currentColor && btnColor.toUpperCase() === currentColor.toUpperCase()) {
-          btn.classList.add('selected');
-        }
-
-        btn.addEventListener('click', async () => {
-          // Alle deselektieren
-          buttons.forEach(b => b.classList.remove('selected'));
-          btn.classList.add('selected');
-
-          // Vorschau aktualisieren
-          preview.style.background = btnColor;
-
-          // In DB speichern
-          const msg = document.getElementById('color-message');
-          try {
-            const { error } = await GK.supabase
-              .from('user_profiles')
-              .update({ territory_color: btnColor })
-              .eq('id', currentUser.id);
-
-            if (error) throw error;
-            msg.textContent = 'Farbe gespeichert ✓';
-            msg.style.color = 'var(--color-safe)';
-          } catch (e) {
-            msg.textContent = 'Fehler: ' + e.message;
-            msg.style.color = 'var(--color-danger)';
-          }
-          msg.style.display = 'block';
-          setTimeout(() => { msg.style.display = 'none'; }, 2000);
-        });
-      });
     }
 
     // Strava OAuth starten — globale Funktion für Quick-Button + normalen Button

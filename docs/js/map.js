@@ -455,12 +455,40 @@ function loadCrownsAsync() {
 // Gebiets-Polygone (Hexagonal Territory Grid)
 // ---------------------------------------------------------------------------
 let territoryLayer = null;
-/** Cache für Gebietsfarben aus der DB (userId → hex color string) */
-const territoryColorCache = new Map();
+/** Cache für User-Profile (userId → { name, avatarUrl, avatarType, username }) */
+const territoryProfileCache = new Map();
+
+// Emoji-Avatare für Hex-Gebiete (Fallback wenn kein Profilbild)
+const HEX_AVATAR_EMOJIS = {
+  'mountain': '🏔️', 'eagle': '🦅', 'ski': '⛷️', 'climber': '🧗',
+  'tree': '🌲', 'snow': '❄️', 'deer': '🦌', 'rock': '🪨'
+};
+
+// CSS clip-path für flat-top Hexagon-Form
+const HEX_CLIP_PATH = 'polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%)';
+
+/**
+ * HTML für ein Hex-Avatar DivIcon erzeugen.
+ * Profilbild → Emoji → Anfangsbuchstabe (Fallback-Kette)
+ */
+function buildHexAvatarHtml(profile, sizePx) {
+  if (profile.avatarUrl) {
+    return '<div style="width:' + sizePx + 'px;height:' + sizePx + 'px;clip-path:' + HEX_CLIP_PATH + ';overflow:hidden;pointer-events:none;">' +
+      '<img src="' + profile.avatarUrl + '" style="width:100%;height:100%;object-fit:cover;" ' +
+      'onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">' +
+      '<div style="display:none;width:100%;height:100%;background:rgba(45,42,38,0.7);align-items:center;justify-content:center;font-size:' + Math.round(sizePx * 0.45) + 'px;">' +
+      (HEX_AVATAR_EMOJIS[profile.avatarType] || profile.username.charAt(0).toUpperCase()) + '</div></div>';
+  }
+  return '<div style="width:' + sizePx + 'px;height:' + sizePx + 'px;clip-path:' + HEX_CLIP_PATH + ';' +
+    'background:rgba(45,42,38,0.7);display:flex;align-items:center;justify-content:center;pointer-events:none;">' +
+    '<span style="font-size:' + Math.round(sizePx * 0.45) + 'px;line-height:1;">' +
+    (HEX_AVATAR_EMOJIS[profile.avatarType] || profile.username.charAt(0).toUpperCase()) +
+    '</span></div>';
+}
 
 /**
  * Hex-Grid-Konfiguration (flat-top, perfekte Tessellation):
- * Circumradius s = 9km → Hex-Durchmesser 18km.
+ * Circumradius s = 5km → Hex-Durchmesser 10km.
  * Bei 47°N: 1° lat ≈ 111.32km, 1° lng ≈ 75.9km.
  *
  * Flat-top Hex mit Circumradius s:
@@ -470,7 +498,7 @@ const territoryColorCache = new Map();
  *   Row-Spacing = sqrt(3) * s (vertical center-to-center)
  *   Odd columns offset by sqrt(3)/2 * s vertically
  */
-const HEX_SIZE_KM = 9;                        // Circumradius in km (18km Durchmesser)
+const HEX_SIZE_KM = 5;                        // Circumradius in km (10km Durchmesser)
 const LAT_KM = 111.32;                        // km pro Grad Latitude
 const LNG_KM = 75.9;                          // km pro Grad Longitude bei 47°N
 const S_LAT = HEX_SIZE_KM / LAT_KM;           // Circumradius in Grad Latitude  ≈ 0.0808
@@ -664,48 +692,73 @@ async function loadTerritories() {
 
     if (Object.keys(hexKings).length === 0) return;
 
-    // User-Profile für Tooltip-Namen und Gebietsfarben laden
-    const userNames = {};
+    // User-Profile laden (Profilbild, Avatar-Typ, Name)
+    const userProfiles = {};
     for (const uid of allUserIds) {
+      // Cache nutzen wenn vorhanden
+      if (territoryProfileCache.has(uid)) {
+        userProfiles[uid] = territoryProfileCache.get(uid);
+        continue;
+      }
       try {
         const profil = await GK.api.getUserProfile(uid);
         if (profil) {
-          const name = profil.display_name || profil.username || 'Anonym';
-          userNames[uid] = name.split(' ')[0]; // Nur Vorname
-          // Gebietsfarbe aus Profil cachen
-          if (profil.territory_color) {
-            territoryColorCache.set(uid, profil.territory_color);
-          }
+          const p = {
+            name: (profil.display_name || profil.username || 'Anonym').split(' ')[0],
+            avatarUrl: profil.avatar_url || null,
+            avatarType: profil.avatar_type || null,
+            username: profil.username || 'Anonym'
+          };
+          userProfiles[uid] = p;
+          territoryProfileCache.set(uid, p);
         } else {
-          userNames[uid] = 'Anonym';
+          userProfiles[uid] = { name: 'Anonym', avatarUrl: null, avatarType: null, username: 'Anonym' };
         }
       } catch (e) {
-        userNames[uid] = 'Anonym';
+        userProfiles[uid] = { name: 'Anonym', avatarUrl: null, avatarType: null, username: 'Anonym' };
       }
     }
 
-    // Hex-Polygone zeichnen
+    // Hex-Polygone + Profilbild-Avatare zeichnen
+    const hexOp = (GK.map._hexOpacity || 12) / 100;
+    const zoom = GK.map.leaflet.getZoom();
+    const iconSize = Math.max(24, Math.min(64, Math.round(8 * Math.pow(2, zoom - 10))));
+
     for (const [hexKey, king] of Object.entries(hexKings)) {
       const center = hexCenters[hexKey];
       if (!center) continue;
 
-      const color = getTerritoryColor(king.userId);
       const corners = getHexPolygon(center.centerLat, center.centerLng);
-      const kingName = userNames[king.userId] || 'Anonym';
+      const profile = userProfiles[king.userId] || { name: 'Anonym', avatarUrl: null, avatarType: null, username: 'Anonym' };
+      const borderColor = getTerritoryColor(king.userId);
 
-      const hexOp = (GK.map._hexOpacity || 12) / 100;
+      // Hex-Umriss (subtiler Fill + Border)
       const polygon = L.polygon(corners, {
-        color: color,
-        weight: 1,
-        opacity: hexOp,
-        fillColor: color,
-        fillOpacity: hexOp,
+        color: borderColor,
+        weight: 1.5,
+        opacity: Math.min(hexOp * 1.5, 0.6),
+        fillColor: borderColor,
+        fillOpacity: hexOp * 0.15,
         interactive: false,
         className: 'hex-territory',
         pane: 'overlayPane',
       });
-
       territoryLayer.addLayer(polygon);
+
+      // Profilbild-Hexagon im Zentrum
+      const avatarHtml = buildHexAvatarHtml(profile, iconSize);
+      const icon = L.divIcon({
+        className: 'hex-avatar-icon',
+        html: '<div class="hex-avatar-wrapper" style="opacity:' + Math.min(hexOp * 2.5, 0.85) + ';">' + avatarHtml + '</div>',
+        iconSize: [iconSize, iconSize],
+        iconAnchor: [iconSize / 2, iconSize / 2],
+      });
+      const marker = L.marker([center.centerLat, center.centerLng], {
+        icon: icon,
+        interactive: false,
+        pane: 'overlayPane',
+      });
+      territoryLayer.addLayer(marker);
     }
 
   } catch (err) {
@@ -843,14 +896,20 @@ async function initMap() {
       sliderDiv.style.display = GK.map._hexVisible ? '' : 'none';
     });
 
-    // Slider-Handler
+    // Slider-Handler (Polygone + Avatar-Marker)
     sliderDiv.querySelector('input').addEventListener('input', function () {
       const v = parseInt(this.value, 10);
       GK.map._hexOpacity = v;
       localStorage.setItem('gk_hex_opacity', v);
       if (territoryLayer) {
         territoryLayer.eachLayer(function (layer) {
-          if (layer.setStyle) layer.setStyle({ fillOpacity: v / 100, opacity: v / 100 * 2 });
+          if (layer.setStyle) {
+            layer.setStyle({ fillOpacity: (v / 100) * 0.15, opacity: Math.min((v / 100) * 1.5, 0.6) });
+          }
+          if (layer._icon) {
+            var wrapper = layer._icon.querySelector('.hex-avatar-wrapper');
+            if (wrapper) wrapper.style.opacity = Math.min((v / 100) * 2.5, 0.85);
+          }
         });
       }
     });
