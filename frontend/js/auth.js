@@ -196,9 +196,41 @@ async function loadProfileForSeason(year) {
 
   // Lose NUR fuer diese Saison (nicht uebertragbar!)
   const gipfelLose = seasonUnique;                    // 1 Los pro Gipfel (unique)
-  const koenigLose = currentSeasonCrownCount * 2;      // 2 Lose pro Krone (NUR aktuelle Saison!)
-  let gebietLose = 0;                                 // 5 Lose pro Gebiet (TODO)
-  const potdLose = 0;                                 // 5 Lose pro Gipfel des Tages (TODO)
+  const koenigLose = currentSeasonCrownCount * 5;      // 5 Lose pro Krone (NUR aktuelle Saison!)
+  let gebietLose = 0;                                 // 15 Lose pro Gebiet
+  const potdLose = 0;                                 // Gipfel des Tages (TODO)
+
+  // Gebiete zaehlen: Hex-Territorien wo User die meisten verschiedenen Gipfel hat
+  try {
+    if (userId && seasonSummits.length > 0) {
+      const HEX_SIZE = 5, LAT_KM = 111.32, LNG_KM = 75.9;
+      const sLat = HEX_SIZE / LAT_KM, sLng = HEX_SIZE / LNG_KM;
+      const colSp = 1.5 * sLng, rowSp = Math.sqrt(3) * sLat;
+
+      // Meine Peaks pro Hex zaehlen
+      const myHexPeaks = {};
+      const uniquePeakIds = [...new Set(seasonSummits.map(s => s.peak_id))];
+      for (const pid of uniquePeakIds) {
+        const peak = window._allPeaksCache ? window._allPeaksCache[pid] : null;
+        if (!peak) continue;
+        const col = Math.round(peak.lng / colSp);
+        const rowOff = (col % 2 !== 0) ? rowSp / 2 : 0;
+        const row = Math.round((peak.lat - rowOff) / rowSp);
+        const key = col + ',' + row;
+        if (!myHexPeaks[key]) myHexPeaks[key] = new Set();
+        myHexPeaks[key].add(pid);
+      }
+
+      // Pro Hex pruefen ob ich die meisten habe (vereinfacht: Gebiete aus loadTerritories Cache)
+      if (window._hexTerritoryKings) {
+        let myTerritories = 0;
+        for (const [hexKey, king] of Object.entries(window._hexTerritoryKings)) {
+          if (king.userId === userId) myTerritories++;
+        }
+        gebietLose = myTerritories * 15;
+      }
+    }
+  } catch (e) { console.warn('Gebiet-Lose Fehler:', e); }
   const punkteLose = Math.floor(seasonPts / 1000);    // 1 Los pro 1000 Pkt
   const hmLose = Math.floor(seasonHM / 10000);        // 1 Los pro 10.000 HM
   const kmLose = Math.floor(seasonKM / 100);          // 1 Los pro 100 km

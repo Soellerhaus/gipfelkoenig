@@ -829,6 +829,9 @@ async function loadTerritories() {
       }
     }
 
+    // Cache fuer Lose-Berechnung in auth.js
+    window._hexTerritoryKings = hexKings;
+
     if (Object.keys(hexKings).length === 0) return;
 
     // User-Profile laden — Batch-Query statt einzelne Requests (Performance!)
