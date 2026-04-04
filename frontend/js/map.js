@@ -243,34 +243,33 @@ async function buildHexTerritoryInfo(peak, season) {
     const peakIds = hexPeaks.map(p => p.id);
     const totalPeaksInHex = peakIds.length;
 
-    // Kronen (ownership) in diesem Hex laden
+    // Summits in diesem Hex laden — unique Peaks pro User zaehlen
     const batchSize = 200;
-    let allCrowns = [];
+    let allSummits = [];
     for (let i = 0; i < peakIds.length; i += batchSize) {
       const batch = peakIds.slice(i, i + batchSize);
-      const { data: crowns } = await GK.supabase
-        .from('ownership').select('user_id, peak_id')
+      const { data: s } = await GK.supabase
+        .from('summits').select('user_id, peak_id')
         .eq('season', season)
+        .eq('safety_ok', true)
         .in('peak_id', batch);
-      if (crowns) allCrowns = allCrowns.concat(crowns);
+      if (s) allSummits = allSummits.concat(s);
     }
 
-    const totalCrowns = allCrowns.length;
-    const freeCrowns = totalPeaksInHex - totalCrowns;
-
-    if (totalCrowns === 0) {
-      return '<div class="hex-territory-info">🏰 Gebiet: ' + totalPeaksInHex + ' Gipfel — alle Kronen frei!</div>';
+    if (allSummits.length === 0) {
+      return '<div class="hex-territory-info">🏰 Gebiet: ' + totalPeaksInHex + ' Gipfel — noch unerobert!</div>';
     }
 
-    // Kronen pro User zaehlen
-    const crownsByUser = {};
-    for (const c of allCrowns) {
-      crownsByUser[c.user_id] = (crownsByUser[c.user_id] || 0) + 1;
+    // Unique Peaks pro User zaehlen
+    const userPeaks = {};
+    for (const s of allSummits) {
+      if (!userPeaks[s.user_id]) userPeaks[s.user_id] = new Set();
+      userPeaks[s.user_id].add(s.peak_id);
     }
 
-    // Sortiert nach Anzahl Kronen
-    const sorted = Object.entries(crownsByUser)
-      .map(([uid, count]) => ({ uid, count }))
+    // Sortiert nach Anzahl verschiedener Gipfel
+    const sorted = Object.entries(userPeaks)
+      .map(([uid, peaks]) => ({ uid, count: peaks.size }))
       .sort((a, b) => b.count - a.count);
 
     const hexKing = sorted[0];
@@ -287,21 +286,19 @@ async function buildHexTerritoryInfo(peak, season) {
       const challengerProfile = challenger ? await GK.api.getUserProfile(challenger.uid) : null;
       const challengerName = challengerProfile ? (challengerProfile.display_name || challengerProfile.username || '?').split(' ')[0] : null;
 
-      let text = '🏰 Dein Gebiet! ' + hexKing.count + '/' + totalPeaksInHex + ' Kronen';
+      let text = '🏰 Dein Gebiet! ' + hexKing.count + '/' + totalPeaksInHex + ' Gipfel bestiegen';
       if (challenger) {
         text += ' · ' + gap + ' Vorsprung auf ' + challengerName;
       }
-      if (freeCrowns > 0) text += ' · ' + freeCrowns + ' frei';
       return '<div class="hex-territory-info hex-mine">' + text + '</div>';
     } else {
-      const myCount = crownsByUser[userId] || 0;
+      const myCount = userPeaks[userId] ? userPeaks[userId].size : 0;
       const gap = hexKing.count - myCount + 1;
 
-      let text = '🏰 Gebiet von <strong>' + kingName + '</strong> · ' + hexKing.count + '/' + totalPeaksInHex + ' Kronen';
+      let text = '🏰 Gebiet von <strong>' + kingName + '</strong> · ' + hexKing.count + '/' + totalPeaksInHex + ' Gipfel bestiegen';
       if (userId) {
-        text += ' · noch <strong>' + gap + ' Kronen</strong> für Machtwechsel';
+        text += ' · noch <strong>' + gap + ' Gipfel</strong> für Machtwechsel';
       }
-      if (freeCrowns > 0) text += ' · ' + freeCrowns + ' frei';
       return '<div class="hex-territory-info">' + text + '</div>';
     }
   } catch (e) {
