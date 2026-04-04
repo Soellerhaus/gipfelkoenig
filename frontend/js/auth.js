@@ -244,6 +244,9 @@ async function loadProfileForSeason(year) {
   setEl('tickets-koenig', koenigLose);
   setEl('tickets-gebiet', gebietLose);
   setEl('tickets-gebiet-count', gebietLose > 0 ? Math.round(gebietLose / 15) : 0);
+  // Gebiete-Zeile nur anzeigen wenn mindestens 1 Gebiet erobert
+  const gebietRow = document.getElementById('tickets-gebiet-row');
+  if (gebietRow) gebietRow.style.display = gebietLose > 0 ? '' : 'none';
   setEl('tickets-potd', potdLose);
   setEl('tickets-punkte', punkteLose);
   setEl('tickets-hm', hmLose);
