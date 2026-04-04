@@ -339,13 +339,40 @@ def main():
 
             sys.stdout.flush()
 
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                print(prefix + ' [WAIT] Rate limit, warte 60s...')
+                sys.stdout.flush()
+                time.sleep(60)
+                # Retry nach Pause
+                try:
+                    description = search_wikipedia_by_name(name)
+                    if description:
+                        save_description(peak['id'], description)
+                        stats['wikipedia'] += 1
+                        print(prefix + ' [WIKI] (retry) ' + name)
+                    else:
+                        description = generate_fallback(peak)
+                        if description:
+                            save_description(peak['id'], description)
+                            stats['fallback'] += 1
+                            print(prefix + ' [TMPL] (retry) ' + name)
+                    sys.stdout.flush()
+                except Exception:
+                    stats['errors'] += 1
+                    print(prefix + ' [ERR] retry failed: ' + name)
+                    sys.stdout.flush()
+            else:
+                stats['errors'] += 1
+                print(prefix + ' [ERR] ' + name + ': HTTP ' + str(e.code))
+                sys.stdout.flush()
         except Exception as e:
             stats['errors'] += 1
             print(prefix + ' [ERR] ' + name + ': ' + str(e))
             sys.stdout.flush()
 
-        # Kleine Pause (Wikipedia Rate Limit: 200 req/s, wir sind vorsichtig)
-        time.sleep(0.5)
+        # Pause zwischen Requests (Wikipedia Rate Limit)
+        time.sleep(1.5)
 
     print()
     print('=== ERGEBNIS ===')

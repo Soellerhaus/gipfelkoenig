@@ -661,6 +661,25 @@
   font-size: 1.1rem;
 }
 
+.hex-territory-info {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  padding: 5px 8px;
+  margin: 4px 0;
+  background: rgba(0,229,255,0.06);
+  border-left: 2px solid #00e5ff;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+.hex-territory-info.hex-mine {
+  background: rgba(201,168,76,0.08);
+  border-left-color: var(--color-gold);
+  color: var(--color-gold);
+}
+.hex-territory-info strong {
+  color: var(--color-text);
+}
+
 .peak-marker.unreachable {
   color: #888;
   font-size: 1rem;

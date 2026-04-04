@@ -215,6 +215,107 @@ function buildPopupContent(peak, king, summitCount, isSafe) {
 /**
  * Gipfel-Info im fixierten Panel anzeigen — kompakte Badge-Pills pro Saison.
  */
+/**
+ * Hex-Gebiet Info fuer die Infokachel berechnen.
+ * Zeigt wer das Gebiet besitzt und wie viele Gipfel zum Machtwechsel fehlen.
+ */
+async function buildHexTerritoryInfo(peak, season) {
+  try {
+    const hex = getHexCell(peak.lat, peak.lng);
+    const hexKey = getHexKey(hex.col, hex.row);
+    const userId = GK.map._currentUserId;
+
+    // Alle Peaks in diesem Hex laden
+    const hexPoly = getHexPolygon(hex.centerLat, hex.centerLng);
+    const latMin = Math.min(...hexPoly.map(p => p[0]));
+    const latMax = Math.max(...hexPoly.map(p => p[0]));
+    const lngMin = Math.min(...hexPoly.map(p => p[1]));
+    const lngMax = Math.max(...hexPoly.map(p => p[1]));
+
+    const { data: hexPeaks } = await GK.supabase
+      .from('peaks').select('id')
+      .gte('lat', latMin).lte('lat', latMax)
+      .gte('lng', lngMin).lte('lng', lngMax)
+      .or('reachable.eq.true,reachable.is.null');
+
+    if (!hexPeaks || hexPeaks.length === 0) return '';
+
+    // Nur Peaks die wirklich in diesem Hex liegen
+    const peaksInHex = hexPeaks.filter(p => {
+      // Einfacher Check reicht (Hex-Zuordnung)
+      return true;
+    });
+    const peakIds = peaksInHex.map(p => p.id);
+    const totalPeaksInHex = peakIds.length;
+
+    // Summits in diesem Hex fuer aktuelle Saison laden
+    const batchSize = 200;
+    let allSummits = [];
+    for (let i = 0; i < peakIds.length; i += batchSize) {
+      const batch = peakIds.slice(i, i + batchSize);
+      const { data: s } = await GK.supabase
+        .from('summits').select('user_id, peak_id')
+        .eq('season', season)
+        .eq('safety_ok', true)
+        .in('peak_id', batch);
+      if (s) allSummits = allSummits.concat(s);
+    }
+
+    if (allSummits.length === 0) {
+      return '<div class="hex-territory-info">🏔️ Gebiet: ' + totalPeaksInHex + ' Gipfel — noch unerobert!</div>';
+    }
+
+    // Unique Peaks pro User zaehlen
+    const userPeaks = {};
+    for (const s of allSummits) {
+      if (!userPeaks[s.user_id]) userPeaks[s.user_id] = new Set();
+      userPeaks[s.user_id].add(s.peak_id);
+    }
+
+    // Sortiert nach Anzahl
+    const sorted = Object.entries(userPeaks)
+      .map(([uid, peaks]) => ({ uid, count: peaks.size }))
+      .sort((a, b) => b.count - a.count);
+
+    const hexKing = sorted[0];
+
+    // Profil des Gebietskoenigs laden
+    const kingProfile = await GK.api.getUserProfile(hexKing.uid);
+    const kingName = kingProfile ? (kingProfile.display_name || kingProfile.username || 'Anonym').split(' ')[0] : 'Anonym';
+
+    // Bin ich der Gebietskoenig?
+    const isMyTerritory = hexKing.uid === userId;
+
+    if (isMyTerritory) {
+      // Ich bin Gebietskoenig — zeige Vorsprung
+      const challenger = sorted.length > 1 ? sorted[1] : null;
+      const gap = challenger ? hexKing.count - challenger.count : hexKing.count;
+      const challengerProfile = challenger ? await GK.api.getUserProfile(challenger.uid) : null;
+      const challengerName = challengerProfile ? (challengerProfile.display_name || challengerProfile.username || '?').split(' ')[0] : null;
+
+      let text = '🏰 Dein Gebiet! ' + hexKing.count + '/' + totalPeaksInHex + ' Gipfel';
+      if (challenger) {
+        text += ' · ' + gap + ' Vorsprung auf ' + challengerName;
+      }
+      return '<div class="hex-territory-info hex-mine">' + text + '</div>';
+    } else {
+      // Jemand anders ist Gebietskoenig
+      const myEntry = sorted.find(s => s.uid === userId);
+      const myCount = myEntry ? myEntry.count : 0;
+      const gap = hexKing.count - myCount + 1; // +1 weil man mehr braucht
+
+      let text = '🏰 Gebiet von <strong>' + kingName + '</strong> · ' + hexKing.count + '/' + totalPeaksInHex + ' Gipfel';
+      if (userId) {
+        text += ' · noch <strong>' + gap + ' Gipfel</strong> für Machtwechsel';
+      }
+      return '<div class="hex-territory-info">' + text + '</div>';
+    }
+  } catch (e) {
+    console.warn('Hex-Info Fehler:', e);
+    return '';
+  }
+}
+
 async function openPeakPanel(peakId) {
   const content = document.getElementById('peak-info-content');
   if (!content) return;
@@ -346,10 +447,17 @@ async function openPeakPanel(peakId) {
     const lastDate = new Date(lastSummit.summited_at).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const lastUser = userName(lastSummit.user_id);
 
+    // Hex-Gebiet Info berechnen
+    let hexInfoHtml = '';
+    try {
+      hexInfoHtml = await buildHexTerritoryInfo(peak, focusSeason);
+    } catch (e) { /* ignorieren */ }
+
     content.innerHTML = `
       <div class="peak-top-meta">${safetyHtml} · ${totalSummits} Besteigungen · ${uniqueUsers} Bergfreunde</div>
       <div class="trophy-grid">${trophyHtml}</div>
       ${historyHtml ? '<div class="peak-history">' + historyHtml + '</div>' : ''}
+      ${hexInfoHtml}
       <div class="peak-bottom-name">${peak.name}${peak.elevation ? ' <span class="peak-elev">' + peak.elevation + ' m</span>' : ''}</div>
       ${desc ? '<div class="peak-description">' + desc + '</div>' : '<div class="peak-description">Letzte Besteigung: ' + lastDate + ' von ' + lastUser + '</div>'}
     `;
