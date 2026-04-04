@@ -179,13 +179,28 @@ function getMarkerIcon(peak, ownership, userSummited, isSafe, isAttacked) {
     return createSummitedIcon();
   }
 
-  // Kein König → Krone frei → grün (eroberbar!)
-  if (!ownership) {
+  // Krone frei + Gebiet hat einen Herrscher → grün (1 Besteigung = Krone!)
+  if (!ownership && isInRuledTerritory(peak)) {
     return createAvailableIcon();
   }
 
-  // Hat einen König, aber User war noch nie da
+  // Standard: gold/schwarz (Corporate Identity)
   return createNormalIcon();
+}
+
+/**
+ * Pruefen ob ein Gipfel in einem Hex-Gebiet liegt das einen Herrscher hat.
+ * Nur dann werden kronenfreie Gipfel gruen angezeigt.
+ */
+function isInRuledTerritory(peak) {
+  if (!window._hexTerritoryKings) return false;
+  const colSpacing = 1.5 * S_LNG;
+  const rowSpacing = Math.sqrt(3) * S_LAT;
+  const col = Math.round(peak.lng / colSpacing);
+  const rowOffset = (col % 2 !== 0) ? rowSpacing / 2 : 0;
+  const row = Math.round((peak.lat - rowOffset) / rowSpacing);
+  const key = col + ',' + row;
+  return !!window._hexTerritoryKings[key];
 }
 
 /**

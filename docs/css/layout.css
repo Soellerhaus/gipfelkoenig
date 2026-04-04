@@ -640,7 +640,7 @@
 }
 
 .peak-marker.normal {
-  color: var(--color-text);
+  color: var(--color-gold);
   font-size: 1rem;
 }
 
