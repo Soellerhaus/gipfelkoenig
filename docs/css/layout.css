@@ -228,11 +228,11 @@
 .app-header-logo {
   font-family: var(--font-display);
   font-size: 1.25rem;
-  color: var(--color-text);
+  color: #f0ece4;
   font-weight: 700;
 }
 .app-header-logo .brand-king {
-  color: var(--color-gold);
+  color: #c9a84c;
 }
 
 /* Hex Opacity Slider — vertikal */

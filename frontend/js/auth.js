@@ -1750,18 +1750,18 @@ async function loadSponsorTicker() {
     var tickerHtml = '';
     Object.values(grouped).forEach(function(g) {
       var s = g.sponsor;
-      var logo = s.logo_url ? '<img src="' + s.logo_url + '" style="height:24px;border-radius:4px;">' : '';
-      // Logo + Sponsor-Name einmal
-      tickerHtml += '<span class="sponsor-ticker-item" style="margin-right:8px;">' +
-        '<span style="color:var(--color-muted);font-size:0.7rem;">Sponsoren:</span> ' +
-        logo + '</span>';
+      var logo = s.logo_url ? '<img src="' + s.logo_url + '" style="height:32px;border-radius:4px;margin-right:6px;">' : '';
+      // Logo + "Firma sponsort folgendes:"
+      tickerHtml += '<span class="sponsor-ticker-item" style="margin-right:6px;">' +
+        logo + '<span style="color:var(--color-text);">' + s.company_name + '</span>' +
+        '<span style="color:var(--color-muted);margin-left:6px;">sponsort:</span></span>';
       // Alle Preise mit Wert in Klammer
       g.prizes.forEach(function(p) {
         var preis = p.prize_value ? ' (' + p.prize_value + ')' : '';
         tickerHtml += '<a href="/prizes.html" class="sponsor-ticker-item">' +
           '<span class="sponsor-prize">' + p.prize_name + preis + '</span></a>';
       });
-      tickerHtml += '<span style="margin:0 2rem;"></span>';
+      tickerHtml += '<span style="margin:0 3rem;"></span>';
     });
 
     // Doppelt für nahtlosen Loop
