@@ -216,6 +216,8 @@ function buildPopupContent(peak, king, summitCount, isSafe) {
     }
   }
 
+  const pfUrl = 'https://www.peak-flow.app/?lat=' + peak.lat + '&lng=' + peak.lng + '&peak=' + encodeURIComponent(peak.name);
+
   return `
     <div class="peak-popup" style="min-width: 160px; text-align: center;">
       <strong style="font-family: 'Playfair Display', serif; font-size: 1rem;">
@@ -223,6 +225,7 @@ function buildPopupContent(peak, king, summitCount, isSafe) {
       </strong>
       <div style="font-size: 0.85rem; margin: 2px 0;">${peak.elevation} m</div>
       ${kingLine}
+      <a href="${pfUrl}" target="_blank" style="display:inline-block; margin-top:5px; padding:4px 10px; background:var(--color-gold); color:#1a1814; border-radius:6px; text-decoration:none; font-size:0.75rem; font-weight:600;">Route planen</a>
     </div>
   `;
 }
