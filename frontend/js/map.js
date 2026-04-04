@@ -358,9 +358,10 @@ async function openPeakPanel(peakId) {
       .eq('peak_id', peakId)
       .order('summited_at', { ascending: false });
 
+    const pfUrl = 'https://www.peak-flow.app/?lat=' + peak.lat + '&lng=' + peak.lng + '&peak=' + encodeURIComponent(peak.name);
     const safetyHtml = peak.is_active === false
       ? '<span style="color: var(--color-danger);">● Gesperrt</span>'
-      : '<a href="https://www.peak-flow.app/" target="_blank" style="color: var(--color-muted); text-decoration:none; font-size:0.75rem;">Route planen? <span style="color:var(--color-text);">Peak</span><span style="color:var(--color-gold);">Flow</span> kostenlos nutzen</a>';
+      : '<a href="' + pfUrl + '" target="_blank" style="color: var(--color-muted); text-decoration:none; font-size:0.75rem;">Route planen? <span style="color:var(--color-text);">Peak</span><span style="color:var(--color-gold);">Flow</span> kostenlos nutzen</a>';
 
     if (error || !summits || summits.length === 0) {
       // Leerer Gipfel — Trophy-Slots alle leer
