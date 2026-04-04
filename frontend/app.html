@@ -210,29 +210,43 @@
             <div style="font-size:0.75rem; color:#888;">LOSE GESAMT</div>
           </div>
 
-          <!-- Lose-Breakdown als klare Tabelle: Leistung → Lose -->
-          <div style="font-size:0.78rem; color:#ccc; line-height:2;">
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-              <span>⛰️ <span id="lose-gipfel-count" style="color:white;font-weight:600;">0</span> Gipfel</span>
-              <span style="color:#ffd700;font-weight:600;"><span id="tickets-gipfel">0</span> Lose</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-              <span>👑 <span id="tickets-koenig-count" style="color:white;font-weight:600;">0</span> Kronen (aktuelle Saison)</span>
-              <span style="color:#ffd700;font-weight:600;"><span id="tickets-koenig">0</span> Lose</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-              <span>📊 <span id="tickets-punkte-val" style="color:white;font-weight:600;">0</span> Punkte</span>
-              <span style="color:#ffd700;font-weight:600;"><span id="tickets-punkte">0</span> Lose <span style="color:#666;font-size:0.7rem;">(1/1.000)</span></span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-              <span>🏔️ <span id="tickets-hm-val" style="color:white;font-weight:600;">0</span> H&ouml;henmeter</span>
-              <span style="color:#ffd700;font-weight:600;"><span id="tickets-hm">0</span> Lose <span style="color:#666;font-size:0.7rem;">(1/10.000)</span></span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;">
-              <span>🥾 <span id="tickets-km-val" style="color:white;font-weight:600;">0</span> Kilometer</span>
-              <span style="color:#ffd700;font-weight:600;"><span id="tickets-km">0</span> Lose <span style="color:#666;font-size:0.7rem;">(1/100)</span></span>
-            </div>
-          </div>
+          <!-- Lose-Breakdown als saubere Tabelle -->
+          <table style="width:100%; font-size:0.82rem; color:#ccc; border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:2px solid rgba(255,215,0,0.2); font-size:0.7rem; color:#888; text-transform:uppercase; letter-spacing:1px;">
+                <th style="text-align:left; padding:6px 0;">Leistung</th>
+                <th style="text-align:right; padding:6px 0;">Wert</th>
+                <th style="text-align:right; padding:6px 0;">Lose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                <td style="padding:8px 0;">⛰️ Gipfel</td>
+                <td style="text-align:right; color:white; font-weight:600;" id="lose-gipfel-count">0</td>
+                <td style="text-align:right; color:#ffd700; font-weight:600;"><span id="tickets-gipfel">0</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                <td style="padding:8px 0;">👑 Kronen</td>
+                <td style="text-align:right; color:white; font-weight:600;" id="tickets-koenig-count">0</td>
+                <td style="text-align:right; color:#ffd700; font-weight:600;"><span id="tickets-koenig">0</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                <td style="padding:8px 0;">📊 Punkte <span style="color:#666; font-size:0.7rem;">(1/1.000)</span></td>
+                <td style="text-align:right; color:white; font-weight:600;" id="tickets-punkte-val">0</td>
+                <td style="text-align:right; color:#ffd700; font-weight:600;"><span id="tickets-punkte">0</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                <td style="padding:8px 0;">🏔️ H&ouml;henmeter <span style="color:#666; font-size:0.7rem;">(1/10.000)</span></td>
+                <td style="text-align:right; color:white; font-weight:600;" id="tickets-hm-val">0</td>
+                <td style="text-align:right; color:#ffd700; font-weight:600;"><span id="tickets-hm">0</span></td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;">🥾 Kilometer <span style="color:#666; font-size:0.7rem;">(1/100)</span></td>
+                <td style="text-align:right; color:white; font-weight:600;" id="tickets-km-val">0</td>
+                <td style="text-align:right; color:#ffd700; font-weight:600;"><span id="tickets-km">0</span></td>
+              </tr>
+            </tbody>
+          </table>
 
           <!-- Hidden elements for gebiet/potd -->
           <div style="display:none;"><span id="tickets-gebiet">0</span><span id="tickets-potd">0</span></div>

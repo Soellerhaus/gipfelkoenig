@@ -746,7 +746,7 @@ async function loadTerritories() {
     }
 
     // Hex-Polygone + Profilbild-Avatare zeichnen
-    const hexOp = (GK.map._hexOpacity || 12) / 100;
+    const hexOp = (GK.map._hexOpacity || 33) / 100;
     const map = GK.map.leaflet;
 
     for (const [hexKey, king] of Object.entries(hexKings)) {
@@ -901,7 +901,7 @@ async function initMap() {
     const hexVisible = savedState === null ? true : savedState === 'true';
     GK.map._hexVisible = hexVisible;
     const savedOpacity = parseInt(localStorage.getItem('gk_hex_opacity'), 10);
-    const opVal = (savedOpacity >= 5 && savedOpacity <= 60) ? savedOpacity : 20;
+    const opVal = (savedOpacity >= 5 && savedOpacity <= 60) ? savedOpacity : 33;
     GK.map._hexOpacity = opVal;
 
     // Toggle-Button
