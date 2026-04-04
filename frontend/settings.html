@@ -320,7 +320,7 @@
         '&response_type=code' +
         '&scope=read,activity:read_all,activity:write' +
         '&state=' + state +
-        '&approval_prompt=auto';
+        '&approval_prompt=force';
     };
     var stravaBtn = document.getElementById('connect-strava-btn');
     if (stravaBtn) stravaBtn.addEventListener('click', (e) => {
