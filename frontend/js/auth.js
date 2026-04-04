@@ -920,9 +920,9 @@ async function startPagedImport(userId, stravaToken) {
   const savedBefore = localStorage.getItem('import_before_' + userId);
   let beforeEpoch = savedBefore ? parseInt(savedBefore) : Math.floor(Date.now() / 1000);
 
-  // Nur aktuelles Jahr + Vorjahr importieren (sonst dauert es zu lange)
+  // Nur aktuelles Jahr importieren
   const currentYear = new Date().getFullYear();
-  const importSince = Math.floor(new Date(currentYear - 1, 0, 1).getTime() / 1000);
+  const importSince = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
   let totalSummits = 0;
   let totalPoints = 0;
   let currentPage = 1;

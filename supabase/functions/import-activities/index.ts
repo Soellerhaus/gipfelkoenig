@@ -157,8 +157,10 @@ serve(async (req) => {
     // 1. Gipfel werden pro Aktivität geladen (nur nahe Gipfel, spart Speicher)
     console.log('Gipfel werden pro Aktivität geladen (Bounding Box)')
 
-    // 2. Eine Seite Strava-Aktivitäten holen
-    let url = `https://www.strava.com/api/v3/athlete/activities?per_page=${STRAVA_PAGE_SIZE}&page=${page}`
+    // 2. Eine Seite Strava-Aktivitäten holen (nur aktuelles Jahr)
+    const currentYear = new Date().getFullYear()
+    const afterEpoch = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000)
+    let url = `https://www.strava.com/api/v3/athlete/activities?per_page=${STRAVA_PAGE_SIZE}&page=${page}&after=${afterEpoch}`
     if (before) url += `&before=${before}`
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${activeToken}` }
