@@ -924,9 +924,12 @@
 .auth-logo {
   font-family: var(--font-display);
   font-size: 1.3rem;
-  color: var(--color-gold);
+  color: #f0ece4;
   text-decoration: none;
   margin-bottom: 2rem;
+}
+.auth-logo .brand-king {
+  color: #c9a84c;
 }
 
 .auth-card {
