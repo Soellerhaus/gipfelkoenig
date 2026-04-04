@@ -243,6 +243,7 @@ async function loadProfileForSeason(year) {
   setEl('lose-gipfel-count', seasonUnique);
   setEl('tickets-koenig', koenigLose);
   setEl('tickets-gebiet', gebietLose);
+  setEl('tickets-gebiet-count', gebietLose > 0 ? Math.round(gebietLose / 15) : 0);
   setEl('tickets-potd', potdLose);
   setEl('tickets-punkte', punkteLose);
   setEl('tickets-hm', hmLose);

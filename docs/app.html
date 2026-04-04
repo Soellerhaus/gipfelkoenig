@@ -224,14 +224,19 @@
             </thead>
             <tbody>
               <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-                <td style="padding:8px 0;">⛰️ Gipfel</td>
+                <td style="padding:8px 0;">⛰️ Gipfel <span style="color:#666; font-size:0.7rem;">(1/Gipfel)</span></td>
                 <td style="text-align:right; color:white; font-weight:600;" id="lose-gipfel-count">0</td>
                 <td style="text-align:right; color:#ffd700; font-weight:600;"><span id="tickets-gipfel">0</span></td>
               </tr>
               <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-                <td style="padding:8px 0;">👑 Kronen</td>
+                <td style="padding:8px 0;">👑 Kronen <span style="color:#666; font-size:0.7rem;">(5/Krone)</span></td>
                 <td style="text-align:right; color:white; font-weight:600;" id="tickets-koenig-count">0</td>
                 <td style="text-align:right; color:#ffd700; font-weight:600;"><span id="tickets-koenig">0</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                <td style="padding:8px 0;">⬡ Gebiete <span style="color:#666; font-size:0.7rem;">(15/Gebiet)</span></td>
+                <td style="text-align:right; color:white; font-weight:600;" id="tickets-gebiet-count">0</td>
+                <td style="text-align:right; color:#ffd700; font-weight:600;"><span id="tickets-gebiet">0</span></td>
               </tr>
               <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
                 <td style="padding:8px 0;">📊 Punkte <span style="color:#666; font-size:0.7rem;">(1/1.000)</span></td>
@@ -251,8 +256,8 @@
             </tbody>
           </table>
 
-          <!-- Hidden elements for gebiet/potd -->
-          <div style="display:none;"><span id="tickets-gebiet">0</span><span id="tickets-potd">0</span></div>
+          <!-- Hidden elements for potd -->
+          <div style="display:none;"><span id="tickets-potd">0</span></div>
 
           <!-- Nächstes Los Motivation -->
           <div id="next-los-hint" style="font-size:0.82rem; color:var(--color-gold); text-align:center; margin-top:12px; font-weight:600; padding:10px; background:linear-gradient(135deg,rgba(255,215,0,0.1),rgba(255,165,0,0.06)); border:1px solid rgba(255,215,0,0.2); border-radius:8px;"></div>
