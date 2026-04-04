@@ -662,11 +662,11 @@
 }
 
 .peak-marker.unreachable {
-  color: #666;
-  font-size: 0.85rem;
-  border-color: #555;
-  background: rgba(26,24,20,0.5);
-  opacity: 0.45;
+  color: #888;
+  font-size: 1rem;
+  border-color: #777;
+  background: rgba(26,24,20,0.6);
+  opacity: 0.5;
 }
 
 /* Popup Check-in Button — kompakt */

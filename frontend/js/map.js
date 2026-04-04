@@ -94,9 +94,9 @@ function createUnreachableIcon() {
   return L.divIcon({
     className: '',
     html: '<div class="peak-marker unreachable"><span>▲</span></div>',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -16],
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -18],
   });
 }
 
