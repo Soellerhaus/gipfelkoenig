@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preise — Bergkönig</title>
+  <meta name="theme-color" content="#d4a24c">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    .prizes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      padding: 0 1rem;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .prize-card {
+      background: var(--color-bg-card);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .prize-card:hover {
+      border-color: var(--color-gold);
+    }
+    .prize-card-img {
+      width: 100%;
+      height: 200px;
+      object-fit: contain;
+      background: #f5f5f5;
+      padding: 16px;
+    }
+    .prize-card-body {
+      padding: 12px 16px 16px;
+    }
+    .prize-card-sponsor {
+      font-size: 0.7rem;
+      color: var(--color-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .prize-card-name {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      color: var(--color-text);
+      margin-bottom: 6px;
+    }
+    .prize-card-desc {
+      font-size: 0.8rem;
+      color: var(--color-muted);
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .prize-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .prize-card-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-gold);
+    }
+    .prize-card-link {
+      font-size: 0.75rem;
+      color: var(--color-gold);
+      text-decoration: none;
+      border: 1px solid var(--color-gold);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .prize-card-link:hover {
+      background: rgba(201,168,76,0.1);
+    }
+    .total-value {
+      text-align: center;
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      color: var(--color-gold);
+      margin: 1.5rem 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-page" style="max-width: 1000px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:1rem;">
+      <a href="/app.html" class="auth-logo brand-name" style="margin:0;">Berg<span class="brand-king">könig</span></a>
+      <a href="/app.html" class="btn btn-sm" style="border-color:var(--color-muted); color:var(--color-muted); font-size:0.8rem;">← Zurück zur App</a>
+    </div>
+
+    <h1 style="text-align:center; font-family:var(--font-display); margin-bottom:0.25rem;">🎁 Preise der Saison 2026</h1>
+    <p style="text-align:center; color:var(--color-muted); font-size:0.9rem; margin-bottom:0.5rem;">Sammle Lose durch Gipfel, Kronen, Punkte und Höhenmeter. Verlosung am Saisonende!</p>
+    <div class="total-value" id="total-value"></div>
+
+    <div class="prizes-grid" id="prizes-grid">
+      <p style="text-align:center; color:var(--color-muted); grid-column:1/-1;">Lade Preise...</p>
+    </div>
+
+    <div style="text-align:center; margin:2rem 0 1rem;">
+      <a href="/register.html" class="btn btn-primary" style="padding:12px 32px;">Jetzt mitspielen — kostenlos</a>
+    </div>
+
+    <p style="text-align:center; color:var(--color-muted); font-size:0.75rem; margin-bottom:2rem;">
+      Lose verfallen am 31.12. · Je mehr Gipfel, desto mehr Lose · Verlosung unter allen Teilnehmern
+    </p>
+
+    <div class="auth-footer">
+      <a href="/impressum.html">Impressum</a> · <a href="/datenschutz.html">Datenschutz</a>
+    </div>
+  </div>
+
+  <script src="./js/api.js"></script>
+  <script>
+    ;(async () => {
+      const { data: sponsors } = await GK.supabase
+        .from('sponsors')
+        .select('company_name, logo_url, website_url, product_url, prize_name, prize_description, prize_image_url, prize_value')
+        .eq('status', 'active')
+        .order('prize_value', { ascending: false });
+
+      const grid = document.getElementById('prizes-grid');
+      if (!sponsors || sponsors.length === 0) {
+        grid.innerHTML = '<p style="text-align:center; color:var(--color-muted); grid-column:1/-1;">Noch keine Preise verfügbar.</p>';
+        return;
+      }
+
+      // Gesamtwert berechnen
+      let total = 0;
+      sponsors.forEach(function(s) {
+        var match = (s.prize_value || '').match(/\d+/);
+        if (match) total += parseInt(match[0]);
+      });
+      document.getElementById('total-value').textContent = 'Gesamtwert: € ' + total.toLocaleString('de-DE');
+
+      grid.innerHTML = sponsors.map(function(s) {
+        var img = s.prize_image_url
+          ? '<img class="prize-card-img" src="' + s.prize_image_url + '" alt="' + s.prize_name + '" onerror="this.style.display=\'none\'">'
+          : '<div class="prize-card-img" style="display:flex;align-items:center;justify-content:center;font-size:3rem;background:var(--color-bg);">🎁</div>';
+        var link = s.product_url || s.website_url || '#';
+        return '<div class="prize-card">' +
+          img +
+          '<div class="prize-card-body">' +
+            '<div class="prize-card-sponsor">' + s.company_name + '</div>' +
+            '<div class="prize-card-name">' + s.prize_name + '</div>' +
+            (s.prize_description ? '<div class="prize-card-desc">' + s.prize_description + '</div>' : '') +
+            '<div class="prize-card-footer">' +
+              '<span class="prize-card-value">' + (s.prize_value || '') + '</span>' +
+              (s.product_url ? '<a href="' + link + '" target="_blank" class="prize-card-link">Zum Produkt →</a>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    })();
+  </script>
+</body>
+</html>

@@ -1740,14 +1740,33 @@ async function loadSponsorTicker() {
     // Fallback: wenn keine regionalen Sponsoren, zeige alle
     if (filtered.length === 0) filtered = sponsors;
 
-    var items = filtered.concat(filtered); // Doppelt für nahtlosen Loop
+    // Gruppiere nach Sponsor — gleicher Name nur 1x, dann alle Preise hintereinander
+    var grouped = {};
+    filtered.forEach(function(s) {
+      if (!grouped[s.company_name]) grouped[s.company_name] = { sponsor: s, prizes: [] };
+      grouped[s.company_name].prizes.push(s);
+    });
+
+    var tickerHtml = '';
+    Object.values(grouped).forEach(function(g) {
+      var s = g.sponsor;
+      var logo = s.logo_url ? '<img src="' + s.logo_url + '">' : '';
+      // Sponsor-Name einmal, dann alle Preise
+      tickerHtml += '<span class="sponsor-ticker-item" style="margin-right:8px;">' +
+        '<span style="color:var(--color-muted);font-size:0.7rem;">Sponsoren:</span> ' +
+        logo + '<span>' + s.company_name + '</span></span>';
+      g.prizes.forEach(function(p) {
+        var link = p.product_url || p.website_url || '/prizes.html';
+        tickerHtml += '<a href="' + link + '" target="_blank" class="sponsor-ticker-item">' +
+          '<span class="sponsor-prize">' + p.prize_name + ' (' + (p.prize_value || '') + ')</span></a>';
+      });
+      tickerHtml += '<span style="margin:0 2rem;"></span>'; // Abstand zwischen Sponsoren
+    });
+
+    // Doppelt für nahtlosen Loop
     var track = document.createElement('div');
     track.className = 'sponsor-ticker-track';
-    track.innerHTML = items.map(function(s) {
-      var link = s.product_url || s.website_url || '#';
-      var logo = s.logo_url ? '<img src="' + s.logo_url + '">' : '';
-      return '<a href="' + link + '" target="_blank" class="sponsor-ticker-item"><span style="color:var(--color-muted);font-size:0.7rem;margin-right:4px;">Sponsoren:</span>' + logo + '<span>' + s.company_name + '</span> <span class="sponsor-prize">sponsert: ' + s.prize_name + '</span></a>';
-    }).join('');
+    track.innerHTML = tickerHtml + tickerHtml;
     container.appendChild(track);
   } catch (e) {
     console.warn('Sponsor-Ticker Fehler:', e);
