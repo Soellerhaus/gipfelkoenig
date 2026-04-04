@@ -300,7 +300,7 @@
   white-space: nowrap;
 }
 @keyframes sponsorHeaderScroll {
-  0% { left: 100%; }
+  0% { left: 50%; }
   100% { left: -100%; }
 }
 .sponsor-header-ticker .sponsor-ticker-item {
