@@ -757,13 +757,13 @@ async function loadTerritories() {
       const profile = userProfiles[king.userId] || { name: 'Anonym', avatarUrl: null, avatarType: null, username: 'Anonym' };
       const borderColor = getTerritoryColor(king.userId);
 
-      // Hex-Gebiet (Neon-Cyan Border + farbiger Fill)
+      // Hex-Gebiet (nur Neon-Cyan Border, kein farbiger Fill)
       const polygon = L.polygon(corners, {
         color: '#00e5ff',
         weight: 2.5,
         opacity: Math.min(hexOp * 2, 0.7),
-        fillColor: borderColor,
-        fillOpacity: hexOp,
+        fillColor: 'transparent',
+        fillOpacity: 0,
         interactive: false,
         className: 'hex-territory',
         pane: 'overlayPane',
