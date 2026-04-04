@@ -377,6 +377,8 @@
   border-top: 2px solid var(--color-gold);
   padding: 0.6rem 1rem 0.6rem;
   font-size: 0.9rem;
+  max-height: 45vh;
+  overflow-y: auto;
 }
 
 .peak-info-panel .panel-handle,
@@ -657,6 +659,14 @@
 .peak-marker.danger {
   color: var(--color-danger);
   font-size: 1.1rem;
+}
+
+.peak-marker.unreachable {
+  color: #666;
+  font-size: 0.85rem;
+  border-color: #555;
+  background: rgba(26,24,20,0.5);
+  opacity: 0.45;
 }
 
 /* Popup Check-in Button — kompakt */

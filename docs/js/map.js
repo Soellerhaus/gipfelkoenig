@@ -89,6 +89,17 @@ function createDangerIcon() {
   });
 }
 
+/** Unreachable-Marker: Grau — Kein Weg zum Gipfel */
+function createUnreachableIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="peak-marker unreachable"><span>▲</span></div>',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -16],
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Hilfsfunktionen
 // ---------------------------------------------------------------------------
@@ -143,6 +154,11 @@ let markerLayer = null;
  * Berücksichtigt Sicherheit, Besitz und persönliche Besteigung.
  */
 function getMarkerIcon(peak, ownership, userSummited, isSafe, isAttacked) {
+  // Nicht erreichbar → grauer Marker
+  if (peak.reachable === false) {
+    return createUnreachableIcon();
+  }
+
   // Unsicher → Gefahr-Marker
   if (!isSafe) {
     return createDangerIcon();
@@ -206,6 +222,18 @@ async function openPeakPanel(peakId) {
   const peak = GK.map.peaks.get(peakId) || await GK.api.getPeakById(peakId);
   if (!peak) return;
 
+  // Nicht erreichbar → Hinweis anzeigen, keine Details laden
+  if (peak.reachable === false) {
+    content.innerHTML = `
+      <div class="peak-bottom-name">${peak.name} <span class="peak-elev">${peak.elevation ? peak.elevation + ' m' : ''}</span></div>
+      <div style="margin-top:10px; padding:12px; background:rgba(100,100,100,0.15); border-radius:8px; border-left:3px solid #666;">
+        <div style="font-size:0.85rem; color:var(--color-muted); line-height:1.4;">
+          Kein Weg zum Gipfel — nicht Teil von Bergkönig.
+        </div>
+      </div>`;
+    return;
+  }
+
   // Beschreibung nachladen falls nicht im Cache
   if (!peak.description) {
     try {
@@ -225,7 +253,7 @@ async function openPeakPanel(peakId) {
 
     const safetyHtml = peak.is_active === false
       ? '<span style="color: var(--color-danger);">● Gesperrt</span>'
-      : '<a href="https://www.peak-flow.app/" target="_blank" style="color: var(--color-muted); text-decoration:none; font-size:0.75rem;">Route planen? <span style="color:var(--color-gold);">Peak Flow</span> kostenlos nutzen</a>';
+      : '<a href="https://www.peak-flow.app/" target="_blank" style="color: var(--color-muted); text-decoration:none; font-size:0.75rem;">Route planen? <span style="color:var(--color-text);">Peak</span><span style="color:var(--color-gold);">Flow</span> kostenlos nutzen</a>';
 
     if (error || !summits || summits.length === 0) {
       // Leerer Gipfel — Trophy-Slots alle leer

@@ -40,7 +40,10 @@
         </span>
         <!-- Notification Dropdown -->
         <div id="notif-dropdown" style="display:none; position:fixed; top:48px; right:8px; width:300px; max-height:350px; overflow-y:auto; background:var(--color-bg-card); border:1px solid var(--color-gold); border-radius:10px; z-index:2000; box-shadow:0 4px 20px rgba(0,0,0,0.5); padding:0;">
-          <div style="padding:10px 14px; border-bottom:1px solid var(--color-border); font-size:0.8rem; font-weight:600; color:var(--color-gold);">Benachrichtigungen</div>
+          <div style="padding:10px 14px; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:0.8rem; font-weight:600; color:var(--color-gold);">Benachrichtigungen</span>
+            <span id="notif-mark-all" style="font-size:0.65rem; color:var(--color-muted); cursor:pointer; opacity:0.7;" onclick="event.stopPropagation(); if(window._currentNotifUserId && window.GK.notifications) { GK.notifications.markAllRead(window._currentNotifUserId); document.querySelectorAll('#notif-list > div').forEach(d => d.style.background='none'); updateNotifBadge(); }">Alle gelesen</span>
+          </div>
           <div id="notif-list" style="padding:4px 0;">
             <div style="padding:12px 14px; font-size:0.75rem; color:var(--color-muted); text-align:center;">Keine neuen Benachrichtigungen</div>
           </div>

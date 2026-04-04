@@ -278,18 +278,65 @@ serve(async (req) => {
         })
       } else if ((userSummitCount || 0) > currentOwner.summit_count) {
         // User hat mehr Besteigungen → User wird neuer König
+        const previousKingId = currentOwner.user_id
+
         await supabase.from('ownership').update({
           user_id,
           summit_count: userSummitCount || 1,
           king_since: new Date().toISOString(),
           last_summited: summitTime.toISOString()
         }).eq('peak_id', peakId).eq('season', season)
+
+        // NOTIFICATION: Krone erobert → alten König benachrichtigen
+        if (previousKingId && previousKingId !== user_id) {
+          const { data: attackerProfile } = await supabase
+            .from('user_profiles').select('username').eq('id', user_id).single()
+          const attackerName = attackerProfile?.username || 'Jemand'
+
+          await supabase.from('notifications').insert({
+            user_id: previousKingId,
+            type: 'crown_lost',
+            title: 'Krone verloren!',
+            body: `${attackerName} hat deine Krone auf ${peak.name} (${peak.elevation}m) erobert!`,
+            icon: '👑',
+            data: { peak_id: peakId, challenger_id: user_id }
+          })
+        }
       } else if (currentOwner.user_id === user_id) {
         // User ist bereits König → Count aktualisieren
         await supabase.from('ownership').update({
           summit_count: userSummitCount || 1,
           last_summited: summitTime.toISOString()
         }).eq('peak_id', peakId).eq('season', season)
+      } else if (currentOwner.user_id !== user_id) {
+        // Jemand besteigt einen Gipfel wo ein anderer König ist — Angriff-Warnung
+        const gap = currentOwner.summit_count - (userSummitCount || 0)
+        if (gap <= 2 && gap > 0) {
+          const { data: attackerProfile } = await supabase
+            .from('user_profiles').select('username').eq('id', user_id).single()
+          const attackerName = attackerProfile?.username || 'Jemand'
+
+          await supabase.from('notifications').insert({
+            user_id: currentOwner.user_id,
+            type: 'crown_attack',
+            title: 'Krone wird angegriffen!',
+            body: `${attackerName} greift deine Krone auf ${peak.name} an! Noch ${gap} Vorsprung.`,
+            icon: '⚔️',
+            data: { peak_id: peakId, challenger_id: user_id, gap }
+          })
+        }
+      }
+
+      // NOTIFICATION: Pionier-Besteigung
+      if (isSeasonFirst) {
+        await supabase.from('notifications').insert({
+          user_id,
+          type: 'pioneer',
+          title: 'Pionier!',
+          body: `Du bist der Erste auf ${peak.name} (${peak.elevation}m) diese Saison! ×3 Punkte!`,
+          icon: '⭐',
+          data: { peak_id: peakId, points }
+        })
       }
 
       summitResults.push({
@@ -302,18 +349,49 @@ serve(async (req) => {
       })
     }
 
-    // User-Gesamtpunkte aktualisieren
+    // User-Gesamtpunkte aktualisieren + Rang-Änderung prüfen
     if (totalPoints > 0) {
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('total_points')
+        .select('total_points, username')
         .eq('id', user_id)
         .single()
 
+      const oldPoints = profile?.total_points || 0
+      const newPoints = oldPoints + totalPoints
+
       await supabase
         .from('user_profiles')
-        .update({ total_points: (profile?.total_points || 0) + totalPoints })
+        .update({ total_points: newPoints })
         .eq('id', user_id)
+
+      // NOTIFICATION: Rang-Änderung — wer wurde überholt?
+      try {
+        // User die zwischen altem und neuem Punktestand liegen
+        const { data: overtaken } = await supabase
+          .from('user_profiles')
+          .select('id, username, total_points')
+          .gt('total_points', oldPoints)
+          .lte('total_points', newPoints)
+          .neq('id', user_id)
+          .limit(5)
+
+        if (overtaken && overtaken.length > 0) {
+          const userName = profile?.username || 'Jemand'
+          for (const victim of overtaken) {
+            await supabase.from('notifications').insert({
+              user_id: victim.id,
+              type: 'rank_change',
+              title: 'Überholt!',
+              body: `${userName} hat dich in der Rangliste überholt!`,
+              icon: '🏆',
+              data: { overtaker_id: user_id }
+            })
+          }
+        }
+      } catch (rankErr) {
+        console.warn('Rang-Notification Fehler:', rankErr)
+      }
     }
 
     // Strava-Beschreibung ergänzen (nur wenn Gipfel gefunden + User hat strava_write opt-in)

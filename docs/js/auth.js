@@ -614,6 +614,9 @@ async function initAppPage() {
   // Kronen-Angriffe + Rivalen prüfen (im Hintergrund, blockiert nicht)
   checkCrownThreats(benutzer.id);
 
+  // DB-Notifications laden + Client-seitige Checks (Wochenrueckblick, neue Preise)
+  loadDbNotifications(benutzer.id);
+
   // Strava-OAuth-Callback verarbeiten (Code in URL-Parametern)
   const urlParams = new URLSearchParams(window.location.search);
   const stravaCode = urlParams.get('code');
@@ -1548,8 +1551,38 @@ async function checkRival(userId, season) {
 
 // ============================
 // Notification-System (Glocke)
+// DB-persistiert + In-Memory Session-Notifications
 // ============================
-const _notifications = [];
+const _notifications = [];       // In-Memory (Session, z.B. Rival-Check)
+let _dbNotificationsLoaded = false;
+let _currentNotifUserId = null;
+
+// DB-Notifications laden und mit Client-Checks kombinieren
+async function loadDbNotifications(userId) {
+  try {
+    _currentNotifUserId = userId;
+    window._currentNotifUserId = userId;
+
+    // 1. DB-Notifications laden
+    await GK.notifications.loadNotifications(userId);
+    _dbNotificationsLoaded = true;
+
+    // 2. Client-seitige Checks (Wochenrueckblick + neue Preise)
+    const [recap, prizes] = await Promise.all([
+      GK.notifications.checkWeeklyRecap(userId),
+      GK.notifications.checkNewPrizes()
+    ]);
+
+    if (recap) _notifications.unshift(recap);
+    if (prizes) _notifications.unshift(prizes);
+
+    // Rendering aktualisieren
+    updateNotifBadge();
+    renderNotifications();
+  } catch (err) {
+    console.error('DB-Notifications laden:', err);
+  }
+}
 
 function addNotification(icon, text, type) {
   _notifications.unshift({ icon, text, type, time: new Date() });
@@ -1558,9 +1591,18 @@ function addNotification(icon, text, type) {
   renderNotifications();
 }
 
+// Alle Notifications zusammenfuehren (DB + In-Memory), sortiert nach Zeit
+function getAllNotifications() {
+  const dbNotifs = _dbNotificationsLoaded ? GK.notifications.getDbNotifications() : [];
+  const all = [..._notifications, ...dbNotifs];
+  all.sort((a, b) => b.time.getTime() - a.time.getTime());
+  return all.slice(0, 30);
+}
+
 function updateNotifBadge() {
   const countEl = document.getElementById('notif-count');
-  const unread = _notifications.filter(n => !n.read).length;
+  const all = getAllNotifications();
+  const unread = all.filter(n => !n.read).length;
   if (countEl) {
     if (unread > 0) {
       countEl.textContent = unread > 9 ? '9+' : unread;
@@ -1574,14 +1616,18 @@ function updateNotifBadge() {
 function renderNotifications() {
   const list = document.getElementById('notif-list');
   if (!list) return;
-  if (_notifications.length === 0) {
+  const all = getAllNotifications();
+  if (all.length === 0) {
     list.innerHTML = '<div style="padding:12px 14px;font-size:0.75rem;color:var(--color-muted);text-align:center;">Keine Benachrichtigungen</div>';
     return;
   }
-  list.innerHTML = _notifications.map(n => {
+  list.innerHTML = all.map(n => {
     const ago = timeAgo(n.time);
     const bg = n.read ? '' : 'background:rgba(201,168,76,0.06);';
-    return '<div style="padding:8px 14px;border-bottom:1px solid var(--color-border);' + bg + 'cursor:pointer;" onclick="this.style.background=\'none\'">'
+    const clickAttr = n.data && n.data.url
+      ? 'onclick="window.location.href=\'' + n.data.url + '\'"'
+      : 'onclick="this.style.background=\'none\'"';
+    return '<div style="padding:8px 14px;border-bottom:1px solid var(--color-border);' + bg + 'cursor:pointer;" ' + clickAttr + '>'
       + '<div style="display:flex;gap:8px;align-items:flex-start;">'
       + '<span style="font-size:1.1rem;">' + n.icon + '</span>'
       + '<div style="flex:1;">'
@@ -1605,8 +1651,11 @@ function toggleNotifDropdown() {
   const isOpen = dd.style.display !== 'none';
   dd.style.display = isOpen ? 'none' : 'block';
   if (!isOpen) {
-    // Alle als gelesen markieren
+    // Alle als gelesen markieren (In-Memory + DB)
     _notifications.forEach(n => n.read = true);
+    if (_currentNotifUserId && _dbNotificationsLoaded) {
+      GK.notifications.markAllRead(_currentNotifUserId);
+    }
     updateNotifBadge();
   }
 }
@@ -1620,9 +1669,10 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// Global verfügbar machen
+// Global verfuegbar machen
 window.toggleNotifDropdown = toggleNotifDropdown;
 window.addNotification = addNotification;
+window.updateNotifBadge = updateNotifBadge;
 
 // Confetti-Burst Animation
 function fireConfetti() {
