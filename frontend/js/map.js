@@ -223,9 +223,9 @@ async function openPeakPanel(peakId) {
       .eq('peak_id', peakId)
       .order('summited_at', { ascending: false });
 
-    const safetyHtml = peak.is_active !== false
-      ? '<span style="color: var(--color-safe);">● Sicher</span>'
-      : '<span style="color: var(--color-danger);">● Gesperrt</span>';
+    const safetyHtml = peak.is_active === false
+      ? '<span style="color: var(--color-danger);">● Gesperrt</span>'
+      : '<a href="https://www.peak-flow.app/" target="_blank" style="color: var(--color-muted); text-decoration:none; font-size:0.75rem;">Route planen? <span style="color:var(--color-gold);">Peak Flow</span> kostenlos nutzen</a>';
 
     if (error || !summits || summits.length === 0) {
       // Leerer Gipfel — Trophy-Slots alle leer
