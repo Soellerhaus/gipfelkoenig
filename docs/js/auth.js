@@ -1756,8 +1756,7 @@ async function loadSponsorTicker() {
         '<span style="color:var(--color-muted);font-size:0.7rem;">Sponsoren:</span> ' +
         logo + '<span>' + s.company_name + '</span></span>';
       g.prizes.forEach(function(p) {
-        var link = p.product_url || p.website_url || '/prizes.html';
-        tickerHtml += '<a href="' + link + '" target="_blank" class="sponsor-ticker-item">' +
+        tickerHtml += '<a href="/prizes.html" class="sponsor-ticker-item">' +
           '<span class="sponsor-prize">' + p.prize_name + ' (' + (p.prize_value || '') + ')</span></a>';
       });
       tickerHtml += '<span style="margin:0 2rem;"></span>'; // Abstand zwischen Sponsoren
