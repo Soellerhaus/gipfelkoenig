@@ -1,15 +1,22 @@
 {
-  "name": "Gipfelkönig",
-  "short_name": "Gipfelkönig",
-  "description": "Das Besitz-Spiel für echte Alpengipfel",
+  "name": "Bergkönig",
+  "short_name": "Bergkönig",
+  "description": "Das erste Gipfel-Spiel der Alpen. Sammle Berge, erkämpfe Kronen, erobere Gebiete.",
   "start_url": "/app.html",
   "display": "standalone",
   "background_color": "#1a1814",
   "theme_color": "#c9a84c",
   "orientation": "portrait-primary",
+  "id": "/app.html",
+  "scope": "/",
+  "categories": ["games", "sports"],
   "icons": [
-    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" },
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "form_factor": "narrow", "label": "Bergkönig App" }
   ]
 }
