@@ -1,6 +1,6 @@
 {
-  "name": "Bergkönig",
-  "short_name": "Bergkönig",
+  "name": "Bergkoenig",
+  "short_name": "Bergkoenig",
   "description": "Das erste Gipfel-Spiel der Alpen. Sammle Berge, erkämpfe Kronen, erobere Gebiete.",
   "start_url": "/app.html",
   "display": "standalone",
