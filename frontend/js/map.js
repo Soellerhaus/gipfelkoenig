@@ -534,6 +534,9 @@ async function loadPeaks() {
 
     // Cache + Marker SOFORT anzeigen — kein await mehr nach diesem Punkt
     for (const peak of peaks) {
+      // Nicht erreichbare Gipfel komplett ausblenden
+      if (peak.reachable === false) continue;
+
       GK.map.peaks.set(peak.id, peak);
       const icon = getMarkerIcon(peak, null, false, true);
       const marker = L.marker([peak.lat, peak.lng], { icon });
@@ -739,8 +742,19 @@ function getHexPolygon(centerLat, centerLng) {
  * ein farbiges Hexagon, eingefärbt nach dem Spieler mit den meisten
  * einzigartigen Gipfeln in dieser Zelle (= König der Hex-Zelle).
  */
+let _lastHexBounds = null;
+let _lastHexZoom = null;
 async function loadTerritories() {
   if (!GK.map.leaflet) return;
+
+  // Prüfen ob sich Bounds/Zoom wirklich geändert haben
+  const currentBounds = GK.map.leaflet.getBounds();
+  const currentZoom = GK.map.leaflet.getZoom();
+  if (_lastHexBounds && _lastHexZoom === currentZoom &&
+      _lastHexBounds.contains(currentBounds)) {
+    return; // Keine Änderung nötig
+  }
+  _lastHexZoom = currentZoom;
 
   if (!territoryLayer) {
     territoryLayer = L.layerGroup();
@@ -895,7 +909,7 @@ async function loadTerritories() {
     }
 
     // Hex-Polygone + Profilbild-Avatare zeichnen
-    const hexOp = (GK.map._hexOpacity || 33) / 100;
+    const hexOp = Math.max(0.20, (GK.map._hexOpacity || 33) / 100);
     const map = GK.map.leaflet;
 
     for (const [hexKey, king] of Object.entries(hexKings)) {
@@ -942,6 +956,9 @@ async function loadTerritories() {
       territoryLayer.addLayer(marker);
     }
 
+    // Bounds cachen um unnötige Reloads zu vermeiden
+    _lastHexBounds = GK.map.leaflet.getBounds().pad(0.1);
+
   } catch (err) {
     console.error('Fehler beim Laden der Territorien:', err);
   }
@@ -951,9 +968,9 @@ async function loadTerritories() {
 const loadPeaksDebounced = debounce(loadPeaks, DEBOUNCE_DELAY);
 
 /** Debounced-Version von loadTerritories */
-const loadTerritoriesDebounced = debounce(loadTerritories, 1500);
+const loadTerritoriesDebounced = debounce(loadTerritories, 800);
 /** Schnellere Version für Zoom (Hex-Pixel-Grösse ändert sich) */
-const loadTerritoriesOnZoom = debounce(loadTerritories, 300);
+const loadTerritoriesOnZoom = debounce(loadTerritories, 500);
 
 // ---------------------------------------------------------------------------
 // Karte initialisieren
