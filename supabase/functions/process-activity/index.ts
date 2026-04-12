@@ -415,7 +415,7 @@ serve(async (req) => {
           const existingDesc = actData.description || ''
 
           if (!existingDesc.includes('bergkoenig.app')) {
-            let bergkoenigText = '\n---\n'
+            let bergkoenigText = ''
 
             // Zeile 1: König oder Gipfel+Punkte
             const isPioneer = summitResults.some((s: any) => s.isSeasonFirst)
@@ -433,7 +433,7 @@ serve(async (req) => {
             // Zeile 2: Link
             bergkoenigText += '\nwww.bergkoenig.app'
 
-            const newDesc = existingDesc + bergkoenigText
+            const newDesc = bergkoenigText + (existingDesc ? '\n\n' + existingDesc : '')
 
             // Beschreibung updaten
             await fetch(`https://www.strava.com/api/v3/activities/${activity_id}`, {
