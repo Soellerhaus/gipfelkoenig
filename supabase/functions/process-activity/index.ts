@@ -394,8 +394,8 @@ serve(async (req) => {
       }
     }
 
-    // Strava-Beschreibung ergänzen (nur wenn Gipfel gefunden + User hat strava_write opt-in)
-    if (summitResults.length > 0 && strava_token) {
+    // Strava-Beschreibung ergänzen — bei JEDER Aktivität mit Punkten
+    if (totalPoints > 0 && strava_token) {
       try {
         // Prüfe ob User Strava-Posting aktiviert hat (Default: true für neue User)
         const { data: userSettings } = await supabase
@@ -416,27 +416,30 @@ serve(async (req) => {
 
           // Bergkönig-Text nur anhängen wenn noch nicht drin
           if (!existingDesc.includes('bergkoenig.app')) {
-            // Text zusammenbauen
-            const peakLines = summitResults.map((s: any) => {
-              let line = `⛰️ ${s.peak} (${s.elevation}m) · +${s.points} Pkt`
-              if (s.isSeasonFirst) line += ' ⭐ Pionier'
-              return line
-            }).join('\n')
+            let bergkoenigText = '\n---\n'
 
-            // Prüfe ob User auf einem Gipfel König geworden ist
-            let kingLine = ''
-            for (const s of summitResults) {
-              const peakId = [...foundPeaks.keys()].find(k => {
-                const p = foundPeaks.get(k)
-                return p !== undefined
-              })
-              // Vereinfacht: König-Status nur erwähnen wenn Punkte hoch
-              if (s.isSeasonFirst) kingLine = '👑 Neuer Bergkönig!'
+            // Gipfel-Zeilen (wenn Gipfel erkannt)
+            if (summitResults.length > 0) {
+              const peakLines = summitResults.map((s: any) => {
+                let line = `⛰️ ${s.peak} (${s.elevation}m) · +${s.points} Pkt`
+                if (s.isSeasonFirst) line += ' ⭐ Pionier'
+                return line
+              }).join('\n')
+              bergkoenigText += peakLines
+
+              // König-Status
+              for (const s of summitResults) {
+                if (s.isSeasonFirst) {
+                  bergkoenigText += '\n👑 Neuer Bergkönig!'
+                  break
+                }
+              }
+            } else {
+              // Keine Gipfel erkannt — nur Punkte anzeigen
+              bergkoenigText += `🏃 +${totalPoints} Pkt`
             }
 
-            const bergkoenigText = '\n---\n' + peakLines +
-              (kingLine ? '\n' + kingLine : '') +
-              '\n🏆 bergkoenig.app'
+            bergkoenigText += '\n🏆 bergkoenig.app'
 
             const newDesc = existingDesc + bergkoenigText
 
