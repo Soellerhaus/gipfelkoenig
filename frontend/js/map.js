@@ -970,6 +970,60 @@ const loadTerritoriesDebounced = debounce(loadTerritories, 800);
 const loadTerritoriesOnZoom = debounce(loadTerritories, 500);
 
 // ---------------------------------------------------------------------------
+// POI-Marker (Scharten, Huetten, Aussichtspunkte, etc.)
+// ---------------------------------------------------------------------------
+const POI_ICONS = {
+  saddle: '🔻', hut: '🏠', viewpoint: '👁️', lake: '💧', glacier: '🧊',
+  via_ferrata: '🪜', cave: '🪨', waterfall: '💦', chapel: '⛪', pass: '🏔️'
+};
+
+let poiLayer = null;
+
+async function loadPOIs() {
+  if (!GK.map.leaflet || GK.map.leaflet.getZoom() < 12) {
+    if (poiLayer) poiLayer.clearLayers();
+    return;
+  }
+
+  if (!poiLayer) {
+    poiLayer = L.layerGroup().addTo(GK.map.leaflet);
+  }
+  poiLayer.clearLayers();
+
+  const bounds = GK.map.leaflet.getBounds();
+  const boundsObj = {
+    north: bounds.getNorth(), south: bounds.getSouth(),
+    east: bounds.getEast(), west: bounds.getWest()
+  };
+
+  const pois = await GK.api.getPOIs(boundsObj);
+  if (!pois || pois.length === 0) return;
+
+  for (const poi of pois) {
+    const icon = L.divIcon({
+      className: '',
+      html: '<div class="poi-marker"><span>' + (POI_ICONS[poi.type] || '📍') + '</span></div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+      popupAnchor: [0, -12],
+    });
+
+    const marker = L.marker([poi.lat, poi.lng], { icon });
+    const eleText = poi.elevation ? poi.elevation + ' m' : '';
+    marker.bindPopup(
+      '<div style="text-align:center;min-width:100px;">' +
+      '<strong>' + poi.name + '</strong>' +
+      (eleText ? '<br><span style="font-size:0.8rem;color:#888;">' + eleText + '</span>' : '') +
+      '</div>',
+      { maxWidth: 180, closeButton: false }
+    );
+    poiLayer.addLayer(marker);
+  }
+}
+
+const loadPOIsDebounced = debounce(loadPOIs, 800);
+
+// ---------------------------------------------------------------------------
 // Karte initialisieren
 // ---------------------------------------------------------------------------
 
@@ -1152,6 +1206,8 @@ async function initMap() {
   map.on('zoomend', loadPeaksDebounced);
   map.on('moveend', loadTerritoriesDebounced);
   map.on('zoomend', loadTerritoriesOnZoom);
+  map.on('moveend', loadPOIsDebounced);
+  map.on('zoomend', loadPOIsDebounced);
 
   // Gipfel des Tages bei Kartenverschiebung aktualisieren (debounced 2s)
   let potdTimer;

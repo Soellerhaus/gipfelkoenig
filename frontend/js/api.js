@@ -325,3 +325,26 @@ GK.api.getActiveSponsors = async function () {
     return [];
   }
 };
+
+/**
+ * POIs innerhalb der Kartenbegrenzung abrufen.
+ */
+GK.api.getPOIs = async function (bounds) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('pois')
+      .select('id, name, type, lat, lng, elevation')
+      .eq('is_active', true)
+      .gte('lat', bounds.south)
+      .lte('lat', bounds.north)
+      .gte('lng', bounds.west)
+      .lte('lng', bounds.east)
+      .limit(200);
+
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('Fehler beim Laden der POIs:', err);
+    return [];
+  }
+};

@@ -128,16 +128,86 @@ serve(async (req) => {
       }
     }
 
-    if (foundPeaks.size === 0) {
-      return new Response(JSON.stringify({ message: 'Keine Gipfel gefunden', peaks: 0 }), {
-        headers: { 'Content-Type': 'application/json' }
-      })
-    }
-
     const season = getSeason(activityStart)
     const isCombo = foundPeaks.size >= 2
     let totalPoints = 0
     const summitResults: any[] = []
+    const poiResults: any[] = []
+
+    // POI-Erkennung (Scharten, Huetten, Aussichtspunkte, etc.)
+    const POI_RADII: Record<string, number> = {
+      saddle: 80, hut: 100, viewpoint: 50, lake: 150, glacier: 200,
+      via_ferrata: 100, cave: 50, waterfall: 80, chapel: 50, pass: 100
+    }
+    const POI_POINTS: Record<string, number> = {
+      saddle: 2, hut: 5, viewpoint: 3, lake: 3, glacier: 5,
+      via_ferrata: 10, cave: 3, waterfall: 3, chapel: 2, pass: 3
+    }
+    const POI_ICONS: Record<string, string> = {
+      saddle: '🔻', hut: '🏠', viewpoint: '👁️', lake: '💧', glacier: '🧊',
+      via_ferrata: '🪜', cave: '🪨', waterfall: '💦', chapel: '⛪', pass: '🏔️'
+    }
+
+    try {
+      // POIs im Bereich der Aktivitaet laden
+      const latMin = Math.min(...gpsPoints.map((p: any) => p[0])) - 0.005
+      const latMax = Math.max(...gpsPoints.map((p: any) => p[0])) + 0.005
+      const lngMin = Math.min(...gpsPoints.map((p: any) => p[1])) - 0.005
+      const lngMax = Math.max(...gpsPoints.map((p: any) => p[1])) + 0.005
+
+      const { data: nearbyPois } = await supabase
+        .from('pois').select('id, name, type, lat, lng, elevation')
+        .eq('is_active', true)
+        .gte('lat', latMin).lte('lat', latMax)
+        .gte('lng', lngMin).lte('lng', lngMax)
+        .limit(500)
+
+      if (nearbyPois && nearbyPois.length > 0) {
+        const foundPois = new Map<number, any>()
+
+        for (let i = 0; i < gpsPoints.length; i += 10) {
+          const [lat, lng] = gpsPoints[i]
+          for (const poi of nearbyPois) {
+            if (foundPois.has(poi.id)) continue
+            const radius = POI_RADII[poi.type] || 80
+            if (Math.abs(poi.lat - lat) > 0.003 || Math.abs(poi.lng - lng) > 0.003) continue
+            if (haversineDistance(lat, lng, poi.lat, poi.lng) <= radius) {
+              foundPois.set(poi.id, poi)
+            }
+          }
+        }
+
+        // POI-Besuche speichern + Punkte addieren
+        for (const [poiId, poi] of foundPois) {
+          const bonusPts = POI_POINTS[poi.type] || 2
+
+          // Duplikat-Check
+          const { count } = await supabase
+            .from('poi_visits').select('*', { count: 'exact', head: true })
+            .eq('user_id', user_id).eq('poi_id', poiId)
+            .eq('strava_activity_id', activity_id.toString())
+          if ((count || 0) > 0) continue
+
+          await supabase.from('poi_visits').insert({
+            user_id, poi_id: poiId, poi_type: poi.type,
+            visited_at: activityStart.toISOString(), season,
+            strava_activity_id: activity_id.toString(),
+            bonus_points: bonusPts
+          })
+
+          totalPoints += bonusPts
+          poiResults.push({ name: poi.name, type: poi.type, icon: POI_ICONS[poi.type] || '📍', points: bonusPts })
+        }
+      }
+    } catch (poiErr) {
+      console.warn('POI-Erkennung Fehler:', poiErr)
+    }
+
+    if (foundPeaks.size === 0 && poiResults.length === 0) {
+      return new Response(JSON.stringify({ message: 'Keine Gipfel/POIs gefunden', peaks: 0, pois: 0 }), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
 
     // 4. Für jeden gefundenen Gipfel verarbeiten
     for (const [peakId, gpsData] of foundPeaks) {
@@ -430,8 +500,20 @@ serve(async (req) => {
             } else {
               bergkoenigText += `🏃 +${totalPoints} Pkt`
             }
-            // Zeile 2: Link
+
+            // Zeile 2: POIs kompakt (wenn vorhanden)
+            if (poiResults.length > 0) {
+              const poiText = poiResults.slice(0, 5).map((p: any) => p.icon + ' ' + p.name).join(' · ')
+              bergkoenigText += '\n' + poiText
+            }
+
+            // Zeile 3: Link
             bergkoenigText += '\nwww.bergkoenig.app'
+
+            // Zeile 4+: Details (nur bei "weiterlesen")
+            if (summitResults.length >= 3) {
+              bergkoenigText += '\n' + summitResults.map((s: any) => s.peak + ' (' + s.elevation + 'm)').join(', ')
+            }
 
             const newDesc = bergkoenigText + (existingDesc ? '\n\n' + existingDesc : '')
 
@@ -454,7 +536,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      message: `${summitResults.length} Gipfel verarbeitet`,
+      message: `${summitResults.length} Gipfel, ${poiResults.length} POIs verarbeitet`,
       totalPoints,
       summits: summitResults
     }), {
