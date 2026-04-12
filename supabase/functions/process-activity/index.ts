@@ -422,19 +422,21 @@ serve(async (req) => {
               bergkoenigText += '👑 Neuer Bergkönig!\n'
             }
 
-            bergkoenigText += '🏆 +' + totalPoints + ' Pkt'
-
-            if (summitResults.length > 0 && summitResults.length <= 2) {
-              for (const s of summitResults) {
-                bergkoenigText += `\n⛰️ ${s.peak} (${s.elevation}m)`
-                if (s.isSeasonFirst) bergkoenigText += ' ⭐'
-              }
+            // Gipfel + Punkte in einer Zeile
+            if (summitResults.length === 1) {
+              const s = summitResults[0]
+              bergkoenigText += `⛰️ ${s.peak} (${s.elevation}m) · +${totalPoints} Pkt`
+              if (s.isSeasonFirst) bergkoenigText += ' ⭐'
+            } else if (summitResults.length === 2) {
+              bergkoenigText += `⛰️ ${summitResults[0].peak} + ${summitResults[1].peak} · +${totalPoints} Pkt`
             } else if (summitResults.length >= 3) {
               const names = summitResults.map((s: any) => s.peak).join(', ')
-              bergkoenigText += `\n⛰️ ${summitResults.length} Gipfel: ${names}`
+              bergkoenigText += `⛰️ ${summitResults.length} Gipfel · +${totalPoints} Pkt`
+              bergkoenigText += `\n${names}`
+            } else {
+              bergkoenigText += `🏃 +${totalPoints} Pkt`
             }
 
-            // Link immer ganz unten
             bergkoenigText += '\nwww.bergkoenig.app'
 
             const newDesc = existingDesc + bergkoenigText
