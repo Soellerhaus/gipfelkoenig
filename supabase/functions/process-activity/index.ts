@@ -422,19 +422,20 @@ serve(async (req) => {
               bergkoenigText += '👑 Neuer Bergkönig!\n'
             }
 
-            bergkoenigText += '🏆 bergkoenig.app · +' + totalPoints + ' Pkt'
+            bergkoenigText += '🏆 +' + totalPoints + ' Pkt'
 
             if (summitResults.length > 0 && summitResults.length <= 2) {
-              // 1-2 Gipfel: einzeln auflisten
               for (const s of summitResults) {
                 bergkoenigText += `\n⛰️ ${s.peak} (${s.elevation}m)`
                 if (s.isSeasonFirst) bergkoenigText += ' ⭐'
               }
             } else if (summitResults.length >= 3) {
-              // 3+ Gipfel: kompakt als Liste
               const names = summitResults.map((s: any) => s.peak).join(', ')
               bergkoenigText += `\n⛰️ ${summitResults.length} Gipfel: ${names}`
             }
+
+            // Link immer ganz unten
+            bergkoenigText += '\nwww.bergkoenig.app'
 
             const newDesc = existingDesc + bergkoenigText
 
