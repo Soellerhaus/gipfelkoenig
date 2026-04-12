@@ -394,52 +394,45 @@ serve(async (req) => {
       }
     }
 
-    // Strava-Beschreibung ergänzen — bei JEDER Aktivität mit Punkten
-    if (totalPoints > 0 && strava_token) {
+    // Strava-Beschreibung — nur bei Bergsportarten
+    const STRAVA_POST_TYPES = ['Hike', 'Run', 'Walk', 'TrailRun', 'BackcountrySki', 'Snowshoe', 'NordicSki', 'RockClimbing', 'AlpineSki']
+    const activityType = activity?.type || ''
+    if (totalPoints > 0 && strava_token && STRAVA_POST_TYPES.includes(activityType)) {
       try {
-        // Prüfe ob User Strava-Posting aktiviert hat (Default: true für neue User)
         const { data: userSettings } = await supabase
           .from('user_profiles')
           .select('strava_post_summits')
           .eq('id', user_id)
           .single()
 
-        const postEnabled = userSettings?.strava_post_summits !== false // Default true
+        const postEnabled = userSettings?.strava_post_summits !== false
 
         if (postEnabled) {
-          // Bestehende Beschreibung laden
           const actRes = await fetch(`https://www.strava.com/api/v3/activities/${activity_id}`, {
             headers: { 'Authorization': `Bearer ${strava_token}` }
           })
           const actData = await actRes.json()
           const existingDesc = actData.description || ''
 
-          // Bergkönig-Text nur anhängen wenn noch nicht drin
           if (!existingDesc.includes('bergkoenig.app')) {
-            let bergkoenigText = '\n---\n'
+            // Bergkönig zuerst, dann Gipfel
+            let bergkoenigText = '\n---\n🏆 bergkoenig.app · +' + totalPoints + ' Pkt'
 
-            // Gipfel-Zeilen (wenn Gipfel erkannt)
             if (summitResults.length > 0) {
-              const peakLines = summitResults.map((s: any) => {
-                let line = `⛰️ ${s.peak} (${s.elevation}m) · +${s.points} Pkt`
-                if (s.isSeasonFirst) line += ' ⭐ Pionier'
-                return line
-              }).join('\n')
-              bergkoenigText += peakLines
-
-              // König-Status
-              for (const s of summitResults) {
-                if (s.isSeasonFirst) {
-                  bergkoenigText += '\n👑 Neuer Bergkönig!'
-                  break
-                }
+              // Max 3 Gipfel anzeigen
+              const shown = summitResults.slice(0, 3)
+              for (const s of shown) {
+                bergkoenigText += `\n⛰️ ${s.peak} (${s.elevation}m)`
+                if (s.isSeasonFirst) bergkoenigText += ' ⭐ Pionier'
               }
-            } else {
-              // Keine Gipfel erkannt — nur Punkte anzeigen
-              bergkoenigText += `🏃 +${totalPoints} Pkt`
+              if (summitResults.length > 3) {
+                bergkoenigText += `\n+ ${summitResults.length - 3} weitere Gipfel`
+              }
+              // König-Status
+              if (summitResults.some((s: any) => s.isSeasonFirst)) {
+                bergkoenigText += '\n👑 Neuer Bergkönig!'
+              }
             }
-
-            bergkoenigText += '\n🏆 bergkoenig.app'
 
             const newDesc = existingDesc + bergkoenigText
 
