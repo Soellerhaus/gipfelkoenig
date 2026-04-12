@@ -415,23 +415,25 @@ serve(async (req) => {
           const existingDesc = actData.description || ''
 
           if (!existingDesc.includes('bergkoenig.app')) {
-            // Bergkönig zuerst, dann Gipfel
-            let bergkoenigText = '\n---\n🏆 bergkoenig.app · +' + totalPoints + ' Pkt'
+            let bergkoenigText = '\n---\n'
 
-            if (summitResults.length > 0) {
-              // Max 3 Gipfel anzeigen
-              const shown = summitResults.slice(0, 3)
-              for (const s of shown) {
+            // König-Status ganz oben
+            if (summitResults.some((s: any) => s.isSeasonFirst)) {
+              bergkoenigText += '👑 Neuer Bergkönig!\n'
+            }
+
+            bergkoenigText += '🏆 bergkoenig.app · +' + totalPoints + ' Pkt'
+
+            if (summitResults.length > 0 && summitResults.length <= 2) {
+              // 1-2 Gipfel: einzeln auflisten
+              for (const s of summitResults) {
                 bergkoenigText += `\n⛰️ ${s.peak} (${s.elevation}m)`
-                if (s.isSeasonFirst) bergkoenigText += ' ⭐ Pionier'
+                if (s.isSeasonFirst) bergkoenigText += ' ⭐'
               }
-              if (summitResults.length > 3) {
-                bergkoenigText += `\n+ ${summitResults.length - 3} weitere Gipfel`
-              }
-              // König-Status
-              if (summitResults.some((s: any) => s.isSeasonFirst)) {
-                bergkoenigText += '\n👑 Neuer Bergkönig!'
-              }
+            } else if (summitResults.length >= 3) {
+              // 3+ Gipfel: kompakt als Liste
+              const names = summitResults.map((s: any) => s.peak).join(', ')
+              bergkoenigText += `\n⛰️ ${summitResults.length} Gipfel: ${names}`
             }
 
             const newDesc = existingDesc + bergkoenigText
