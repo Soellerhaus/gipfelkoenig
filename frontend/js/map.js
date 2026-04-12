@@ -89,14 +89,14 @@ function createDangerIcon() {
   });
 }
 
-/** Unreachable-Marker: Grau-transparent — gleiche Form wie available */
+/** Unreachable-Marker: Kleines graues Symbol */
 function createUnreachableIcon() {
   return L.divIcon({
     className: '',
-    html: '<div class="peak-marker available unreachable"><span>▲</span></div>',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -18],
+    html: '<div class="peak-marker unreachable"><span>▲</span></div>',
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -10],
   });
 }
 
@@ -534,9 +534,6 @@ async function loadPeaks() {
 
     // Cache + Marker SOFORT anzeigen — kein await mehr nach diesem Punkt
     for (const peak of peaks) {
-      // Nicht erreichbare Gipfel komplett ausblenden
-      if (peak.reachable === false) continue;
-
       GK.map.peaks.set(peak.id, peak);
       const icon = getMarkerIcon(peak, null, false, true);
       const marker = L.marker([peak.lat, peak.lng], { icon });
@@ -909,7 +906,7 @@ async function loadTerritories() {
     }
 
     // Hex-Polygone + Profilbild-Avatare zeichnen
-    const hexOp = Math.max(0.20, (GK.map._hexOpacity || 33) / 100);
+    const hexOp = (GK.map._hexOpacity ?? 33) / 100;
     const map = GK.map.leaflet;
 
     for (const [hexKey, king] of Object.entries(hexKings)) {

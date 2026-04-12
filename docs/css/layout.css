@@ -681,10 +681,15 @@
 }
 
 .peak-marker.unreachable {
-  color: #888 !important;
-  border-color: #777 !important;
+  color: #777 !important;
+  font-size: 0.6rem !important;
+  border-color: #666 !important;
+  border-width: 1px !important;
   filter: none !important;
-  opacity: 0.5;
+  opacity: 0.35;
+  width: 18px !important;
+  height: 18px !important;
+  background: rgba(26,24,20,0.4) !important;
 }
 
 /* Popup Check-in Button — kompakt */
