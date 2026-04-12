@@ -417,26 +417,20 @@ serve(async (req) => {
           if (!existingDesc.includes('bergkoenig.app')) {
             let bergkoenigText = '\n---\n'
 
-            // König-Status ganz oben
-            if (summitResults.some((s: any) => s.isSeasonFirst)) {
-              bergkoenigText += '👑 Neuer Bergkönig!\n'
-            }
-
-            // Gipfel + Punkte in einer Zeile
-            if (summitResults.length === 1) {
-              const s = summitResults[0]
-              bergkoenigText += `⛰️ ${s.peak} (${s.elevation}m) · +${totalPoints} Pkt`
-              if (s.isSeasonFirst) bergkoenigText += ' ⭐'
+            // Zeile 1: König oder Gipfel+Punkte
+            const isPioneer = summitResults.some((s: any) => s.isSeasonFirst)
+            if (isPioneer) {
+              bergkoenigText += '👑 Neuer Bergkönig! · +' + totalPoints + ' Pkt'
+            } else if (summitResults.length === 1) {
+              bergkoenigText += `⛰️ ${summitResults[0].peak} (${summitResults[0].elevation}m) · +${totalPoints} Pkt`
             } else if (summitResults.length === 2) {
               bergkoenigText += `⛰️ ${summitResults[0].peak} + ${summitResults[1].peak} · +${totalPoints} Pkt`
             } else if (summitResults.length >= 3) {
-              const names = summitResults.map((s: any) => s.peak).join(', ')
               bergkoenigText += `⛰️ ${summitResults.length} Gipfel · +${totalPoints} Pkt`
-              bergkoenigText += `\n${names}`
             } else {
               bergkoenigText += `🏃 +${totalPoints} Pkt`
             }
-
+            // Zeile 2: Link
             bergkoenigText += '\nwww.bergkoenig.app'
 
             const newDesc = existingDesc + bergkoenigText
