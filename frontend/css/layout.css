@@ -320,8 +320,20 @@
   font-size: 0.8rem;
 }
 @media (max-width: 500px) {
-  .sponsor-header-ticker .sponsor-ticker-item { font-size: 0.7rem; }
-  .sponsor-header-ticker .sponsor-ticker-item img { height: 16px; }
+  .sponsor-header-ticker .sponsor-ticker-track { display: none; }
+  .sponsor-header-ticker .sponsor-mobile-link { display: flex; }
+}
+.sponsor-header-ticker .sponsor-mobile-link {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--color-gold);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0.85;
 }
 
 .app-header-user {
@@ -635,8 +647,12 @@
 }
 
 .peak-marker.king {
-  font-size: 1.5rem;
-  filter: drop-shadow(0 0 6px rgba(212,162,76,0.6));
+  font-size: 1.6rem;
+  width: 38px;
+  height: 38px;
+  background: radial-gradient(circle, rgba(201,168,76,0.35) 0%, rgba(26,24,20,0.9) 70%);
+  border-width: 2.5px;
+  filter: drop-shadow(0 0 8px rgba(212,162,76,0.7));
 }
 
 .peak-marker.normal {

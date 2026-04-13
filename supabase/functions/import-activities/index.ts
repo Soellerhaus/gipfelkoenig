@@ -99,7 +99,7 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, strava_token, page = 1, before } = await req.json()
+    const { user_id, strava_token, page = 1, before, after } = await req.json()
 
     if (!user_id || !strava_token) {
       return new Response(JSON.stringify({ error: 'user_id und strava_token erforderlich' }), {
@@ -157,9 +157,9 @@ serve(async (req) => {
     // 1. Gipfel werden pro Aktivität geladen (nur nahe Gipfel, spart Speicher)
     console.log('Gipfel werden pro Aktivität geladen (Bounding Box)')
 
-    // 2. Eine Seite Strava-Aktivitäten holen (nur aktuelles Jahr)
-    const currentYear = new Date().getFullYear()
-    const afterEpoch = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000)
+    // 2. Eine Seite Strava-Aktivitäten holen
+    // after-Parameter vom Frontend (Epoch in Sekunden) oder Fallback auf aktuelles Jahr
+    const afterEpoch = after || Math.floor(new Date(new Date().getFullYear(), 0, 1).getTime() / 1000)
     let url = `https://www.strava.com/api/v3/athlete/activities?per_page=${STRAVA_PAGE_SIZE}&page=${page}&after=${afterEpoch}`
     if (before) url += `&before=${before}`
     const res = await fetch(url, {

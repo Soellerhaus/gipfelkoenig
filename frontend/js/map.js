@@ -28,9 +28,9 @@ function createKingIcon() {
   return L.divIcon({
     className: '',
     html: '<div class="peak-marker king"><span>👑</span></div>',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -18],
+    iconSize: [38, 38],
+    iconAnchor: [19, 19],
+    popupAnchor: [0, -20],
   });
 }
 
@@ -61,9 +61,9 @@ function createAttackedIcon() {
   return L.divIcon({
     className: '',
     html: '<div class="peak-marker attacked"><span>⚔️</span></div>',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -18],
+    iconSize: [38, 38],
+    iconAnchor: [19, 19],
+    popupAnchor: [0, -20],
   });
 }
 

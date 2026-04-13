@@ -221,11 +221,12 @@ async function loadProfileForSeason(year) {
         myHexPeaks[key].add(pid);
       }
 
-      // Pro Hex pruefen ob ich die meisten habe (vereinfacht: Gebiete aus loadTerritories Cache)
+      // Pro Hex pruefen ob ich Koenig bin UND aktuelle Saison-Summits habe
+      // Vorjahres-Gebiete (Fallback) geben KEINE Lose!
       if (window._hexTerritoryKings) {
         let myTerritories = 0;
         for (const [hexKey, king] of Object.entries(window._hexTerritoryKings)) {
-          if (king.userId === userId) myTerritories++;
+          if (king.userId === userId && myHexPeaks[hexKey]) myTerritories++;
         }
         gebietLose = myTerritories * 15;
       }
@@ -907,7 +908,7 @@ function initNavigation() {
 // Import-Fortschrittsbalken — pollt den Status aus user_profiles
 // ---------------------------------------------------------------------------
 
-// Seitenweiser Import — page hochzählen, before für Zeitfenster
+// Seitenweiser Import — 2026 zuerst, dann rückwärts bis keine Aktivitäten mehr
 async function startPagedImport(userId, stravaToken) {
   const bar = document.getElementById('import-bar');
   const progressEl = document.getElementById('import-progress');
@@ -916,206 +917,200 @@ async function startPagedImport(userId, stravaToken) {
 
   if (bar) bar.style.display = 'block';
 
-  // Fortschritt laden: bis wohin wurde bereits importiert?
-  const savedBefore = localStorage.getItem('import_before_' + userId);
-  let beforeEpoch = savedBefore ? parseInt(savedBefore) : Math.floor(Date.now() / 1000);
-
-  // Nur aktuelles Jahr importieren
   const currentYear = new Date().getFullYear();
-  const importSince = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
+  // Fortschritt laden: welches Jahr wird gerade importiert?
+  const savedYear = localStorage.getItem('import_year_' + userId);
+  const startYear = savedYear ? parseInt(savedYear) : currentYear;
+  const MIN_YEAR = 2010; // Nicht weiter als 2010 zurück
+
   let totalSummits = 0;
   let totalPoints = 0;
-  let currentPage = 1;
-  let totalPages = 0;
-  let consecutiveErrors = 0;
   const allPeaks = [];
+  let aborted = false;
 
-  if (savedBefore) console.log('Import fortgesetzt — lade Aktivitäten vor ' + new Date(beforeEpoch * 1000).toLocaleDateString('de'));
+  // Jahr für Jahr importieren: 2026 → 2025 → 2024 → ...
+  for (let year = startYear; year >= MIN_YEAR; year--) {
+    if (aborted) break;
+    localStorage.setItem('import_year_' + userId, year.toString());
 
-  while (true) {
-    try {
-      totalPages++;
-      // Fortschritt anzeigen
-      const progress = Math.min(95, totalPages * 8);
-      if (progressEl) progressEl.style.width = progress + '%';
-      if (percentEl) percentEl.textContent = progress + '%';
-      const dateStr = new Date(beforeEpoch * 1000).toLocaleDateString('de', { month: 'short', year: 'numeric' });
-      if (messageEl) messageEl.textContent = (totalSummits > 0 ? totalSummits + ' Gipfel gefunden · ' : '') + dateStr + ' · GPS-Abgleich mit Gipfeln...';
+    const afterEpoch = Math.floor(new Date(year, 0, 1).getTime() / 1000);
+    const beforeEpoch = Math.floor(new Date(year + 1, 0, 1).getTime() / 1000);
+    let currentPage = 1;
+    let yearSummits = 0;
+    let consecutiveErrors = 0;
+    let emptyYear = true;
 
-      console.log('Import: vor ' + dateStr + ' (page=' + currentPage + ', total=' + totalPages + ')');
+    // Fortschrittsbalken: Jahr-Indikator
+    const yearProgress = Math.round(((currentYear - year) / (currentYear - MIN_YEAR + 1)) * 100);
+    if (progressEl) progressEl.style.width = Math.min(95, yearProgress) + '%';
+    if (percentEl) percentEl.textContent = Math.min(95, yearProgress) + '%';
+    if (messageEl) messageEl.textContent = year + ' · GPS-Abgleich mit Gipfeln...';
+    console.log('=== Import Jahr ' + year + ' ===');
 
-      const { data, error } = await GK.supabase.functions.invoke('import-activities', {
-        body: { user_id: userId, strava_token: stravaToken, page: currentPage, before: beforeEpoch }
-      });
+    while (true) {
+      try {
+        // Fortschritt innerhalb des Jahres
+        var innerProgress = yearProgress + Math.min(8, currentPage * 2);
+        if (progressEl) progressEl.style.width = Math.min(95, innerProgress) + '%';
+        if (percentEl) percentEl.textContent = Math.min(95, innerProgress) + '%';
+        if (messageEl) messageEl.textContent = year + ' · ' + (yearSummits > 0 ? yearSummits + ' Gipfel · ' : '') + 'GPS-Abgleich mit Gipfeln...';
 
-      // Token-Fehler erkennen (Edge Function gibt 401 zurück → Supabase meldet FunctionsHttpError)
-      if (error) {
-        const errMsg = error.message || error.toString();
-        // Token abgelaufen (401 von Edge Function)
-        if (errMsg.includes('401') || errMsg.includes('non-2xx')) {
-          // Versuche response body zu lesen
-          let body = null;
-          try { body = typeof data === 'string' ? JSON.parse(data) : data; } catch(e) {}
-          if (body?.token_expired) {
-            if (messageEl) messageEl.textContent = 'Strava Token abgelaufen — bitte neu verbinden';
-            await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
-            localStorage.removeItem('import_before_' + userId);
-            setTimeout(function() { if (bar) bar.style.display = 'none'; }, 5000);
-            break;
+        const { data, error } = await GK.supabase.functions.invoke('import-activities', {
+          body: { user_id: userId, strava_token: stravaToken, page: currentPage, before: beforeEpoch, after: afterEpoch }
+        });
+
+        // Token-Fehler erkennen
+        if (error) {
+          var errMsg = error.message || error.toString();
+          if (errMsg.includes('401') || errMsg.includes('non-2xx')) {
+            var body = null;
+            try { body = typeof data === 'string' ? JSON.parse(data) : data; } catch(e) {}
+            if (body && body.token_expired) {
+              if (messageEl) messageEl.textContent = 'Strava Token abgelaufen — bitte neu verbinden';
+              await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
+              localStorage.removeItem('import_year_' + userId);
+              setTimeout(function() { if (bar) bar.style.display = 'none'; }, 5000);
+              aborted = true; break;
+            }
           }
+          consecutiveErrors++;
+          console.error('Import-Fehler (' + consecutiveErrors + '/5):', errMsg);
+          if (consecutiveErrors >= 5) {
+            if (messageEl) messageEl.textContent = 'Import fehlgeschlagen — bitte Strava neu verbinden';
+            await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
+            localStorage.removeItem('import_year_' + userId);
+            setTimeout(function() { if (bar) bar.style.display = 'none'; }, 5000);
+            aborted = true; break;
+          }
+          if (messageEl) messageEl.textContent = 'Fehler — Retry in 5s...';
+          await new Promise(function(r) { setTimeout(r, 5000); });
+          continue;
         }
+        consecutiveErrors = 0;
 
-        consecutiveErrors++;
-        console.error('Import-Fehler (' + consecutiveErrors + '/5):', errMsg);
-        if (consecutiveErrors >= 5) {
-          if (messageEl) messageEl.textContent = 'Import fehlgeschlagen — bitte Strava neu verbinden';
+        var result = typeof data === 'string' ? JSON.parse(data) : data;
+
+        // Token-Fehler im JSON Body
+        if (result.token_expired) {
+          if (messageEl) messageEl.textContent = 'Strava Token abgelaufen — bitte neu verbinden';
           await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
-          localStorage.removeItem('import_before_' + userId);
+          localStorage.removeItem('import_year_' + userId);
           setTimeout(function() { if (bar) bar.style.display = 'none'; }, 5000);
-          break;
+          aborted = true; break;
         }
-        if (messageEl) messageEl.textContent = 'Fehler — Retry in 5s...';
-        await new Promise(function(r) { setTimeout(r, 5000); });
-        continue;
-      }
-      consecutiveErrors = 0;
 
-      const result = typeof data === 'string' ? JSON.parse(data) : data;
-      console.log('Ergebnis:', result);
-
-      // Token-Fehler im JSON Body erkennen
-      if (result.token_expired) {
-        if (messageEl) messageEl.textContent = 'Strava Token abgelaufen — bitte neu verbinden';
-        await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
-        localStorage.removeItem('import_before_' + userId);
-        setTimeout(function() { if (bar) bar.style.display = 'none'; }, 5000);
-        break;
-      }
-
-      if (result.error) {
-        console.error('Server-Fehler:', result.error);
-        if (messageEl) messageEl.textContent = 'Fehler: ' + result.error;
-        break;
-      }
-
-      // Rate Limit — warte 60s und versuche erneut (gleiche page + before)
-      if (result.rate_limited) {
-        console.log('Rate Limit — warte 60s...');
-        if (messageEl) messageEl.textContent = 'Strava Rate Limit — warte 60 Sekunden...';
-        await new Promise(function(r) { setTimeout(r, 60000); });
-        // oldest_date updaten falls vorhanden, dann gleiche page nochmal
-        if (result.oldest_date) {
-          beforeEpoch = Math.floor(new Date(result.oldest_date).getTime() / 1000) - 1;
-          localStorage.setItem('import_before_' + userId, beforeEpoch.toString());
-          currentPage = 1; // Neuer Zeitraum, page zurücksetzen
+        if (result.error) {
+          console.error('Server-Fehler:', result.error);
+          if (messageEl) messageEl.textContent = 'Fehler: ' + result.error;
+          aborted = true; break;
         }
+
+        // Rate Limit — warte 60s
+        if (result.rate_limited) {
+          console.log('Rate Limit — warte 60s...');
+          if (messageEl) messageEl.textContent = year + ' · Strava Rate Limit — warte 60 Sekunden...';
+          await new Promise(function(r) { setTimeout(r, 60000); });
+          yearSummits += result.summits_found || 0;
+          totalSummits += result.summits_found || 0;
+          totalPoints += result.points || 0;
+          if (result.peaks) allPeaks.push(...result.peaks);
+          continue;
+        }
+
+        // Ergebnisse verarbeiten
+        if (result.activities_on_page > 0) emptyYear = false;
+        yearSummits += result.summits_found || 0;
         totalSummits += result.summits_found || 0;
         totalPoints += result.points || 0;
         if (result.peaks) allPeaks.push(...result.peaks);
-        continue;
-      }
 
-      totalSummits += result.summits_found || 0;
-      totalPoints += result.points || 0;
-      if (result.peaks) allPeaks.push(...result.peaks);
-
-      // Header-Punkte live aktualisieren
-      if (result.total_points) {
-        var punkteEl = document.getElementById('user-points');
-        if (punkteEl) punkteEl.textContent = result.total_points.toLocaleString('de') + ' Pkt';
-      }
-
-      // Gipfel-Toast bei Fund
-      if (result.peaks && result.peaks.length > 0) {
-        if (typeof GK.showToast === 'function') {
-          GK.showToast(result.peaks.join(', '), 'success');
+        // Header-Punkte live aktualisieren
+        if (result.total_points) {
+          var punkteEl = document.getElementById('user-points');
+          if (punkteEl) punkteEl.textContent = result.total_points.toLocaleString('de') + ' Pkt';
         }
-      }
 
-      // Ältestes Datum dieser Seite als nächsten "before" Marker setzen
-      if (result.oldest_date) {
-        beforeEpoch = Math.floor(new Date(result.oldest_date).getTime() / 1000) - 1;
-        localStorage.setItem('import_before_' + userId, beforeEpoch.toString());
-        currentPage = 1; // Neuer Zeitraum, page zurücksetzen
-      } else {
-        // Kein oldest_date → nächste Seite im gleichen Zeitraum
+        // Gipfel-Toast bei Fund
+        if (result.peaks && result.peaks.length > 0) {
+          if (typeof GK.showToast === 'function') {
+            GK.showToast(result.peaks.join(', '), 'success');
+          }
+        }
+
+        // Jahr fertig?
+        if (result.done || !result.has_more) {
+          console.log('Jahr ' + year + ' fertig: ' + yearSummits + ' Gipfel');
+          break;
+        }
+
         currentPage++;
+
+      } catch (err) {
+        console.error('Import Fehler:', err);
+        consecutiveErrors++;
+        if (consecutiveErrors >= 5) { aborted = true; break; }
       }
+    }
 
-      // Stopp wenn älter als 1. Januar Vorjahr
-      if (beforeEpoch < importSince) {
-        console.log('Import: Zeitlimit erreicht (ab ' + (currentYear - 1) + ')');
-        result.done = true;
-      }
+    // Jahr komplett leer → keine älteren Aktivitäten mehr vorhanden
+    if (emptyYear && year < currentYear) {
+      console.log('Jahr ' + year + ' leer — Import beendet');
+      break;
+    }
 
-      if (result.done || !result.has_more) {
-        console.log('Import abgeschlossen! ' + totalSummits + ' Gipfel, ' + totalPoints + ' Punkte');
-        if (progressEl) progressEl.style.width = '100%';
-        if (percentEl) percentEl.textContent = '100%';
-        if (messageEl) messageEl.textContent = totalSummits + ' Gipfel gefunden · ' + totalPoints.toLocaleString('de') + ' Punkte · Daten werden geladen...';
-
-        await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
-        localStorage.removeItem('import_before_' + userId);
-
-        // Auto-Refresh: Profil, Summits und Karte neu laden
-        try {
-          // Summits-Cache neu laden
-          var { data: freshSummits } = await GK.supabase
-            .from('summits')
-            .select('peak_id, points, summited_at, season, is_season_first, elevation_gain, distance, strava_activity_id')
-            .eq('user_id', userId)
-            .order('summited_at', { ascending: false });
-          if (freshSummits) {
-            window._allSummitsCache = freshSummits;
-            window._currentUserId = userId;
-          }
-
-          // Profil neu laden und Header aktualisieren
-          var freshProfil = await GK.api.getUserProfile(userId);
-          if (freshProfil) {
-            var punkteHeader = document.getElementById('user-points');
-            if (punkteHeader) punkteHeader.textContent = (freshProfil.total_points || 0).toLocaleString('de') + ' Pkt';
-          }
-
-          // Saison-Stats neu berechnen
-          var seasonYear = window.currentProfileSeason || new Date().getFullYear();
-          await loadProfileForSeason(seasonYear);
-
-          // Gipfel-Tab neu laden
-          if (GK.summits && GK.summits.loadMySummits) GK.summits.loadMySummits();
-
-          // Karte: Marker + Hexagone neu laden
-          if (GK.map && GK.map.loadUserSummits) GK.map.loadUserSummits();
-          if (GK.map && GK.map.loadHexagons) GK.map.loadHexagons();
-
-          // Feed neu laden
-          if (typeof loadFeed === 'function') loadFeed();
-
-          // Leaderboard aktualisieren
-          if (GK.game && GK.game.loadLeaderboard) GK.game.loadLeaderboard();
-
-          console.log('Auto-Refresh nach Import abgeschlossen');
-        } catch (refreshErr) {
-          console.warn('Auto-Refresh teilweise fehlgeschlagen:', refreshErr.message);
-        }
-
-        if (messageEl) messageEl.textContent = totalSummits + ' Gipfel gefunden · ' + totalPoints.toLocaleString('de') + ' Punkte';
-
-        if (typeof GK.showToast === 'function') {
-          GK.showToast('Import fertig! ' + totalSummits + ' Gipfel erkannt!', 'success');
-        }
-
-        setTimeout(function() {
-          if (bar) bar.style.display = 'none';
-        }, 5000);
-        break;
-      }
-
-    } catch (err) {
-      console.error('Import Fehler:', err);
-      if (totalPages > 100) break;
+    // Nach dem aktuellen Jahr: Auto-Refresh damit Daten sofort sichtbar sind
+    if (year === currentYear) {
+      try { await _importAutoRefresh(userId); } catch(e) { console.warn('Auto-Refresh:', e.message); }
+      if (messageEl) messageEl.textContent = totalSummits + ' Gipfel (' + currentYear + ') · Importiere ältere Jahre...';
     }
   }
+
+  // Import abgeschlossen
+  console.log('Import komplett! ' + totalSummits + ' Gipfel, ' + totalPoints + ' Punkte');
+  if (progressEl) progressEl.style.width = '100%';
+  if (percentEl) percentEl.textContent = '100%';
+  if (messageEl) messageEl.textContent = totalSummits + ' Gipfel gefunden · ' + totalPoints.toLocaleString('de') + ' Punkte';
+
+  await GK.supabase.from('user_profiles').update({ import_status: 'done' }).eq('id', userId);
+  localStorage.removeItem('import_year_' + userId);
+
+  // Finaler Auto-Refresh
+  try { await _importAutoRefresh(userId); } catch(e) { console.warn('Auto-Refresh:', e.message); }
+
+  if (typeof GK.showToast === 'function') {
+    GK.showToast('Import fertig! ' + totalSummits + ' Gipfel erkannt!', 'success');
+  }
+
+  setTimeout(function() { if (bar) bar.style.display = 'none'; }, 5000);
+}
+
+// Auto-Refresh nach Import: Summits, Profil, Karte, Feed, Leaderboard
+async function _importAutoRefresh(userId) {
+  var { data: freshSummits } = await GK.supabase
+    .from('summits')
+    .select('peak_id, points, summited_at, season, is_season_first, elevation_gain, distance, strava_activity_id')
+    .eq('user_id', userId)
+    .order('summited_at', { ascending: false });
+  if (freshSummits) {
+    window._allSummitsCache = freshSummits;
+    window._currentUserId = userId;
+  }
+
+  var freshProfil = await GK.api.getUserProfile(userId);
+  if (freshProfil) {
+    var punkteHeader = document.getElementById('user-points');
+    if (punkteHeader) punkteHeader.textContent = (freshProfil.total_points || 0).toLocaleString('de') + ' Pkt';
+  }
+
+  var seasonYear = window.currentProfileSeason || new Date().getFullYear();
+  await loadProfileForSeason(seasonYear);
+
+  if (GK.summits && GK.summits.loadMySummits) GK.summits.loadMySummits();
+  if (GK.map && GK.map.loadUserSummits) GK.map.loadUserSummits();
+  if (GK.map && GK.map.loadHexagons) GK.map.loadHexagons();
+  if (typeof loadFeed === 'function') loadFeed();
+  if (GK.game && GK.game.loadLeaderboard) GK.game.loadLeaderboard();
+  console.log('Auto-Refresh abgeschlossen');
 }
 
 // Browser-seitiger Import (importStravaActivities) wurde entfernt
@@ -1850,11 +1845,19 @@ async function loadSponsorTicker() {
       tickerHtml += '<span style="margin:0 3rem;"></span>';
     });
 
-    // Doppelt für nahtlosen Loop
+    // Doppelt für nahtlosen Loop (Desktop)
     var track = document.createElement('div');
     track.className = 'sponsor-ticker-track';
     track.innerHTML = tickerHtml + tickerHtml;
     container.appendChild(track);
+
+    // Mobiler Link statt Ticker-Durchlauf
+    var mobileLink = document.createElement('a');
+    mobileLink.className = 'sponsor-mobile-link';
+    mobileLink.href = '/prizes.html';
+    var prizeCount = filtered.length;
+    mobileLink.innerHTML = '🎁 ' + prizeCount + ' Preise';
+    container.appendChild(mobileLink);
   } catch (e) {
     console.warn('Sponsor-Ticker Fehler:', e);
   }
