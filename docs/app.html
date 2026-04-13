@@ -68,7 +68,7 @@
       </div>
       <div style="text-align:center; margin-top:8px; line-height: 1.5;">
         <span style="font-size: 0.78rem; color: var(--color-muted);">Jede Aktivit&auml;t wird per GPS mit 53.000+ Alpengipfeln abgeglichen</span><br>
-        <span style="font-size: 0.72rem; color: var(--color-muted);">Nur aktuelles Jahr + Vorjahr &middot; Deine Daten erscheinen automatisch nach dem Import</span>
+        <span style="font-size: 0.72rem; color: var(--color-muted);">Aktuelles Jahr zuerst, dann &auml;ltere &middot; Deine Daten erscheinen automatisch nach dem Import</span>
       </div>
     </div>
 
@@ -405,7 +405,10 @@
   <script src="./js/feed.js?v=20260326"></script>
   <script src="/js/animations.js"></script>
 
-  <!-- Powered by Strava — in der Infokachel, nicht fixed -->
+  <!-- Powered by Strava — auf der Karte unten rechts -->
+  <div style="position:fixed;bottom:62px;right:8px;z-index:400;opacity:0.3;pointer-events:none;">
+    <img src="/img/powered_by_strava_white.svg" alt="Powered by Strava" style="height:12px;">
+  </div>
 
 </body>
 </html>

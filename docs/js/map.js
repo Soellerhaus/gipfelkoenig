@@ -373,11 +373,9 @@ async function openPeakPanel(peakId) {
         <div class="peak-top-meta">${safetyHtml}</div>
         <div class="trophy-grid">
           <div class="trophy-slot"><span class="trophy-emoji">👑</span><span class="trophy-label">König</span></div>
-          <div class="trophy-slot"><span class="trophy-emoji">⭐</span><span class="trophy-label">Pionier</span></div>
-          <div class="trophy-slot trophy-extra"><span class="trophy-emoji">🌅</span><span class="trophy-label">Früh</span></div>
-          <div class="trophy-slot trophy-extra"><span class="trophy-emoji">💎</span><span class="trophy-label">Selten</span></div>
+          <div class="trophy-slot"><span class="trophy-emoji">⭐</span><span class="trophy-label">Pionier ×3</span></div>
         </div>
-        <div class="peak-history">Noch nie bestiegen — sei der Erste!</div>
+        <div class="peak-history">Noch nie bestiegen — sei der Erste! ⭐ ×3 Punkte als Pionier!</div>
         <div class="peak-bottom-name">${peak.name}${peak.elevation ? ' <span class="peak-elev">' + peak.elevation + ' m</span>' : ''}</div>
         ${desc ? '<div class="peak-description">' + desc + '</div>' : ''}`;
       return;
@@ -425,8 +423,6 @@ async function openPeakPanel(peakId) {
     const trophies = [
       { emoji: '👑', label: 'König ' + focusSeason, earned: !!kingEntry, user: kingEntry ? userName(kingEntry[0]) : '—', detail: kingEntry ? kingEntry[1] + '×' : '', extra: false },
       { emoji: '⭐', label: 'Pionier', earned: !!pioneer, user: pioneer ? userName(pioneer.user_id) : '—', detail: '', extra: false },
-      { emoji: '🌅', label: 'Früh', earned: !!earlyBird, user: earlyBird ? userName(earlyBird.user_id) : '—', detail: '', extra: true },
-      Object.assign(slot4, { extra: true }),
     ];
 
     const trophyHtml = trophies.map(t => `
@@ -464,7 +460,7 @@ async function openPeakPanel(peakId) {
     } catch (e) { /* ignorieren */ }
 
     content.innerHTML = `
-      <div class="peak-top-meta">${safetyHtml} · ${totalSummits} Besteigungen · ${uniqueUsers} Bergfreunde · <img src="/img/powered_by_strava_white.svg" alt="Strava" style="height:10px;vertical-align:middle;opacity:0.5;"></div>
+      <div class="peak-top-meta">${safetyHtml} · ${totalSummits} Besteigungen · ${uniqueUsers} Bergfreunde</div>
       <div class="trophy-grid">${trophyHtml}</div>
       ${historyHtml ? '<div class="peak-history">' + historyHtml + '</div>' : ''}
       ${hexInfoHtml}
