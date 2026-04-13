@@ -602,6 +602,8 @@ function loadCrownsAsync() {
             if (summited || isKing) {
               const king = isKing ? { user_id: userId } : null;
               m.setIcon(getMarkerIcon(m.peakData, king, summited, true));
+              // Krone immer im Vordergrund (ueber Hex-Avataren)
+              if (isKing && m._icon) m._icon.style.zIndex = 9999;
             }
           });
         });
@@ -996,9 +998,10 @@ async function loadPOIs() {
   if (!pois || pois.length === 0) return;
 
   for (const poi of pois) {
+    const poiEmoji = POI_ICONS[poi.difficulty] || POI_ICONS[poi.type] || '·';
     const icon = L.divIcon({
       className: '',
-      html: '<div class="peak-marker poi-marker"><span>▲</span></div>',
+      html: '<div class="peak-marker poi-marker"><span>' + poiEmoji + '</span></div>',
       iconSize: [22, 22],
       iconAnchor: [11, 11],
       popupAnchor: [0, -12],

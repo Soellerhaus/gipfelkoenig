@@ -1851,13 +1851,9 @@ async function loadSponsorTicker() {
     track.innerHTML = tickerHtml + tickerHtml;
     container.appendChild(track);
 
-    // Mobiler Link statt Ticker-Durchlauf
-    var mobileLink = document.createElement('a');
-    mobileLink.className = 'sponsor-mobile-link';
-    mobileLink.href = '/prizes.html';
-    var prizeCount = filtered.length;
-    mobileLink.innerHTML = '🎁 ' + prizeCount + ' Preise';
-    container.appendChild(mobileLink);
+    // Mobiler Preise-Link im Header aktivieren
+    var headerPrizesLink = document.getElementById('header-prizes-link');
+    if (headerPrizesLink) headerPrizesLink.style.display = '';
   } catch (e) {
     console.warn('Sponsor-Ticker Fehler:', e);
   }
