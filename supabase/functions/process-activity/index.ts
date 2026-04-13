@@ -31,6 +31,23 @@ function calculatePoints(
   return Math.round(pts)
 }
 
+// Zufälliger CTA-Text für Strava
+const STRAVA_CTAS = [
+  'Schnapp dir meine Krone!',
+  'Traust du dich? Spiel mit!',
+  'Wem gehört dein Gipfel?',
+  'Kannst du mich schlagen?',
+  'Dieser Berg gehört mir. Noch.',
+  'Spiel mit — wenn du dich traust!',
+  'Mein Berg. Meine Krone. Deine Chance.',
+  'Wie viele Kronen holst du?',
+  'Die Alpen warten. Spielst du mit?',
+  'Erobere meinen Gipfel!'
+]
+function getStravaCTA(): string {
+  return STRAVA_CTAS[Math.floor(Math.random() * STRAVA_CTAS.length)] + ' www.bergkoenig.app'
+}
+
 // Aktuelle Saison berechnen
 function getSeason(date: Date): string {
   return date.getFullYear().toString()
@@ -230,7 +247,7 @@ serve(async (req) => {
               const actRes2 = await fetch('https://www.strava.com/api/v3/activities/' + activity_id, { headers: { 'Authorization': 'Bearer ' + strava_token } })
               const actData2 = await actRes2.json()
               if (!actData2.description?.includes('bergkoenig.app')) {
-                const txt = '🏃 +' + noGipfelPts + ' Pkt\nSchnapp dir meine Krone! www.bergkoenig.app' + (actData2.description ? '\n\n' + actData2.description : '')
+                const txt = '🏃 +' + noGipfelPts + ' Pkt\n' + getStravaCTA() + (actData2.description ? '\n\n' + actData2.description : '')
                 await fetch('https://www.strava.com/api/v3/activities/' + activity_id, {
                   method: 'PUT', headers: { 'Authorization': 'Bearer ' + strava_token, 'Content-Type': 'application/json' },
                   body: JSON.stringify({ description: txt })
@@ -549,7 +566,7 @@ serve(async (req) => {
             }
 
             // Zeile 3: Link
-            bergkoenigText += '\nSchnapp dir meine Krone! www.bergkoenig.app'
+            bergkoenigText += '\n' + getStravaCTA()
 
             // Zeile 4+: Details (nur bei "weiterlesen")
             if (summitResults.length >= 3) {
