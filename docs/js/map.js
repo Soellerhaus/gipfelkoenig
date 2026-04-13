@@ -998,9 +998,9 @@ async function loadPOIs() {
   for (const poi of pois) {
     const icon = L.divIcon({
       className: '',
-      html: '<div class="poi-marker"><span>' + (POI_ICONS[poi.type] || '📍') + '</span></div>',
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
+      html: '<div class="peak-marker poi-marker"><span>▲</span></div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
       popupAnchor: [0, -12],
     });
 
