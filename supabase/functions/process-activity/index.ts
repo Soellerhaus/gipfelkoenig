@@ -230,7 +230,7 @@ serve(async (req) => {
               const actRes2 = await fetch('https://www.strava.com/api/v3/activities/' + activity_id, { headers: { 'Authorization': 'Bearer ' + strava_token } })
               const actData2 = await actRes2.json()
               if (!actData2.description?.includes('bergkoenig.app')) {
-                const txt = '🏃 +' + noGipfelPts + ' Pkt\nwww.bergkoenig.app' + (actData2.description ? '\n\n' + actData2.description : '')
+                const txt = '🏃 +' + noGipfelPts + ' Pkt\nSchnapp dir meine Krone! www.bergkoenig.app' + (actData2.description ? '\n\n' + actData2.description : '')
                 await fetch('https://www.strava.com/api/v3/activities/' + activity_id, {
                   method: 'PUT', headers: { 'Authorization': 'Bearer ' + strava_token, 'Content-Type': 'application/json' },
                   body: JSON.stringify({ description: txt })
@@ -549,7 +549,7 @@ serve(async (req) => {
             }
 
             // Zeile 3: Link
-            bergkoenigText += '\nwww.bergkoenig.app'
+            bergkoenigText += '\nSchnapp dir meine Krone! www.bergkoenig.app'
 
             // Zeile 4+: Details (nur bei "weiterlesen")
             if (summitResults.length >= 3) {
