@@ -464,7 +464,7 @@ async function openPeakPanel(peakId) {
     } catch (e) { /* ignorieren */ }
 
     content.innerHTML = `
-      <div class="peak-top-meta">${safetyHtml} · ${totalSummits} Besteigungen · ${uniqueUsers} Bergfreunde</div>
+      <div class="peak-top-meta">${safetyHtml} · ${totalSummits} Besteigungen · ${uniqueUsers} Bergfreunde · <img src="/img/powered_by_strava_white.svg" alt="Strava" style="height:10px;vertical-align:middle;opacity:0.5;"></div>
       <div class="trophy-grid">${trophyHtml}</div>
       ${historyHtml ? '<div class="peak-history">' + historyHtml + '</div>' : ''}
       ${hexInfoHtml}
