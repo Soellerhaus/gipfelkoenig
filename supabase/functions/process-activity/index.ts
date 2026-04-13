@@ -203,8 +203,49 @@ serve(async (req) => {
       console.warn('POI-Erkennung Fehler:', poiErr)
     }
 
+    // Auch ohne Gipfel/POIs: Basispunkte fuer HM/km vergeben
     if (foundPeaks.size === 0 && poiResults.length === 0) {
-      return new Response(JSON.stringify({ message: 'Keine Gipfel/POIs gefunden', peaks: 0, pois: 0 }), {
+      const noGipfelHM = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0
+      const noGipfelKM = activity.distance ? Math.round(activity.distance / 1000) : 0
+      const noGipfelPts = Math.round(noGipfelHM / 100) + noGipfelKM
+      if (noGipfelPts > 0) {
+        await supabase.from('summits').insert({
+          user_id, peak_id: null,
+          summited_at: activityStart.toISOString(),
+          season, strava_activity_id: activity_id.toString(),
+          checkin_method: 'strava', points: noGipfelPts,
+          is_season_first: false, is_personal_first: false,
+          safety_ok: true, safety_level: 0,
+          elevation_gain: noGipfelHM, distance: noGipfelKM * 1000
+        })
+        totalPoints = noGipfelPts
+
+        // Strava-Beschreibung auch ohne Gipfel
+        const STRAVA_POST_TYPES = ['Hike', 'Run', 'Walk', 'TrailRun', 'BackcountrySki', 'Snowshoe', 'NordicSki', 'RockClimbing']
+        const actType = activity?.type || ''
+        if (strava_token && STRAVA_POST_TYPES.includes(actType)) {
+          try {
+            const { data: us } = await supabase.from('user_profiles').select('strava_post_summits').eq('id', user_id).single()
+            if (us?.strava_post_summits !== false) {
+              const actRes2 = await fetch('https://www.strava.com/api/v3/activities/' + activity_id, { headers: { 'Authorization': 'Bearer ' + strava_token } })
+              const actData2 = await actRes2.json()
+              if (!actData2.description?.includes('bergkoenig.app')) {
+                const txt = '🏃 +' + noGipfelPts + ' Pkt\nwww.bergkoenig.app' + (actData2.description ? '\n\n' + actData2.description : '')
+                await fetch('https://www.strava.com/api/v3/activities/' + activity_id, {
+                  method: 'PUT', headers: { 'Authorization': 'Bearer ' + strava_token, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ description: txt })
+                })
+              }
+            }
+          } catch (e) { console.warn('Strava no-peak post:', e) }
+        }
+
+        // Gesamtpunkte updaten
+        const { data: prof } = await supabase.from('user_profiles').select('total_points').eq('id', user_id).single()
+        await supabase.from('user_profiles').update({ total_points: (prof?.total_points || 0) + noGipfelPts }).eq('id', user_id)
+      }
+
+      return new Response(JSON.stringify({ message: 'Keine Gipfel/POIs, Basispunkte: ' + totalPoints, peaks: 0, pois: 0, totalPoints }), {
         headers: { 'Content-Type': 'application/json' }
       })
     }

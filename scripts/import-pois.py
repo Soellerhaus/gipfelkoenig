@@ -39,13 +39,13 @@ POI_TYPES = {
         'label': 'Aussichtspunkte'
     },
     'lake': {
-        'query': 'node["natural"="water"]["name"]({bbox});node["water"="lake"]["name"]({bbox});',
-        'min_ele': 1000,
+        'query': 'way["water"="lake"]["name"](46.0,5.5,48.0,16.0);relation["water"="lake"]["name"](46.0,5.5,48.0,16.0);way["natural"="water"]["name"](46.5,5.5,48.0,16.0);',
+        'min_ele': 0,
         'label': 'Bergseen'
     },
     'glacier': {
-        'query': 'node["natural"="glacier"]["name"]({bbox});way["natural"="glacier"]["name"]({bbox});',
-        'min_ele': 1500,
+        'query': 'way["natural"="glacier"]["name"](45.5,5.5,48.0,16.0);relation["natural"="glacier"]["name"](45.5,5.5,48.0,16.0);node["natural"="glacier"]["name"](45.5,5.5,48.0,16.0);',
+        'min_ele': 0,
         'label': 'Gletscher'
     },
     'via_ferrata': {
