@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "app.bergkoenig.www",
       "sha256_cert_fingerprints": [
-        "59:A4:AD:6C:77:F1:95:27:3A:14:BD:97:8E:0C:08:BD:DE:75:45:79:3F:45:27:D4:10:B9:6F:E7:1D:01:6C:D3"
+        "59:A4:AD:6C:77:F1:95:27:3A:14:BD:97:8E:0C:08:BD:DE:75:45:79:3F:45:27:D4:10:B9:6F:E7:1D:01:6C:D3",
+        "B9:E2:0C:8F:14:99:10:F5:EB:CA:35:3E:9F:8E:7A:01:8B:AC:A4:0D:1C:C8:A2:FB:40:34:E9:89:92:D9:F4:ED"
       ]
     }
   }
