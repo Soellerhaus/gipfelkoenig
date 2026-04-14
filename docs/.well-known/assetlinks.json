@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.bergkoenig.www",
+      "sha256_cert_fingerprints": [
+        "59:A4:AD:6C:77:F1:95:27:3A:14:BD:97:8E:0C:08:BD:DE:75:45:79:3F:45:27:D4:10:B9:6F:E7:1D:01:6C:D3"
+      ]
+    }
+  }
+]
