@@ -44,8 +44,16 @@ const STRAVA_CTAS = [
   'Die Alpen warten. Spielst du mit?',
   'Erobere meinen Gipfel!'
 ]
-function getStravaCTA(): string {
-  return STRAVA_CTAS[Math.floor(Math.random() * STRAVA_CTAS.length)] + ' www.bergkoenig.app'
+function getStravaCTA(activityId?: string): string {
+  // Deterministisch basierend auf Activity-ID — jede Aktivität bekommt einen anderen CTA
+  let idx = 0
+  if (activityId) {
+    for (let i = 0; i < activityId.length; i++) idx += activityId.charCodeAt(i)
+    idx = idx % STRAVA_CTAS.length
+  } else {
+    idx = Math.floor(Math.random() * STRAVA_CTAS.length)
+  }
+  return STRAVA_CTAS[idx] + ' www.bergkoenig.app'
 }
 
 // Aktuelle Saison berechnen
@@ -247,7 +255,7 @@ serve(async (req) => {
               const actRes2 = await fetch('https://www.strava.com/api/v3/activities/' + activity_id, { headers: { 'Authorization': 'Bearer ' + strava_token } })
               const actData2 = await actRes2.json()
               if (!actData2.description?.includes('bergkoenig.app')) {
-                const txt = '🏃 +' + noGipfelPts + ' Pkt\n' + getStravaCTA() + (actData2.description ? '\n\n' + actData2.description : '')
+                const txt = '🏃 +' + noGipfelPts + ' Pkt\n' + getStravaCTA(activity_id) + (actData2.description ? '\n\n' + actData2.description : '')
                 await fetch('https://www.strava.com/api/v3/activities/' + activity_id, {
                   method: 'PUT', headers: { 'Authorization': 'Bearer ' + strava_token, 'Content-Type': 'application/json' },
                   body: JSON.stringify({ description: txt })
@@ -566,7 +574,7 @@ serve(async (req) => {
             }
 
             // Zeile 3: Link
-            bergkoenigText += '\n' + getStravaCTA()
+            bergkoenigText += '\n' + getStravaCTA(activity_id)
 
             // Zeile 4+: Details (nur bei "weiterlesen")
             if (summitResults.length >= 3) {
