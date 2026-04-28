@@ -1031,25 +1031,58 @@ const loadPOIsDebounced = debounce(loadPOIs, 800);
  * Versucht den Standort des Benutzers zu ermitteln.
  */
 async function initMap() {
-  // Karte erstellen
-  const map = L.map('map', { attributionControl: false }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
+  // Karte erstellen — mit Performance-Optimierungen fuer fluessiges Zoomen
+  const map = L.map('map', {
+    attributionControl: false,
+    fadeAnimation: true,           // sanfter Tile-Fade beim Wechsel
+    zoomAnimation: true,           // sanfter Zoom statt abrupt
+    markerZoomAnimation: true,     // Marker beim Zoom mit-animieren
+    wheelDebounceTime: 40,         // weniger nervoes beim Mausrad-Zoom
+    wheelPxPerZoomLevel: 80,       // groesserer Schritt pro Zoom-Stufe
+    preferCanvas: true,            // Canvas statt SVG fuer Polygone (schneller)
+    zoomSnap: 0.5,                 // Halbschritte fuer sanftere Pinch-Zooms
+  }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
 
   // Attribution — klein und dezent unten rechts
   L.control.attribution({ position: 'bottomright', prefix: false })
     .addAttribution('© <a href="https://openstreetmap.org">OSM</a> · <a href="https://opentopomap.org">OpenTopoMap</a>')
     .addTo(map);
 
+  // Gemeinsame Tile-Optionen fuer schnelleres Laden + smoothes Zoomen
+  // - subdomains 'abc': Browser laedt parallel von 3 Servern (statt 1) → 3x schneller
+  // - maxNativeZoom < maxZoom: Bei zu starkem Reinzoomen werden bestehende Tiles
+  //   unscharf vergroessert angezeigt statt weisse Kacheln zu blinken
+  // - keepBuffer 4: 4 Reihen Tiles ausserhalb des Sichtbereichs im RAM behalten
+  //   (Default 2) — beim Pannen/Zoomen sofort da
+  // - updateWhenZooming false + updateWhenIdle true: Keine Tile-Requests waehrend
+  //   der Zoom-Animation, erst wenn fertig — verhindert Flackern
+  // - crossOrigin: aktiviert Browser-HTTP-Cache fuer Tiles
+  const tileBaseOptions = {
+    subdomains: 'abc',
+    keepBuffer: 4,
+    updateWhenZooming: false,
+    updateWhenIdle: true,
+    crossOrigin: true,
+  };
+
   // Karten-Layer definieren
   const topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-    maxZoom: 17,
+    ...tileBaseOptions,
+    maxZoom: 19,        // bis zu welchem Zoom die Karte sichtbar ist
+    maxNativeZoom: 17,  // hoechster Zoom mit echten Tiles (darueber wird upscaled)
   });
 
   const satellitLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 18,
+    ...tileBaseOptions,
+    subdomains: '',     // ArcGIS hat keine subdomains
+    maxZoom: 19,
+    maxNativeZoom: 18,
   });
 
   const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    ...tileBaseOptions,
     maxZoom: 19,
+    maxNativeZoom: 19,
   });
 
   // Standard-Layer setzen
