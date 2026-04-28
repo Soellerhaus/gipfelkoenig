@@ -963,9 +963,29 @@ async function loadTerritories() {
 const loadPeaksDebounced = debounce(loadPeaks, DEBOUNCE_DELAY);
 
 /** Debounced-Version von loadTerritories */
-const loadTerritoriesDebounced = debounce(loadTerritories, 800);
+const loadTerritoriesDebounced = debounce(loadTerritories, 400);
 /** Schnellere Version für Zoom (Hex-Pixel-Grösse ändert sich) */
-const loadTerritoriesOnZoom = debounce(loadTerritories, 500);
+const loadTerritoriesOnZoom = debounce(loadTerritories, 200);
+
+/**
+ * Hex-Layer SOFORT verstecken sobald sich die Karte bewegt/zoomt.
+ * Verhindert dass alte (jetzt riesige oder winzige) Hex-Avatare als
+ * "Geister" stehen bleiben bis loadTerritories nach dem Debounce neu rendert.
+ * divIcon-Marker behalten Pixel-Groesse beim Zoom — beim Rauszoomen sehen
+ * Avatare aus einem hoeheren Zoom-Level sonst gigantisch aus.
+ */
+function hideTerritoriesInstantly() {
+  if (!territoryLayer) return;
+  // Cache-Reset erzwingen, damit nach Bewegungsende neu geladen wird
+  _lastHexBounds = null;
+  // Visuell sofort ausblenden statt clearLayers (clearLayers ist teurer)
+  if (territoryLayer.getPane && territoryLayer.eachLayer) {
+    territoryLayer.eachLayer(function (l) {
+      if (l._icon) l._icon.style.visibility = 'hidden';
+      if (l._path) l._path.style.visibility = 'hidden';
+    });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // POI-Marker (Scharten, Huetten, Aussichtspunkte, etc.)
@@ -1240,6 +1260,12 @@ async function initMap() {
   map.on('zoomend', loadTerritoriesOnZoom);
   map.on('moveend', loadPOIsDebounced);
   map.on('zoomend', loadPOIsDebounced);
+
+  // Hex-Avatare SOFORT verstecken sobald sich was bewegt — verhindert
+  // dass alte (riesige) Hex-Bilder aus dem vorherigen Zoom-Level
+  // stehen bleiben bis das Debounced-Reload feuert
+  map.on('zoomstart', hideTerritoriesInstantly);
+  map.on('movestart', hideTerritoriesInstantly);
 
   // Gipfel des Tages bei Kartenverschiebung aktualisieren (debounced 2s)
   let potdTimer;
