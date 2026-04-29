@@ -61,16 +61,125 @@ function getSeason(date: Date): string {
   return date.getFullYear().toString()
 }
 
-// Strava-Beschreibung mit Retry + Verification setzen
+// =====================================================================
+// Titel-Generator — Wetter + Tageszeit + Leistung, deterministisch
+// =====================================================================
+
+// Wetter holen via Open-Meteo Historical (kostenlos, kein API-Key noetig)
+async function fetchWeather(lat: number, lng: number, dateStr: string, hour: number) {
+  try {
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(2)}&longitude=${lng.toFixed(2)}&start_date=${dateStr}&end_date=${dateStr}&hourly=temperature_2m,precipitation,cloudcover,windspeed_10m,snowfall&timezone=auto`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return null
+    const data = await res.json()
+    const i = Math.max(0, Math.min(23, hour))
+    return {
+      temp: data.hourly?.temperature_2m?.[i] ?? null,
+      precip: data.hourly?.precipitation?.[i] ?? 0,
+      cloud: data.hourly?.cloudcover?.[i] ?? 0,
+      wind: data.hourly?.windspeed_10m?.[i] ?? 0,
+      snow: data.hourly?.snowfall?.[i] ?? 0,
+    }
+  } catch (e) {
+    console.warn('Open-Meteo Fehler:', e)
+    return null
+  }
+}
+
+function categorizeWeather(w: any | null): string {
+  if (!w) return 'unknown'
+  if ((w.snow || 0) > 0 || (w.temp !== null && w.temp < -2)) return 'snowy'
+  if ((w.precip || 0) > 0.5) return 'rainy'
+  if ((w.wind || 0) > 30) return 'windy'
+  if ((w.cloud || 0) > 80) return 'foggy'
+  if ((w.cloud || 0) > 40) return 'cloudy'
+  return 'sunny'
+}
+
+function getTimeCategory(hour: number): string {
+  if (hour < 5) return 'night'
+  if (hour < 9) return 'dawn'
+  if (hour < 12) return 'morning'
+  if (hour < 14) return 'midday'
+  if (hour < 18) return 'afternoon'
+  if (hour < 21) return 'evening'
+  return 'night'
+}
+
+function getPerformanceCategory(hm: number): string {
+  if (hm < 200) return 'gentle'
+  if (hm < 600) return 'moderate'
+  if (hm < 1200) return 'intense'
+  return 'epic'
+}
+
+const WEATHER_TITLES: Record<string, string[]> = {
+  sunny:   ['☀️ Goldener Morgen', '☀️ Sonnenkuss', '☀️ Lichtgebadet', '☀️ Solarbetankung', '☀️ Sonne tanken', '☀️ Sonnenschein-Aufnahme'],
+  cloudy:  ['⛅ Wolken-Vorhang', '⛅ Wolkenpoesie', '⛅ Schäfchen-Gucker', '☁️ Wolkenmeer', '⛅ Im Reich der Wolken'],
+  foggy:   ['🌫️ Nebeltanz', '🌫️ Wattewelt', '🌫️ Nebelschleier-Lüfter', '🌫️ Im Geisternebel', '🌫️ Schwebewelt'],
+  rainy:   ['🌧️ Regenkuss', '🌧️ Tropfen-Sammler', '☔ Wetterfest geliefert', '🌧️ Im Regen geträumt', '🌧️ Petrichor-Glück'],
+  snowy:   ['❄️ Pulver-Poesie', '❄️ Schnee-Sinfonie', '❄️ Wintergeflimmer', '❄️ Schneetanz', '❄️ Frost-Fokus'],
+  windy:   ['💨 Föhn-Roulette', '💨 Windgeflüster', '💨 Im Föhnsog', '💨 Windsbraut bezwungen', '💨 Luftströmung getanzt'],
+  unknown: ['🏔️ Berge geküsst', '🏔️ Höhen geatmet', '⛰️ Pfade umarmt', '🏔️ Ruf der Berge gefolgt']
+}
+
+const PERFORMANCE_TITLES: Record<string, string[]> = {
+  gentle:   ['Beine erinnern sich', 'Lockere Runde', 'Endorphin-Auslieferung', 'Bewegung als Frühstück', 'Sanftes Aufwachen'],
+  moderate: ['Höhen geatmet', 'Schwerkraft verhandelt', 'Atemraub mit Aussicht', 'Schwitzig aber zufrieden', 'Beine getestet'],
+  intense:  ['Beine bezahlt', 'Schwerkraft kurz besiegt', 'Gegenwind verhandelt', 'Höhenmeter-Sammler', 'Kalorien getauscht gegen Gipfel'],
+  epic:     ['Schwerkraft komplett besiegt', 'Berge versetzt', 'Tausender geknackt', 'Tagesziel pulverisiert']
+}
+
+const TIME_FALLBACK_TITLES: Record<string, string[]> = {
+  dawn:      ['Erste-Spur-Bonus', 'Morgenrot abgegriffen', 'Tagesanbruch geküsst', 'Frischer Start'],
+  morning:   ['Vormittags-Vorsprung', 'Tag früh angeknabbert', 'Vor dem Mittag schon fertig'],
+  midday:    ['Mittagspause anders genutzt', 'Mittagshitze-Test', 'High Noon im Berg'],
+  afternoon: ['Goldene Stunde im Visier', 'Nachmittags-Mission', 'Sonne im Rücken'],
+  evening:   ['Sonnenuntergang vom besten Platz', 'Abendrot eingesammelt', 'Feierabend-Berge'],
+  night:     ['Mondscheinrunde', 'Sternenhimmel-Ergreifer', 'Nachtschicht', 'Im Dunkeln aufgestiegen']
+}
+
+function pickFromPool(pool: string[], seed: number): string {
+  if (!pool || pool.length === 0) return ''
+  return pool[Math.abs(seed) % pool.length]
+}
+
+// Generiert Titel aus Wetter + Leistung. Deterministisch via activity_id.
+function generateActivityTitle(
+  activityId: string,
+  weather: any | null,
+  hour: number,
+  hm: number
+): string {
+  const weatherCat = categorizeWeather(weather)
+  const perfCat = getPerformanceCategory(hm)
+  const timeCat = getTimeCategory(hour)
+
+  // Seed aus activity_id (deterministisch)
+  let seed = 0
+  for (let i = 0; i < activityId.length; i++) seed += activityId.charCodeAt(i)
+
+  // Wenn Wetter unbekannt: nimm Tageszeit-Pool als ersten Teil
+  const firstPool = weatherCat === 'unknown' ? TIME_FALLBACK_TITLES[timeCat] : WEATHER_TITLES[weatherCat]
+  const firstPart = pickFromPool(firstPool || WEATHER_TITLES.unknown, seed)
+  const secondPart = pickFromPool(PERFORMANCE_TITLES[perfCat] || PERFORMANCE_TITLES.moderate, seed * 13 + 7)
+
+  return `${firstPart} · ${secondPart}`
+}
+
+// Strava-Beschreibung (und optional Titel) mit Retry + Verification setzen
 // Wiederholt PUT bis Beschreibung per GET bestaetigt ist oder maxAttempts erreicht
 async function updateStravaDescriptionWithRetry(
   activityId: string | number,
   token: string,
   newDescription: string,
   marker: string = 'bergkoenig.app',
-  maxAttempts: number = 5
+  maxAttempts: number = 5,
+  newName?: string
 ): Promise<boolean> {
   const url = `https://www.strava.com/api/v3/activities/${activityId}`
+  const putBody: any = { description: newDescription }
+  if (newName) putBody.name = newName
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const putRes = await fetch(url, {
@@ -79,7 +188,7 @@ async function updateStravaDescriptionWithRetry(
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ description: newDescription })
+        body: JSON.stringify(putBody)
       })
 
       if (!putRes.ok) {
@@ -787,8 +896,25 @@ serve(async (req) => {
 
             const newDesc = bergkoenigText + (existingDesc ? '\n\n' + existingDesc : '')
 
-            // Beschreibung updaten mit Retry + Verification
-            const ok = await updateStravaDescriptionWithRetry(activity_id, strava_token, newDesc)
+            // Titel generieren — Wetter (Open-Meteo Historical) + Tageszeit + Leistung
+            // Deterministisch basierend auf activity_id, also bei Re-Run identischer Titel
+            let newTitle: string | undefined = undefined
+            try {
+              const refLat = summitResults[0]?.peakLat || gpsPoints[0]?.[0] || null
+              const refLng = summitResults[0]?.peakLng || gpsPoints[0]?.[1] || null
+              const dateStr = activityStart.toISOString().split('T')[0]
+              const hour = activityStart.getUTCHours()
+              const elevGain = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0
+              let weather: any = null
+              if (refLat && refLng) weather = await fetchWeather(refLat, refLng, dateStr, hour)
+              newTitle = generateActivityTitle(String(activity_id), weather, hour, elevGain)
+              console.log('Generierter Titel:', newTitle, '(Wetter:', categorizeWeather(weather) + ')')
+            } catch (titleErr) {
+              console.warn('Titel-Generierung Fehler:', titleErr)
+            }
+
+            // Beschreibung + Titel updaten mit Retry + Verification
+            const ok = await updateStravaDescriptionWithRetry(activity_id, strava_token, newDesc, 'bergkoenig.app', 5, newTitle)
             if (!ok) {
               console.error('Strava-Beschreibung konnte NICHT final gesetzt werden fuer Aktivitaet', activity_id)
             }
