@@ -606,10 +606,14 @@ serve(async (req) => {
           if (!existingDesc.includes('bergkoenig.app')) {
             let bergkoenigText = ''
 
-            // Zeile 1: König oder Gipfel+Punkte
-            const isPioneer = summitResults.some((s: any) => s.isSeasonFirst)
-            if (isPioneer) {
-              bergkoenigText += '👑 Neuer Bergkönig! · +' + totalPoints + ' Pkt'
+            // Zeile 1: Gipfelname IMMER mit anzeigen, Pionier-Status als Praefix
+            const pioneerSummit = summitResults.find((s: any) => s.isSeasonFirst)
+            if (pioneerSummit && summitResults.length === 1) {
+              // Einzelner Pionier-Gipfel: "👑 Pionier auf {Name} ({h}m) · +{n} Pkt"
+              bergkoenigText += `👑 Pionier auf ${pioneerSummit.peak} (${pioneerSummit.elevation}m) · +${totalPoints} Pkt`
+            } else if (pioneerSummit && summitResults.length >= 2) {
+              // Mehrere Gipfel mit mind. einem Pionier
+              bergkoenigText += `👑 Pionier · ${summitResults.length} Gipfel · +${totalPoints} Pkt`
             } else if (summitResults.length === 1) {
               bergkoenigText += `⛰️ ${summitResults[0].peak} (${summitResults[0].elevation}m) · +${totalPoints} Pkt`
             } else if (summitResults.length === 2) {
