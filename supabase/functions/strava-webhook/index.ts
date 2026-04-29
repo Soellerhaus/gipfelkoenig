@@ -83,18 +83,44 @@ serve(async (req) => {
         }
       }
 
-      // process-activity Edge Function aufrufen
-      const { error: invokeError } = await supabase.functions.invoke('process-activity', {
-        body: {
+      // process-activity Edge Function aufrufen — direkter fetch mit Service-Role-Key
+      // (supabase.functions.invoke() reicht den Auth-Header nicht durch → 401)
+      // Fire-and-forget via EdgeRuntime.waitUntil: Strava bekommt sofort 200,
+      // process-activity laeuft im Hintergrund weiter (kann mehrere Sekunden dauern
+      // wegen GPS-Stream-Analyse + Strava-Description-Retry-Loop).
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      const processPromise = fetch(`${supabaseUrl}/functions/v1/process-activity`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
+        },
+        body: JSON.stringify({
           user_id: user.id,
           activity_id: body.object_id,
           strava_token: accessToken
+        })
+      }).then(async (res) => {
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '')
+          console.error(`process-activity HTTP ${res.status}: ${txt}`)
+        } else {
+          console.log(`process-activity OK fuer ${body.object_id}`)
         }
+      }).catch((e) => {
+        console.error('process-activity fetch Fehler:', e)
       })
 
-      if (invokeError) {
-        console.error('process-activity Fehler:', invokeError)
-        return new Response('Processing error', { status: 500 })
+      // EdgeRuntime.waitUntil haelt Function-Worker am Leben bis Promise fertig
+      // Falls API nicht verfuegbar: einfach awaiten (laenger, aber funktioniert)
+      // @ts-ignore — EdgeRuntime ist Supabase-spezifisch
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(processPromise)
+      } else {
+        await processPromise
       }
 
       return new Response('OK', { status: 200 })

@@ -61,6 +61,62 @@ function getSeason(date: Date): string {
   return date.getFullYear().toString()
 }
 
+// Strava-Beschreibung mit Retry + Verification setzen
+// Wiederholt PUT bis Beschreibung per GET bestaetigt ist oder maxAttempts erreicht
+async function updateStravaDescriptionWithRetry(
+  activityId: string | number,
+  token: string,
+  newDescription: string,
+  marker: string = 'bergkoenig.app',
+  maxAttempts: number = 5
+): Promise<boolean> {
+  const url = `https://www.strava.com/api/v3/activities/${activityId}`
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const putRes = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ description: newDescription })
+      })
+
+      if (!putRes.ok) {
+        const errText = await putRes.text().catch(() => '')
+        console.warn(`Strava PUT Versuch ${attempt}/${maxAttempts} fehlgeschlagen: ${putRes.status} ${errText}`)
+      }
+
+      // Kurz warten, dann per GET verifizieren (Strava braucht manchmal einen Moment)
+      await new Promise(r => setTimeout(r, 1500))
+
+      const verifyRes = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (verifyRes.ok) {
+        const verifyData = await verifyRes.json()
+        if (verifyData?.description?.includes(marker)) {
+          console.log(`Strava-Beschreibung bestaetigt nach Versuch ${attempt} fuer Aktivitaet ${activityId}`)
+          return true
+        }
+        console.warn(`Strava-Beschreibung nach Versuch ${attempt} noch nicht sichtbar — retry`)
+      } else {
+        console.warn(`Strava Verify-GET Versuch ${attempt} fehlgeschlagen: ${verifyRes.status}`)
+      }
+    } catch (e) {
+      console.warn(`Strava PUT Versuch ${attempt} Exception:`, e)
+    }
+
+    // Exponential backoff, cap 8s
+    if (attempt < maxAttempts) {
+      const wait = Math.min(1000 * Math.pow(2, attempt - 1), 8000)
+      await new Promise(r => setTimeout(r, wait))
+    }
+  }
+  console.error(`Strava-Beschreibung konnte nach ${maxAttempts} Versuchen nicht gesetzt werden fuer ${activityId}`)
+  return false
+}
+
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
@@ -256,10 +312,7 @@ serve(async (req) => {
               const actData2 = await actRes2.json()
               if (!actData2.description?.includes('bergkoenig.app')) {
                 const txt = '🏃 +' + noGipfelPts + ' Pkt\n' + getStravaCTA(activity_id) + (actData2.description ? '\n\n' + actData2.description : '')
-                await fetch('https://www.strava.com/api/v3/activities/' + activity_id, {
-                  method: 'PUT', headers: { 'Authorization': 'Bearer ' + strava_token, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ description: txt })
-                })
+                await updateStravaDescriptionWithRetry(activity_id, strava_token, txt)
               }
             }
           } catch (e) { console.warn('Strava no-peak post:', e) }
@@ -583,16 +636,11 @@ serve(async (req) => {
 
             const newDesc = bergkoenigText + (existingDesc ? '\n\n' + existingDesc : '')
 
-            // Beschreibung updaten
-            await fetch(`https://www.strava.com/api/v3/activities/${activity_id}`, {
-              method: 'PUT',
-              headers: {
-                'Authorization': `Bearer ${strava_token}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ description: newDesc })
-            })
-            console.log('Strava-Beschreibung aktualisiert für Aktivität', activity_id)
+            // Beschreibung updaten mit Retry + Verification
+            const ok = await updateStravaDescriptionWithRetry(activity_id, strava_token, newDesc)
+            if (!ok) {
+              console.error('Strava-Beschreibung konnte NICHT final gesetzt werden fuer Aktivitaet', activity_id)
+            }
           }
         }
       } catch (stravaErr) {
