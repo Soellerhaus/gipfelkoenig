@@ -147,17 +147,32 @@
         <button id="disconnect-strava-btn" class="btn btn-sm" style="color: var(--color-danger); border-color: var(--color-danger);">Strava trennen</button>
       </div>
 
-      <!-- Strava Posting Toggle -->
+      <!-- Strava Posting Toggle: Beschreibung -->
       <div id="strava-posting-toggle" style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.08);">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
-            <div style="font-size:0.85rem; color:var(--color-text);">Gipfel in Strava posten</div>
-            <div style="font-size:0.72rem; color:var(--color-muted);">Schreibt erkannte Gipfel + Punkte in die Aktivit&auml;ts-Beschreibung</div>
+            <div style="font-size:0.85rem; color:var(--color-text);">Beschreibung in Strava posten</div>
+            <div style="font-size:0.72rem; color:var(--color-muted);">Gipfel, Punkte &amp; Eroberungen in die Aktivit&auml;ts-Beschreibung schreiben</div>
           </div>
           <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
             <input type="checkbox" id="strava-post-toggle" checked style="opacity:0; width:0; height:0;">
             <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.15); border-radius:12px; transition:0.3s;"></span>
             <span id="strava-toggle-dot" style="position:absolute; top:2px; left:22px; width:20px; height:20px; background:var(--color-gold); border-radius:50%; transition:0.3s;"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Strava Posting Toggle: Titel -->
+      <div id="strava-title-toggle-wrap" style="margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid rgba(255,255,255,0.05);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:0.85rem; color:var(--color-text);">Titel automatisch generieren</div>
+            <div style="font-size:0.72rem; color:var(--color-muted);">Wechselnde Wetter + Leistungs-Titel (z.&nbsp;B. &bdquo;&#x2600;&#xFE0F; Sonnenkuss &middot; Beine bezahlt&ldquo;)</div>
+          </div>
+          <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
+            <input type="checkbox" id="strava-title-toggle" checked style="opacity:0; width:0; height:0;">
+            <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.15); border-radius:12px; transition:0.3s;"></span>
+            <span id="strava-title-dot" style="position:absolute; top:2px; left:22px; width:20px; height:20px; background:var(--color-gold); border-radius:50%; transition:0.3s;"></span>
           </label>
         </div>
       </div>
@@ -251,7 +266,7 @@
 
       const { data: profile } = await GK.supabase
         .from('user_profiles')
-        .select('username, avatar_type, avatar_url, strava_token, strava_connected_at, strava_post_summits, suunto_token, suunto_connected_at')
+        .select('username, avatar_type, avatar_url, strava_token, strava_connected_at, strava_post_summits, strava_post_title, suunto_token, suunto_connected_at')
         .eq('id', currentUser.id)
         .single();
 
@@ -293,6 +308,13 @@
           var td = document.getElementById('strava-toggle-dot');
           if (pt) { pt.checked = false; }
           if (td) { td.style.left = '2px'; td.style.background = '#666'; }
+        }
+        // Strava Title Toggle — Initialwert setzen (Default true)
+        if (profile.strava_post_title === false) {
+          var tt = document.getElementById('strava-title-toggle');
+          var ttd = document.getElementById('strava-title-dot');
+          if (tt) { tt.checked = false; }
+          if (ttd) { ttd.style.left = '2px'; ttd.style.background = '#666'; }
         }
 
         // Suunto Status
@@ -423,6 +445,20 @@
         toggleDot.style.background = enabled ? 'var(--color-gold)' : '#666';
         await GK.supabase.from('user_profiles').update({
           strava_post_summits: enabled
+        }).eq('id', currentUser.id);
+      });
+    }
+
+    // Strava Title Toggle
+    var titleToggle = document.getElementById('strava-title-toggle');
+    var titleDot = document.getElementById('strava-title-dot');
+    if (titleToggle) {
+      titleToggle.addEventListener('change', async function() {
+        var enabled = titleToggle.checked;
+        titleDot.style.left = enabled ? '22px' : '2px';
+        titleDot.style.background = enabled ? 'var(--color-gold)' : '#666';
+        await GK.supabase.from('user_profiles').update({
+          strava_post_title: enabled
         }).eq('id', currentUser.id);
       });
     }

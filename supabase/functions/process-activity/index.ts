@@ -841,20 +841,26 @@ serve(async (req) => {
       try {
         const { data: userSettings } = await supabase
           .from('user_profiles')
-          .select('strava_post_summits')
+          .select('strava_post_summits, strava_post_title')
           .eq('id', user_id)
           .single()
 
-        const postEnabled = userSettings?.strava_post_summits !== false
+        const descEnabled = userSettings?.strava_post_summits !== false
+        const titleEnabled = userSettings?.strava_post_title !== false
 
-        if (postEnabled) {
+        // Wenn beides aus → ueberhaupt kein Strava-Push
+        if (descEnabled || titleEnabled) {
           const actRes = await fetch(`https://www.strava.com/api/v3/activities/${activity_id}`, {
             headers: { 'Authorization': `Bearer ${strava_token}` }
           })
           const actData = await actRes.json()
           const existingDesc = actData.description || ''
 
-          if (!existingDesc.includes('bergkoenig.app')) {
+          // Beschreibung pushen nur wenn enabled UND noch keine Bergkoenig-Markierung
+          const shouldPostDesc = descEnabled && !existingDesc.includes('bergkoenig.app')
+
+          if (shouldPostDesc || titleEnabled) {
+            let newDescToPush: string | undefined = undefined
             let bergkoenigText = ''
 
             // Zeile 1: "Bergkönig {Name}" wenn User aktuell König (neu oder bestehend),
@@ -894,29 +900,47 @@ serve(async (req) => {
               bergkoenigText += '\n' + summitResults.map((s: any) => s.peak + ' (' + s.elevation + 'm)').join(', ')
             }
 
-            const newDesc = bergkoenigText + (existingDesc ? '\n\n' + existingDesc : '')
-
-            // Titel generieren — Wetter (Open-Meteo Historical) + Tageszeit + Leistung
-            // Deterministisch basierend auf activity_id, also bei Re-Run identischer Titel
-            let newTitle: string | undefined = undefined
-            try {
-              const refLat = summitResults[0]?.peakLat || gpsPoints[0]?.[0] || null
-              const refLng = summitResults[0]?.peakLng || gpsPoints[0]?.[1] || null
-              const dateStr = activityStart.toISOString().split('T')[0]
-              const hour = activityStart.getUTCHours()
-              const elevGain = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0
-              let weather: any = null
-              if (refLat && refLng) weather = await fetchWeather(refLat, refLng, dateStr, hour)
-              newTitle = generateActivityTitle(String(activity_id), weather, hour, elevGain)
-              console.log('Generierter Titel:', newTitle, '(Wetter:', categorizeWeather(weather) + ')')
-            } catch (titleErr) {
-              console.warn('Titel-Generierung Fehler:', titleErr)
+            // Beschreibung nur pushen wenn der Toggle es erlaubt UND noch kein Bergkoenig-Marker
+            if (shouldPostDesc) {
+              newDescToPush = bergkoenigText + (existingDesc ? '\n\n' + existingDesc : '')
             }
 
-            // Beschreibung + Titel updaten mit Retry + Verification
-            const ok = await updateStravaDescriptionWithRetry(activity_id, strava_token, newDesc, 'bergkoenig.app', 5, newTitle)
-            if (!ok) {
-              console.error('Strava-Beschreibung konnte NICHT final gesetzt werden fuer Aktivitaet', activity_id)
+            // Titel generieren wenn enabled
+            let newTitle: string | undefined = undefined
+            if (titleEnabled) {
+              try {
+                const refLat = summitResults[0]?.peakLat || gpsPoints[0]?.[0] || null
+                const refLng = summitResults[0]?.peakLng || gpsPoints[0]?.[1] || null
+                const dateStr = activityStart.toISOString().split('T')[0]
+                const hour = activityStart.getUTCHours()
+                const elevGain = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : 0
+                let weather: any = null
+                if (refLat && refLng) weather = await fetchWeather(refLat, refLng, dateStr, hour)
+                newTitle = generateActivityTitle(String(activity_id), weather, hour, elevGain)
+                console.log('Generierter Titel:', newTitle, '(Wetter:', categorizeWeather(weather) + ')')
+              } catch (titleErr) {
+                console.warn('Titel-Generierung Fehler:', titleErr)
+              }
+            }
+
+            // PUT — nur die Felder die wir wirklich aendern wollen
+            if (newDescToPush !== undefined || newTitle !== undefined) {
+              if (newDescToPush !== undefined) {
+                // Beschreibung mit Retry+Verify (wartet auf bergkoenig.app-Marker)
+                const ok = await updateStravaDescriptionWithRetry(activity_id, strava_token, newDescToPush, 'bergkoenig.app', 5, newTitle)
+                if (!ok) console.error('Strava-Beschreibung konnte NICHT final gesetzt werden fuer Aktivitaet', activity_id)
+              } else if (newTitle) {
+                // Nur Titel — direkter PUT ohne Verify-Loop
+                try {
+                  const r = await fetch(`https://www.strava.com/api/v3/activities/${activity_id}`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${strava_token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newTitle })
+                  })
+                  if (!r.ok) console.error(`Strava-Titel PUT ${r.status}`)
+                  else console.log('Strava-Titel gesetzt:', newTitle)
+                } catch (e) { console.warn('Strava-Titel PUT Fehler:', e) }
+              }
             }
           }
         }
