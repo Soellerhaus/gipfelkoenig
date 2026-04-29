@@ -53,7 +53,7 @@ function getStravaCTA(activityId?: string): string {
   } else {
     idx = Math.floor(Math.random() * STRAVA_CTAS.length)
   }
-  return STRAVA_CTAS[idx] + ' www.bergkoenig.app'
+  return STRAVA_CTAS[idx] + ' · BETA · www.bergkoenig.app'
 }
 
 // Aktuelle Saison berechnen
@@ -212,6 +212,10 @@ serve(async (req) => {
     const season = getSeason(activityStart)
     const isCombo = foundPeaks.size >= 2
     let totalPoints = 0
+    let totalElevGainInActivity = 0
+    let totalDistKmInActivity = 0
+    let newCrownsCount = 0   // Wie viele Gipfel-Kronen in dieser Aktivitaet erobert
+    const territoriesConquered: any[] = []  // Hex-Gebiete die in dieser Aktivitaet erobert wurden
     const summitResults: any[] = []
     const poiResults: any[] = []
 
@@ -225,8 +229,9 @@ serve(async (req) => {
       via_ferrata: 10, cave: 3, waterfall: 3, chapel: 2, pass: 3
     }
     const POI_ICONS: Record<string, string> = {
-      saddle: '🔻', hut: '🏠', viewpoint: '👁️', lake: '💧', glacier: '🧊',
-      via_ferrata: '🪜', cave: '🪨', waterfall: '💦', chapel: '⛪', pass: '🏔️'
+      // saddle/pass mit Wander-Emojis statt Bergspitzen — sonst Verwechslung mit Gipfel
+      saddle: '🥾', hut: '🏠', viewpoint: '👁️', lake: '💧', glacier: '🧊',
+      via_ferrata: '🪜', cave: '🪨', waterfall: '💦', chapel: '⛪', pass: '🥾'
     }
 
     try {
@@ -455,6 +460,8 @@ serve(async (req) => {
         .eq('season', season)
         .eq('safety_ok', true)
 
+      let crownWonNow = false  // Hat der User durch diese Besteigung die Krone erobert?
+      let userIsKing = false   // Ist der User aktuell König (egal ob neu oder bestehend)?
       if (!currentOwner) {
         // Noch kein König → User wird König
         await supabase.from('ownership').insert({
@@ -465,7 +472,10 @@ serve(async (req) => {
           king_since: new Date().toISOString(),
           last_summited: summitTime.toISOString()
         })
-      } else if ((userSummitCount || 0) > currentOwner.summit_count) {
+        crownWonNow = true
+        userIsKing = true
+        newCrownsCount++
+      } else if ((userSummitCount || 0) > currentOwner.summit_count && currentOwner.user_id !== user_id) {
         // User hat mehr Besteigungen → User wird neuer König
         const previousKingId = currentOwner.user_id
 
@@ -475,6 +485,9 @@ serve(async (req) => {
           king_since: new Date().toISOString(),
           last_summited: summitTime.toISOString()
         }).eq('peak_id', peakId).eq('season', season)
+        crownWonNow = true
+        userIsKing = true
+        newCrownsCount++
 
         // NOTIFICATION: Krone erobert → alten König benachrichtigen
         if (previousKingId && previousKingId !== user_id) {
@@ -497,6 +510,7 @@ serve(async (req) => {
           summit_count: userSummitCount || 1,
           last_summited: summitTime.toISOString()
         }).eq('peak_id', peakId).eq('season', season)
+        userIsKing = true
       } else if (currentOwner.user_id !== user_id) {
         // Jemand besteigt einen Gipfel wo ein anderer König ist — Angriff-Warnung
         const gap = currentOwner.summit_count - (userSummitCount || 0)
@@ -522,20 +536,124 @@ serve(async (req) => {
           user_id,
           type: 'pioneer',
           title: 'Pionier!',
-          body: `Du bist der Erste auf ${peak.name} (${peak.elevation}m) diese Saison! ×3 Punkte!`,
+          body: `Du bist der Erste auf ${peak.name} (${peak.elevation}m) diese Saison! +${points} Pkt × 3 Pionier-Bonus`,
           icon: '⭐',
+          data: { peak_id: peakId, points }
+        })
+      }
+
+      // NOTIFICATION: User selbst — neue Krone erobert
+      if (crownWonNow) {
+        await supabase.from('notifications').insert({
+          user_id,
+          type: 'crown_won',
+          title: 'Neuer Bergkönig!',
+          body: `Du bist jetzt König auf ${peak.name} (${peak.elevation}m) · +${points} Pkt`,
+          icon: '👑',
           data: { peak_id: peakId, points }
         })
       }
 
       summitResults.push({
         peak: peak.name,
+        peakId,
+        peakLat: peak.lat,
+        peakLng: peak.lng,
         elevation: peak.elevation,
         points,
+        crownWonNow,
+        userIsKing,
         isPersonalFirst,
         isSeasonFirst,
         summitTime: summitTime.toISOString()
       })
+    }
+
+    // Hex-Gebiete checken — wurde durch diese Aktivitaet ein Hex-Gebiet erobert?
+    // Pragmatische Heuristik: User wird Hex-Top-King in einer Zelle die er ohne
+    // diese Aktivitaet nicht angefuehrt haette.
+    try {
+      const HEX_LAT = 5 / 111.32, HEX_LNG = 5 / 75.9
+      const colSpacing = 1.5 * HEX_LNG
+      const rowSpacing = Math.sqrt(3) * HEX_LAT
+      const hexCellsTouched = new Map<string, { col: number, row: number, peaksInActivity: Set<number> }>()
+      for (const s of summitResults) {
+        const col = Math.round(s.peakLng / colSpacing)
+        const rowOffset = (col % 2 !== 0) ? rowSpacing / 2 : 0
+        const row = Math.round((s.peakLat - rowOffset) / rowSpacing)
+        const key = col + ',' + row
+        if (!hexCellsTouched.has(key)) hexCellsTouched.set(key, { col, row, peaksInActivity: new Set() })
+        hexCellsTouched.get(key)!.peaksInActivity.add(s.peakId)
+      }
+
+      for (const [hexKey, cell] of hexCellsTouched) {
+        // Bounding-Box fuer Peaks in dieser Hex-Zelle
+        const centerLng = cell.col * colSpacing
+        const centerLat = cell.row * rowSpacing + ((cell.col % 2 !== 0) ? rowSpacing / 2 : 0)
+        const { data: peaksInBox } = await supabase
+          .from('peaks').select('id, lat, lng, name')
+          .gte('lat', centerLat - HEX_LAT - 0.005).lte('lat', centerLat + HEX_LAT + 0.005)
+          .gte('lng', centerLng - HEX_LNG - 0.005).lte('lng', centerLng + HEX_LNG + 0.005)
+          .or('reachable.eq.true,reachable.is.null')
+          .limit(200)
+        if (!peaksInBox) continue
+        // Filter: nur Peaks die wirklich in DIESER Hex-Zelle sind
+        const peaksHere = peaksInBox.filter((p: any) => {
+          const pcol = Math.round(p.lng / colSpacing)
+          const pRowOff = (pcol % 2 !== 0) ? rowSpacing / 2 : 0
+          const prow = Math.round((p.lat - pRowOff) / rowSpacing)
+          return pcol === cell.col && prow === cell.row
+        })
+        if (peaksHere.length === 0) continue
+        const peakIdsHere = peaksHere.map((p: any) => p.id)
+
+        // Summits aller User auf diesen Peaks dieser Saison
+        const { data: hexSummits } = await supabase
+          .from('summits').select('user_id, peak_id')
+          .in('peak_id', peakIdsHere)
+          .eq('season', season)
+          .eq('safety_ok', true)
+        if (!hexSummits) continue
+
+        // Unique Peaks pro User zaehlen
+        const userPeaksMap: Record<string, Set<number>> = {}
+        for (const s of hexSummits as any[]) {
+          if (!userPeaksMap[s.user_id]) userPeaksMap[s.user_id] = new Set()
+          userPeaksMap[s.user_id].add(s.peak_id)
+        }
+        const sorted = Object.entries(userPeaksMap)
+          .map(([uid, set]) => ({ uid, count: set.size }))
+          .sort((a, b) => b.count - a.count)
+        if (sorted.length === 0) continue
+        if (sorted[0].uid !== user_id) continue  // User ist nicht Top-King
+
+        // Wuerde User OHNE diese Aktivitaet auch Top-King sein?
+        const userCountWithoutActivity = (userPeaksMap[user_id]?.size || 0) - cell.peaksInActivity.size
+        const secondPlace = sorted.find(s => s.uid !== user_id)
+        const secondCount = secondPlace?.count || 0
+        const wasAlreadyKing = userCountWithoutActivity > secondCount
+        if (wasAlreadyKing) continue  // war schon Top-King → keine neue Eroberung
+
+        // Eroberung! Erste Peak-Name als Repraesentant fuer das Gebiet
+        const repPeakName = peaksHere[0].name
+        territoriesConquered.push({
+          hexKey,
+          peaksInHex: peaksHere.length,
+          userPeaks: sorted[0].count,
+          repPeakName
+        })
+
+        await supabase.from('notifications').insert({
+          user_id,
+          type: 'territory_won',
+          title: 'Gebiet erobert!',
+          body: `Du fuehrst jetzt das Hex-Gebiet rund um ${repPeakName} mit ${sorted[0].count}/${peaksHere.length} Gipfeln an!`,
+          icon: '🏰',
+          data: { hex_key: hexKey, peaks: peaksHere.length, user_peaks: sorted[0].count }
+        })
+      }
+    } catch (territoryErr) {
+      console.warn('Hex-Gebiet-Check Fehler:', territoryErr)
     }
 
     // User-Gesamtpunkte aktualisieren + Rang-Änderung prüfen
@@ -553,6 +671,30 @@ serve(async (req) => {
         .from('user_profiles')
         .update({ total_points: newPoints })
         .eq('id', user_id)
+
+      // NOTIFICATION: Lose-Steigerung (1/Gipfel + 2/Krone + 1/1000 Pkt)
+      try {
+        const summitLose = summitResults.length
+        const crownLose = newCrownsCount * 2
+        const pointsLose = Math.floor(newPoints / 1000) - Math.floor(oldPoints / 1000)
+        const totalNewLose = summitLose + crownLose + pointsLose
+        if (totalNewLose > 0) {
+          const parts: string[] = []
+          if (summitLose > 0) parts.push(`${summitLose} Gipfel`)
+          if (crownLose > 0) parts.push(`${newCrownsCount} Krone${newCrownsCount > 1 ? 'n' : ''} (×2)`)
+          if (pointsLose > 0) parts.push(`${pointsLose}× 1000-Pkt-Schwelle`)
+          await supabase.from('notifications').insert({
+            user_id,
+            type: 'lose_earned',
+            title: `+${totalNewLose} neue Lose!`,
+            body: `Du hast ${totalNewLose} Los${totalNewLose > 1 ? 'e' : ''} gesammelt: ${parts.join(' + ')}`,
+            icon: '🎟️',
+            data: { lose: totalNewLose, summit: summitLose, crown: crownLose, points: pointsLose }
+          })
+        }
+      } catch (loseErr) {
+        console.warn('Lose-Notification Fehler:', loseErr)
+      }
 
       // NOTIFICATION: Rang-Änderung — wer wurde überholt?
       try {
@@ -606,14 +748,13 @@ serve(async (req) => {
           if (!existingDesc.includes('bergkoenig.app')) {
             let bergkoenigText = ''
 
-            // Zeile 1: Gipfelname IMMER mit anzeigen, Pionier-Status als Praefix
-            const pioneerSummit = summitResults.find((s: any) => s.isSeasonFirst)
-            if (pioneerSummit && summitResults.length === 1) {
-              // Einzelner Pionier-Gipfel: "👑 Pionier auf {Name} ({h}m) · +{n} Pkt"
-              bergkoenigText += `👑 Pionier auf ${pioneerSummit.peak} (${pioneerSummit.elevation}m) · +${totalPoints} Pkt`
-            } else if (pioneerSummit && summitResults.length >= 2) {
-              // Mehrere Gipfel mit mind. einem Pionier
-              bergkoenigText += `👑 Pionier · ${summitResults.length} Gipfel · +${totalPoints} Pkt`
+            // Zeile 1: "Bergkönig {Name}" wenn User aktuell König (neu oder bestehend),
+            // sonst nur Gipfelname. Pionier-Status NUR in Notification, nicht in Strava.
+            const kingSummits = summitResults.filter((s: any) => s.userIsKing)
+            if (kingSummits.length >= 1 && summitResults.length === 1) {
+              bergkoenigText += `👑 Bergkönig ${kingSummits[0].peak} (${kingSummits[0].elevation}m) · +${totalPoints} Pkt`
+            } else if (kingSummits.length >= 1 && summitResults.length >= 2) {
+              bergkoenigText += `👑 Bergkönig ${kingSummits[0].peak} + ${summitResults.length - 1} weitere · +${totalPoints} Pkt`
             } else if (summitResults.length === 1) {
               bergkoenigText += `⛰️ ${summitResults[0].peak} (${summitResults[0].elevation}m) · +${totalPoints} Pkt`
             } else if (summitResults.length === 2) {
@@ -624,16 +765,22 @@ serve(async (req) => {
               bergkoenigText += `🏃 +${totalPoints} Pkt`
             }
 
-            // Zeile 2: POIs kompakt (wenn vorhanden)
+            // Zeile 2: Hex-Gebiet erobert (falls passiert)
+            if (territoriesConquered.length > 0) {
+              const t = territoriesConquered[0]
+              bergkoenigText += `\n🏰 Gebiet erobert · ${t.userPeaks}/${t.peaksInHex} Gipfel`
+            }
+
+            // Zeile 3: POIs kompakt (wenn vorhanden)
             if (poiResults.length > 0) {
               const poiText = poiResults.slice(0, 5).map((p: any) => p.icon + ' ' + p.name).join(' · ')
               bergkoenigText += '\n' + poiText
             }
 
-            // Zeile 3: Link
+            // Zeile 4: Link
             bergkoenigText += '\n' + getStravaCTA(activity_id)
 
-            // Zeile 4+: Details (nur bei "weiterlesen")
+            // Zeile 5+: Details (nur bei "weiterlesen")
             if (summitResults.length >= 3) {
               bergkoenigText += '\n' + summitResults.map((s: any) => s.peak + ' (' + s.elevation + 'm)').join(', ')
             }
