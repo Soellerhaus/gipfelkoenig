@@ -1,7 +1,7 @@
 {
   "name": "Bergkönig",
   "short_name": "Bergkönig",
-  "description": "Das erste Gipfel-Spiel der Alpen. Sammle Berge, erkämpfe Kronen, erobere Gebiete.",
+  "description": "Bergkönig — Gipfel sammeln, Kronen erobern, Gebiete sichern. Verbinde Strava oder Suunto, sammle Höhenmeter und entdecke Berge im Alpenraum.",
   "start_url": "/app.html",
   "display": "standalone",
   "background_color": "#1a1814",
