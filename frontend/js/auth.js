@@ -234,7 +234,7 @@ async function loadProfileForSeason(year) {
   } catch (e) { console.warn('Gebiet-Lose Fehler:', e); }
   const punkteLose = Math.floor(seasonPts / 1000);    // 1 Los pro 1000 Pkt
   const hmLose = Math.floor(seasonHM / 10000);        // 1 Los pro 10.000 HM
-  const kmLose = Math.floor(seasonKM / 1000);         // 1 Los pro 1.000 km
+  const kmLose = Math.floor(seasonKM / 10000);        // 1 Los pro 10.000 km
   const total = gipfelLose + koenigLose + gebietLose + potdLose + punkteLose + hmLose + kmLose;
 
   const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
@@ -261,20 +261,20 @@ async function loadProfileForSeason(year) {
   // "Nächstes Los" Motivation berechnen — was ist am nächsten dran?
   const nextLosHints = [];
   const hmBisLos = 10000 - (seasonHM % 10000);
-  const kmBisLos = 1000 - (seasonKM % 1000);
+  const kmBisLos = 10000 - (seasonKM % 10000);
   const pktBisLos = 1000 - (seasonPts % 1000);
   // Das nächste Los: welches ist am schnellsten erreichbar?
   if (hmBisLos <= 3000) nextLosHints.push('Noch ' + hmBisLos.toLocaleString('de') + ' HM bis zum nächsten HM-Los!');
-  if (kmBisLos <= 200) nextLosHints.push('Noch ' + kmBisLos + ' km bis zum nächsten km-Los!');
+  if (kmBisLos <= 2000) nextLosHints.push('Noch ' + kmBisLos.toLocaleString('de') + ' km bis zum nächsten km-Los!');
   if (pktBisLos <= 500) nextLosHints.push('Noch ' + pktBisLos.toLocaleString('de') + ' Punkte bis zum nächsten Punkte-Los!');
   // Fallback: immer das nächste zeigen
   if (nextLosHints.length === 0) {
     // Welches ist am nächsten (prozentual)?
     const hmPct = (seasonHM % 10000) / 10000;
-    const kmPct = (seasonKM % 50) / 50;
+    const kmPct = (seasonKM % 10000) / 10000;
     const pktPct = (seasonPts % 1000) / 1000;
     if (hmPct >= kmPct && hmPct >= pktPct) nextLosHints.push('Noch ' + hmBisLos.toLocaleString('de') + ' HM bis zum nächsten HM-Los!');
-    else if (kmPct >= hmPct && kmPct >= pktPct) nextLosHints.push('Noch ' + kmBisLos + ' km bis zum nächsten km-Los!');
+    else if (kmPct >= hmPct && kmPct >= pktPct) nextLosHints.push('Noch ' + kmBisLos.toLocaleString('de') + ' km bis zum nächsten km-Los!');
     else nextLosHints.push('Noch ' + pktBisLos.toLocaleString('de') + ' Punkte bis zum nächsten Punkte-Los!');
   }
   const nextLosEl = el('next-los-hint');
@@ -361,7 +361,7 @@ async function syncRaffleTickets(userId, season, expected) {
           taken.add(num);
           const ref = source === 'punkte' ? 'punkte-' + (count * 1000) :
                       source === 'hm' ? 'hm-' + (count * 10000) :
-                      source === 'km' ? 'km-' + (count * 50) : null;
+                      source === 'km' ? 'km-' + (count * 10000) : null;
 
           var insertResult = await GK.supabase.from('raffle_tickets').insert({
             user_id: userId, season: season, ticket_number: num,

@@ -370,15 +370,15 @@ async function loadMySummits(season) {
   if (stats) {
     const hints = [];
     if (stats.hmBisLos <= 5000) hints.push('\u2191 ' + stats.hmBisLos.toLocaleString('de') + ' HM \u2192 n\u00e4chstes HM-Los');
-    if (stats.kmBisLos <= 200) hints.push('\ud83e\udeb7 ' + stats.kmBisLos + ' km \u2192 n\u00e4chstes km-Los');
+    if (stats.kmBisLos <= 2000) hints.push('\ud83e\udeb7 ' + stats.kmBisLos.toLocaleString('de') + ' km \u2192 n\u00e4chstes km-Los');
     if (stats.pktBisLos <= 500) hints.push('\u2b50 ' + stats.pktBisLos.toLocaleString('de') + ' Pkt \u2192 n\u00e4chstes Punkte-Los');
     if (hints.length === 0) {
       // Immer mindestens einen Hinweis zeigen
       const hmPct = (stats.seasonHM % 10000) / 10000;
-      const kmPct = (stats.seasonKM % 1000) / 1000;
+      const kmPct = (stats.seasonKM % 10000) / 10000;
       const pktPct = (stats.seasonPts % 1000) / 1000;
       if (hmPct >= kmPct && hmPct >= pktPct) hints.push('\u2191 Noch ' + stats.hmBisLos.toLocaleString('de') + ' HM bis zum n\u00e4chsten Los');
-      else if (kmPct >= hmPct && kmPct >= pktPct) hints.push('\ud83e\udeb7 Noch ' + stats.kmBisLos + ' km bis zum n\u00e4chsten Los');
+      else if (kmPct >= hmPct && kmPct >= pktPct) hints.push('\ud83e\udeb7 Noch ' + stats.kmBisLos.toLocaleString('de') + ' km bis zum n\u00e4chsten Los');
       else hints.push('\u2b50 Noch ' + stats.pktBisLos.toLocaleString('de') + ' Pkt bis zum n\u00e4chsten Los');
     }
     nextLosHtml = '<div style="background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,165,0,0.08));border:1px solid rgba(255,215,0,0.3);border-radius:12px;padding:12px 16px;margin-bottom:1rem;text-align:center;">';
