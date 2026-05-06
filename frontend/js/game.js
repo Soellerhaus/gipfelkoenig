@@ -223,18 +223,20 @@ window.GK.game = (() => {
         .limit(500);
 
       if (allSummits && allSummits.length > 0) {
-        const peakIds = [...new Set(allSummits.map(s => s.peak_id))];
-        // Supabase .in() hat ein Limit — in Batches abfragen
+        const peakIds = [...new Set(allSummits.map(s => s.peak_id))].filter(id => id != null);
+        // PERFORMANCE: Batches PARALLEL holen statt sequenziell.
+        // Vorher: 3-5 sequenzielle Queries (~500ms each = 2-3s).
         const batchSize = 100;
-        let allPeaks = [];
+        const batches = [];
         for (let i = 0; i < peakIds.length; i += batchSize) {
-          const batch = peakIds.slice(i, i + batchSize);
-          const { data: peaks } = await GK.supabase
-            .from('peaks')
-            .select('id, osm_region, lat, lng')
-            .in('id', batch);
-          if (peaks) allPeaks = allPeaks.concat(peaks);
+          batches.push(peakIds.slice(i, i + batchSize));
         }
+        const results = await Promise.all(batches.map(batch =>
+          GK.supabase.from('peaks').select('id, osm_region, lat, lng').in('id', batch)
+            .then(({ data }) => data || [])
+            .catch(() => [])
+        ));
+        const allPeaks = results.flat();
 
         cachedUserPeaks = allPeaks;
         for (const p of allPeaks) {
