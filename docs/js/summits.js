@@ -294,12 +294,10 @@ async function loadMySummits(season) {
   }
 
   // Peak-Daten laden (nur für echte Gipfel)
-  const peakIds = [...new Set(peakSummits.map(s => s.peak_id))];
-  const peakMap = new Map();
-  for (const pid of peakIds) {
-    const peak = await GK.api.getPeakById(pid);
-    if (peak) peakMap.set(pid, peak);
-  }
+  // PERFORMANCE: Batch-Query statt N+1 (war vorher 50+ sequenzielle Queries
+  // bei vielen Gipfeln — Hauptursache fuer 20s Ladezeit)
+  const peakIds = [...new Set(peakSummits.map(s => s.peak_id))].filter(id => id != null);
+  const peakMap = await GK.api.getPeaksByIds(peakIds);
 
   // Nach Gipfel gruppieren (nur echte)
   const grouped = new Map();
@@ -370,15 +368,15 @@ async function loadMySummits(season) {
   if (stats) {
     const hints = [];
     if (stats.hmBisLos <= 5000) hints.push('\u2191 ' + stats.hmBisLos.toLocaleString('de') + ' HM \u2192 n\u00e4chstes HM-Los');
-    if (stats.kmBisLos <= 200) hints.push('\ud83e\udeb7 ' + stats.kmBisLos + ' km \u2192 n\u00e4chstes km-Los');
+    if (stats.kmBisLos <= 2000) hints.push('\ud83e\udeb7 ' + stats.kmBisLos.toLocaleString('de') + ' km \u2192 n\u00e4chstes km-Los');
     if (stats.pktBisLos <= 500) hints.push('\u2b50 ' + stats.pktBisLos.toLocaleString('de') + ' Pkt \u2192 n\u00e4chstes Punkte-Los');
     if (hints.length === 0) {
       // Immer mindestens einen Hinweis zeigen
       const hmPct = (stats.seasonHM % 10000) / 10000;
-      const kmPct = (stats.seasonKM % 1000) / 1000;
+      const kmPct = (stats.seasonKM % 10000) / 10000;
       const pktPct = (stats.seasonPts % 1000) / 1000;
       if (hmPct >= kmPct && hmPct >= pktPct) hints.push('\u2191 Noch ' + stats.hmBisLos.toLocaleString('de') + ' HM bis zum n\u00e4chsten Los');
-      else if (kmPct >= hmPct && kmPct >= pktPct) hints.push('\ud83e\udeb7 Noch ' + stats.kmBisLos + ' km bis zum n\u00e4chsten Los');
+      else if (kmPct >= hmPct && kmPct >= pktPct) hints.push('\ud83e\udeb7 Noch ' + stats.kmBisLos.toLocaleString('de') + ' km bis zum n\u00e4chsten Los');
       else hints.push('\u2b50 Noch ' + stats.pktBisLos.toLocaleString('de') + ' Pkt bis zum n\u00e4chsten Los');
     }
     nextLosHtml = '<div style="background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,165,0,0.08));border:1px solid rgba(255,215,0,0.3);border-radius:12px;padding:12px 16px;margin-bottom:1rem;text-align:center;">';
@@ -467,19 +465,24 @@ async function loadMySummits(season) {
       .sort((a, b) => b[1].count - a[1].count);
 
     if (regionsWithPeaks.length > 0) {
-      // Für jede Region die Gesamt-Anzahl der Peaks laden
-      const regionBars = [];
-      for (const [srId, data] of regionsWithPeaks) {
-        const sr = SUB_REGIONS.find(r => r.id === srId);
-        if (!sr) continue;
-        // Anzahl aller Peaks in dieser Sub-Region ermitteln
-        const { count: totalInRegion } = await GK.supabase
-          .from('peaks')
-          .select('*', { count: 'exact', head: true })
-          .gte('lat', sr.latMin).lte('lat', sr.latMax)
-          .gte('lng', sr.lngMin).lte('lng', sr.lngMax);
+      // PERFORMANCE: Alle Region-Counts PARALLEL holen statt sequenziell.
+      // War vorher 5-10 sequenzielle Queries (~300ms each).
+      const regionData = regionsWithPeaks
+        .map(([srId, data]) => ({ srId, data, sr: SUB_REGIONS.find(r => r.id === srId) }))
+        .filter(r => r.sr);
 
-        const total = totalInRegion || data.count;
+      const totals = await Promise.all(regionData.map(r =>
+        GK.supabase.from('peaks').select('*', { count: 'exact', head: true })
+          .gte('lat', r.sr.latMin).lte('lat', r.sr.latMax)
+          .gte('lng', r.sr.lngMin).lte('lng', r.sr.lngMax)
+          .then(({ count }) => count || r.data.count)
+          .catch(() => r.data.count)
+      ));
+
+      const regionBars = [];
+      for (let i = 0; i < regionData.length; i++) {
+        const { data } = regionData[i];
+        const total = totals[i];
         const pct = Math.round((data.count / total) * 100);
         const isComplete = data.count >= total;
         regionBars.push(`

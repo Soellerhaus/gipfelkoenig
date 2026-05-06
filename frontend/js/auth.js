@@ -727,12 +727,9 @@ async function initAppPage() {
       const recentContainer = document.getElementById('profile-recent-summits');
       if (recentContainer && summits.length > 0) {
         const recent = summits.slice(0, 5);
-        const peakIds = [...new Set(recent.map(s => s.peak_id))];
-        const peakMap = new Map();
-        for (const pid of peakIds) {
-          const p = await GK.api.getPeakById(pid);
-          if (p) peakMap.set(pid, p);
-        }
+        const peakIds = [...new Set(recent.map(s => s.peak_id))].filter(id => id != null);
+        // PERFORMANCE: Batch-Query statt N+1 (war vorher 5 sequenzielle Queries)
+        const peakMap = await GK.api.getPeaksByIds(peakIds);
         recentContainer.innerHTML = recent.map(s => {
           const p = peakMap.get(s.peak_id);
           const name = p ? p.name : '?';
@@ -745,18 +742,19 @@ async function initAppPage() {
         }).join('');
       }
 
-      // Rang berechnen (jahresunabhängig)
-      const { data: allProfiles } = await GK.supabase
+      // Rang berechnen (jahresunabhängig) — ASYNC, blockiert nichts
+      GK.supabase
         .from('user_profiles')
-        .select('id, total_points, username')
-        .order('total_points', { ascending: false });
-      if (allProfiles) {
-        const myRank = allProfiles.findIndex(p => p.id === benutzer.id) + 1;
-        const rankEl = document.getElementById('profile-rank');
-        const rankDetail = document.getElementById('profile-rank-detail');
-        if (rankEl) rankEl.textContent = myRank > 0 ? 'Platz ' + myRank : '—';
-        if (rankDetail) rankDetail.textContent = 'von ' + allProfiles.length + ' Bergfreunden';
-      }
+        .select('id, total_points')
+        .order('total_points', { ascending: false })
+        .then(({ data: allProfiles }) => {
+          if (!allProfiles) return;
+          const myRank = allProfiles.findIndex(p => p.id === benutzer.id) + 1;
+          const rankEl = document.getElementById('profile-rank');
+          const rankDetail = document.getElementById('profile-rank-detail');
+          if (rankEl) rankEl.textContent = myRank > 0 ? 'Platz ' + myRank : '—';
+          if (rankDetail) rankDetail.textContent = 'von ' + allProfiles.length + ' Bergfreunden';
+        }).catch(() => {});
 
       // Saison-Stats: neueste Saison mit Daten anzeigen (nicht immer aktuelles Jahr)
       const currentYear = new Date().getFullYear();

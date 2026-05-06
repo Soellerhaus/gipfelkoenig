@@ -294,12 +294,10 @@ async function loadMySummits(season) {
   }
 
   // Peak-Daten laden (nur für echte Gipfel)
-  const peakIds = [...new Set(peakSummits.map(s => s.peak_id))];
-  const peakMap = new Map();
-  for (const pid of peakIds) {
-    const peak = await GK.api.getPeakById(pid);
-    if (peak) peakMap.set(pid, peak);
-  }
+  // PERFORMANCE: Batch-Query statt N+1 (war vorher 50+ sequenzielle Queries
+  // bei vielen Gipfeln — Hauptursache fuer 20s Ladezeit)
+  const peakIds = [...new Set(peakSummits.map(s => s.peak_id))].filter(id => id != null);
+  const peakMap = await GK.api.getPeaksByIds(peakIds);
 
   // Nach Gipfel gruppieren (nur echte)
   const grouped = new Map();
@@ -467,19 +465,24 @@ async function loadMySummits(season) {
       .sort((a, b) => b[1].count - a[1].count);
 
     if (regionsWithPeaks.length > 0) {
-      // Für jede Region die Gesamt-Anzahl der Peaks laden
-      const regionBars = [];
-      for (const [srId, data] of regionsWithPeaks) {
-        const sr = SUB_REGIONS.find(r => r.id === srId);
-        if (!sr) continue;
-        // Anzahl aller Peaks in dieser Sub-Region ermitteln
-        const { count: totalInRegion } = await GK.supabase
-          .from('peaks')
-          .select('*', { count: 'exact', head: true })
-          .gte('lat', sr.latMin).lte('lat', sr.latMax)
-          .gte('lng', sr.lngMin).lte('lng', sr.lngMax);
+      // PERFORMANCE: Alle Region-Counts PARALLEL holen statt sequenziell.
+      // War vorher 5-10 sequenzielle Queries (~300ms each).
+      const regionData = regionsWithPeaks
+        .map(([srId, data]) => ({ srId, data, sr: SUB_REGIONS.find(r => r.id === srId) }))
+        .filter(r => r.sr);
 
-        const total = totalInRegion || data.count;
+      const totals = await Promise.all(regionData.map(r =>
+        GK.supabase.from('peaks').select('*', { count: 'exact', head: true })
+          .gte('lat', r.sr.latMin).lte('lat', r.sr.latMax)
+          .gte('lng', r.sr.lngMin).lte('lng', r.sr.lngMax)
+          .then(({ count }) => count || r.data.count)
+          .catch(() => r.data.count)
+      ));
+
+      const regionBars = [];
+      for (let i = 0; i < regionData.length; i++) {
+        const { data } = regionData[i];
+        const total = totals[i];
         const pct = Math.round((data.count / total) * 100);
         const isComplete = data.count >= total;
         regionBars.push(`

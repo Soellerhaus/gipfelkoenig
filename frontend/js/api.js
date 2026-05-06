@@ -47,12 +47,17 @@ GK.api.getPeaks = async function (bounds) {
   }
 };
 
+// PERFORMANCE: In-Memory Cache fuer Peaks. Verhindert dass dieselbe
+// peak_id in einer Session 50x von der DB geholt wird.
+const _peakCache = new Map();
+
 /**
- * Einzelnen Gipfel anhand der ID abrufen.
+ * Einzelnen Gipfel anhand der ID abrufen (mit Cache).
  * @param {string} id - Gipfel-ID
  * @returns {Promise<Object|null>} Gipfel-Objekt oder null
  */
 GK.api.getPeakById = async function (id) {
+  if (_peakCache.has(id)) return _peakCache.get(id);
   try {
     const { data, error } = await supabaseClient
       .from('peaks')
@@ -61,11 +66,53 @@ GK.api.getPeakById = async function (id) {
       .single();
 
     if (error) throw error;
+    _peakCache.set(id, data);
     return data;
   } catch (err) {
     console.error('Fehler beim Laden des Gipfels:', err);
     return null;
   }
+};
+
+/**
+ * Mehrere Gipfel in EINEM Query holen (Batch). Spart Roundtrips wenn
+ * z. B. "Meine Gipfel" 50 verschiedene Peaks anzeigt.
+ * @param {Array<string>} ids - Gipfel-IDs
+ * @returns {Promise<Map>} Map<id, peak>
+ */
+GK.api.getPeaksByIds = async function (ids) {
+  const result = new Map();
+  if (!ids || ids.length === 0) return result;
+  // Schon gecachte direkt nehmen
+  const uncached = [];
+  for (const id of ids) {
+    if (_peakCache.has(id)) {
+      result.set(id, _peakCache.get(id));
+    } else {
+      uncached.push(id);
+    }
+  }
+  if (uncached.length === 0) return result;
+
+  // Supabase .in() vertraegt grosse Listen, wir batchen trotzdem auf 200
+  for (let i = 0; i < uncached.length; i += 200) {
+    const batch = uncached.slice(i, i + 200);
+    try {
+      const { data } = await supabaseClient
+        .from('peaks')
+        .select('*')
+        .in('id', batch);
+      if (data) {
+        for (const p of data) {
+          _peakCache.set(p.id, p);
+          result.set(p.id, p);
+        }
+      }
+    } catch (e) {
+      console.warn('Batch-Peak-Laden fehlgeschlagen:', e.message);
+    }
+  }
+  return result;
 };
 
 /**
