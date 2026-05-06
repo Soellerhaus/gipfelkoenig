@@ -114,42 +114,46 @@ async function loadProfileForSeason(year) {
   const allCrownPeakIds = [...peakIds, ...carryOverPeakIds];
 
   if (userId && allCrownPeakIds.length > 0) {
-    for (const pid of allCrownPeakIds) {
-      // Aktuelle Saison prüfen
-      const { data: currentSummits } = await GK.supabase
+    // PERFORMANCE: Statt N+1 Queries (1 pro Peak), EINE einzige Batch-Query
+    // fuer alle Peaks + beide Saisons. Spart 50-100x Roundtrips.
+    let allCrownSummits = [];
+    const batchSize = 200;
+    for (let i = 0; i < allCrownPeakIds.length; i += batchSize) {
+      const batch = allCrownPeakIds.slice(i, i + batchSize);
+      const { data } = await GK.supabase
         .from('summits')
-        .select('user_id')
-        .eq('peak_id', pid)
-        .eq('season', yearStr);
+        .select('peak_id, user_id, season')
+        .in('peak_id', batch)
+        .in('season', [yearStr, prevYear]);
+      if (data) allCrownSummits = allCrownSummits.concat(data);
+    }
 
-      if (currentSummits && currentSummits.length > 0) {
-        // Jemand war in dieser Saison dort → normal zählen
-        const counts = {};
-        for (const s of currentSummits) {
-          counts[s.user_id] = (counts[s.user_id] || 0) + 1;
-        }
-        const maxCount = Math.max(...Object.values(counts));
-        if ((counts[userId] || 0) === maxCount) {
+    // Pro Peak nach Saison gruppieren: peakId -> { season -> { userId -> count } }
+    const summitsByPeak = {};
+    for (const s of allCrownSummits) {
+      if (!summitsByPeak[s.peak_id]) summitsByPeak[s.peak_id] = {};
+      if (!summitsByPeak[s.peak_id][s.season]) summitsByPeak[s.peak_id][s.season] = {};
+      summitsByPeak[s.peak_id][s.season][s.user_id] = (summitsByPeak[s.peak_id][s.season][s.user_id] || 0) + 1;
+    }
+
+    // Pro Peak Koenigsstatus auswerten (gleiche Logik wie vorher)
+    for (const pid of allCrownPeakIds) {
+      const seasons = summitsByPeak[pid] || {};
+      const currentCounts = seasons[yearStr];
+      if (currentCounts && Object.keys(currentCounts).length > 0) {
+        const maxCount = Math.max(...Object.values(currentCounts));
+        if ((currentCounts[userId] || 0) === maxCount) {
           crownCount++;
           currentSeasonCrownCount++; // Aktuelle Saison → zählt für Lose!
         }
       } else {
-        // Niemand war in dieser Saison dort → Vorjahres-König bleibt König
-        // ABER: Vorjahres-Kronen geben KEINE Lose!
-        const { data: prevSeasonSummits } = await GK.supabase
-          .from('summits')
-          .select('user_id')
-          .eq('peak_id', pid)
-          .eq('season', prevYear);
-        if (prevSeasonSummits && prevSeasonSummits.length > 0) {
-          const counts = {};
-          for (const s of prevSeasonSummits) {
-            counts[s.user_id] = (counts[s.user_id] || 0) + 1;
-          }
-          const maxCount = Math.max(...Object.values(counts));
-          if ((counts[userId] || 0) === maxCount) {
-            crownCount++; // König vom Vorjahr bleibt (für Anzeige)
-            // KEIN currentSeasonCrownCount++ → keine Lose für Vorjahres-Kronen!
+        // Vorjahres-Koenig bleibt Koenig (aber ohne Lose)
+        const prevCounts = seasons[prevYear];
+        if (prevCounts && Object.keys(prevCounts).length > 0) {
+          const maxCount = Math.max(...Object.values(prevCounts));
+          if ((prevCounts[userId] || 0) === maxCount) {
+            crownCount++;
+            // KEIN currentSeasonCrownCount++ → keine Lose fuer Vorjahres-Kronen!
           }
         }
       }

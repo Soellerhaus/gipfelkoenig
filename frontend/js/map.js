@@ -344,15 +344,33 @@ async function openPeakPanel(peakId) {
     return;
   }
 
-  // Beschreibung nachladen falls nicht im Cache
-  if (!peak.description) {
-    try {
-      const { data } = await GK.supabase.from('peaks').select('description').eq('id', peakId).single();
-      if (data && data.description) peak.description = data.description;
-    } catch (e) { /* ignorieren */ }
-  }
+  // INSTANT-RENDER: Name + Höhe + Description (falls da) sofort zeigen.
+  // Trophys + Hex-Info werden DARÜBER eingefügt sobald geladen.
+  // Verhindert das "Lade..."-Aufblitzen.
+  const pfUrlPre = 'https://www.peak-flow.app/?lat=' + peak.lat + '&lng=' + peak.lng + '&peak=' + encodeURIComponent(peak.name);
+  const safetyHtmlPre = peak.is_active === false
+    ? '<span style="color: var(--color-danger);">● Gesperrt</span>'
+    : '<a href="' + pfUrlPre + '" target="_blank" style="color: var(--color-muted); text-decoration:none; font-size:0.75rem;">Route planen? <span style="color:var(--color-text);">Peak</span><span style="color:var(--color-gold);">Flow</span> kostenlos nutzen</a>';
+  const descPre = peak.description || '';
+  content.innerHTML = `
+    <div class="peak-top-meta" id="peak-top-meta">${safetyHtmlPre}</div>
+    <div class="trophy-grid" id="peak-trophy-grid"></div>
+    <div class="peak-history" id="peak-history-row" style="display:none;"></div>
+    <div id="peak-hex-info"></div>
+    <div class="peak-bottom-name">${peak.name}${peak.elevation ? ' <span class="peak-elev">' + peak.elevation + ' m</span>' : ''}</div>
+    ${descPre ? '<div class="peak-description" id="peak-desc-row">' + descPre + '</div>' : '<div class="peak-description" id="peak-desc-row"></div>'}`;
 
-  content.innerHTML = '<p class="text-muted" style="font-size:0.8rem;">Lade...</p>';
+  // Beschreibung im Hintergrund nachladen falls nicht im Cache (kein Block)
+  if (!peak.description) {
+    GK.supabase.from('peaks').select('description').eq('id', peakId).single()
+      .then(({ data }) => {
+        if (data && data.description) {
+          peak.description = data.description;
+          const descEl = document.getElementById('peak-desc-row');
+          if (descEl) descEl.textContent = data.description;
+        }
+      }).catch(() => {});
+  }
 
   try {
     const { data: summits, error } = await GK.supabase
@@ -367,26 +385,50 @@ async function openPeakPanel(peakId) {
       : '<a href="' + pfUrl + '" target="_blank" style="color: var(--color-muted); text-decoration:none; font-size:0.75rem;">Route planen? <span style="color:var(--color-text);">Peak</span><span style="color:var(--color-gold);">Flow</span> kostenlos nutzen</a>';
 
     if (error || !summits || summits.length === 0) {
-      // Leerer Gipfel — Trophy-Slots alle leer
-      const desc = peak.description || '';
-      content.innerHTML = `
-        <div class="peak-top-meta">${safetyHtml}</div>
-        <div class="trophy-grid">
+      // Leerer Gipfel — gezielt die schon existierenden Slots befuellen,
+      // statt alles neu zu rendern (verhindert Flackern, Beschreibung bleibt sichtbar)
+      const trophyEl = document.getElementById('peak-trophy-grid');
+      const historyEl = document.getElementById('peak-history-row');
+      if (trophyEl) {
+        trophyEl.innerHTML = `
           <div class="trophy-slot"><span class="trophy-emoji">👑</span><span class="trophy-label">König</span></div>
-          <div class="trophy-slot"><span class="trophy-emoji">⭐</span><span class="trophy-label">Pionier ×3</span></div>
-        </div>
-        <div class="peak-history">Noch nie bestiegen — sei der Erste! ⭐ ×3 Punkte als Pionier!</div>
-        <div class="peak-bottom-name">${peak.name}${peak.elevation ? ' <span class="peak-elev">' + peak.elevation + ' m</span>' : ''}</div>
-        ${desc ? '<div class="peak-description">' + desc + '</div>' : ''}`;
+          <div class="trophy-slot"><span class="trophy-emoji">⭐</span><span class="trophy-label">Pionier ×3</span></div>`;
+      }
+      if (historyEl) {
+        historyEl.textContent = 'Noch nie bestiegen — sei der Erste! ⭐ ×3 Punkte als Pionier!';
+        historyEl.style.display = '';
+      }
       return;
     }
 
-    // User-Daten laden
+    // PERFORMANCE: User-Profile in EINEM Batch-Query laden statt N+1.
     const userIds = [...new Set(summits.map(s => s.user_id))];
     const userProfiles = {};
+    const uncachedIds = [];
     for (const uid of userIds) {
-      const profil = await GK.api.getUserProfile(uid);
-      userProfiles[uid] = profil || { username: 'Anonym', display_name: 'Anonym' };
+      const cached = (typeof territoryProfileCache !== 'undefined' && territoryProfileCache.get(uid)) || null;
+      if (cached) {
+        userProfiles[uid] = { username: cached.username, display_name: cached.name };
+      } else {
+        uncachedIds.push(uid);
+      }
+    }
+    if (uncachedIds.length > 0) {
+      try {
+        const { data: profiles } = await GK.supabase
+          .from('user_profiles')
+          .select('id, username, display_name')
+          .in('id', uncachedIds);
+        if (profiles) {
+          for (const p of profiles) {
+            userProfiles[p.id] = { username: p.username, display_name: p.display_name };
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    // Fallback fuer fehlende
+    for (const uid of userIds) {
+      if (!userProfiles[uid]) userProfiles[uid] = { username: 'Anonym', display_name: 'Anonym' };
     }
     const userName = (uid) => {
       const u = userProfiles[uid];
@@ -453,20 +495,35 @@ async function openPeakPanel(peakId) {
     const lastDate = new Date(lastSummit.summited_at).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const lastUser = userName(lastSummit.user_id);
 
-    // Hex-Gebiet Info berechnen
-    let hexInfoHtml = '';
-    try {
-      hexInfoHtml = await buildHexTerritoryInfo(peak, focusSeason);
-    } catch (e) { /* ignorieren */ }
+    // GEZIELT EINZELNE SLOTS BEFUELLEN statt komplettes Re-Render.
+    // Das verhindert das Aufflackern und behaelt Name/Description unten sichtbar.
+    const topMetaEl = document.getElementById('peak-top-meta');
+    const trophyEl = document.getElementById('peak-trophy-grid');
+    const historyEl = document.getElementById('peak-history-row');
+    const hexInfoEl = document.getElementById('peak-hex-info');
+    const descEl = document.getElementById('peak-desc-row');
 
-    content.innerHTML = `
-      <div class="peak-top-meta">${safetyHtml} · ${totalSummits} Besteigungen · ${uniqueUsers} Bergfreunde</div>
-      <div class="trophy-grid">${trophyHtml}</div>
-      ${historyHtml ? '<div class="peak-history">' + historyHtml + '</div>' : ''}
-      ${hexInfoHtml}
-      <div class="peak-bottom-name">${peak.name}${peak.elevation ? ' <span class="peak-elev">' + peak.elevation + ' m</span>' : ''}</div>
-      ${desc ? '<div class="peak-description">' + desc + '</div>' : '<div class="peak-description">Letzte Besteigung: ' + lastDate + ' von ' + lastUser + '</div>'}
-    `;
+    if (topMetaEl) topMetaEl.innerHTML = safetyHtml + ' · ' + totalSummits + ' Besteigungen · ' + uniqueUsers + ' Bergfreunde';
+    if (trophyEl) trophyEl.innerHTML = trophyHtml;
+    if (historyEl) {
+      if (historyHtml) {
+        historyEl.innerHTML = historyHtml;
+        historyEl.style.display = '';
+      } else {
+        historyEl.style.display = 'none';
+      }
+    }
+    if (descEl) {
+      if (desc) descEl.textContent = desc;
+      else descEl.textContent = 'Letzte Besteigung: ' + lastDate + ' von ' + lastUser;
+    }
+
+    // Hex-Gebiet-Info ASYNC nachladen (blockiert nichts) — fuellt Slot wenn fertig
+    if (hexInfoEl) {
+      buildHexTerritoryInfo(peak, focusSeason).then(html => {
+        if (hexInfoEl && html) hexInfoEl.innerHTML = html;
+      }).catch(() => {});
+    }
 
   } catch (err) {
     console.error('Fehler beim Laden der Gipfel-Details:', err);
@@ -998,6 +1055,11 @@ const POI_ICONS = {
 let poiLayer = null;
 
 async function loadPOIs() {
+  // POIs nur laden wenn vom User aktiviert (Default: aus)
+  if (GK.map._poiVisible !== true) {
+    if (poiLayer) poiLayer.clearLayers();
+    return;
+  }
   if (!GK.map.leaflet || GK.map.leaflet.getZoom() < 12) {
     if (poiLayer) poiLayer.clearLayers();
     return;
@@ -1051,6 +1113,23 @@ const loadPOIsDebounced = debounce(loadPOIs, 800);
  * Versucht den Standort des Benutzers zu ermitteln.
  */
 async function initMap() {
+  // PERFORMANCE: Letzte bekannte Position aus localStorage laden, damit
+  // die Karte beim 2. Besuch sofort am richtigen Ort startet — KEIN
+  // doppeltes Laden mehr durch nachtraegliches GPS-setView.
+  let initCenter = MAP_DEFAULT_CENTER;
+  let initZoom = MAP_DEFAULT_ZOOM;
+  try {
+    const cached = localStorage.getItem('gk_last_map_view');
+    if (cached) {
+      const v = JSON.parse(cached);
+      if (v && typeof v.lat === 'number' && typeof v.lng === 'number'
+          && v.lat > 45 && v.lat < 48.5 && v.lng > 5 && v.lng < 17) {
+        initCenter = [v.lat, v.lng];
+        if (typeof v.zoom === 'number' && v.zoom >= 8 && v.zoom <= 18) initZoom = v.zoom;
+      }
+    }
+  } catch (e) { /* ignorieren */ }
+
   // Karte erstellen — mit Performance-Optimierungen fuer fluessiges Zoomen
   const map = L.map('map', {
     attributionControl: false,
@@ -1061,7 +1140,7 @@ async function initMap() {
     wheelPxPerZoomLevel: 80,       // groesserer Schritt pro Zoom-Stufe
     preferCanvas: true,            // Canvas statt SVG fuer Polygone (schneller)
     zoomSnap: 0.5,                 // Halbschritte fuer sanftere Pinch-Zooms
-  }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
+  }).setView(initCenter, initZoom);
 
   // Attribution — klein und dezent unten rechts
   L.control.attribution({ position: 'bottomright', prefix: false })
@@ -1222,28 +1301,64 @@ async function initMap() {
   };
   hexCombo.addTo(map);
 
+  // POI-Toggle-Button (Scharten, Huetten, Aussichtspunkte etc.)
+  // Default: AUS (User hat sich beschwert, dass POIs stoeren). State in localStorage.
+  const poiToggle = L.control({ position: 'topleft' });
+  poiToggle.onAdd = function () {
+    const div = L.DomUtil.create('div', 'leaflet-bar');
+    const savedPoi = localStorage.getItem('gk_poi_visible');
+    // Default: AUS (null) — User-Wunsch
+    const poiVisible = savedPoi === 'true';
+    GK.map._poiVisible = poiVisible;
+    const color = poiVisible ? '#c9a84c' : '#666';
+    div.innerHTML = '<a href="#" title="POIs ein/aus (Huetten, Scharten, Aussichtspunkte)" id="poi-toggle-btn" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--color-bg-card,#2d2a26);color:' + color + ';font-size:16px;text-decoration:none;border-radius:4px;">📍</a>';
+    div.querySelector('a').addEventListener('click', function (e) {
+      e.preventDefault();
+      GK.map._poiVisible = !GK.map._poiVisible;
+      localStorage.setItem('gk_poi_visible', GK.map._poiVisible);
+      this.style.color = GK.map._poiVisible ? '#c9a84c' : '#666';
+      if (GK.map._poiVisible) {
+        loadPOIs(); // Sofort laden wenn aktiviert
+      } else {
+        if (poiLayer) poiLayer.clearLayers();
+      }
+    });
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  };
+  poiToggle.addTo(map);
+
   // -------------------------------------------------------------------------
-  // Browser-GPS als Standort-Bestimmung (nur wenn nicht vom Server)
-  if (navigator.geolocation) {
+  // Browser-GPS NUR beim ALLERERSTEN Besuch triggern (kein Cache vorhanden).
+  // Sonst zentrieren wir bereits korrekt aus dem Cache und ein nachtraegliches
+  // setView wuerde einen unnoetigen Reload verursachen (Doppel-Laden-Bug).
+  const hasCachedView = !!localStorage.getItem('gk_last_map_view');
+  if (!hasCachedView && navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        // Nur zentrieren wenn Standort plausibel alpin ist (lat 45-48, lng 5-16)
         if (latitude > 45 && latitude < 48.5 && longitude > 5 && longitude < 17) {
           map.setView([latitude, longitude], MAP_DEFAULT_ZOOM);
           console.log('Standort erkannt (alpin):', latitude, longitude);
         } else {
-          console.log('Standort nicht alpin (' + latitude.toFixed(2) + ', ' + longitude.toFixed(2) + '), zeige Kleinwalsertal');
-          map.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
+          console.log('Standort nicht alpin, zeige Kleinwalsertal');
         }
       },
-      (err) => {
-        console.warn('Standort nicht ermittelt, zeige Kleinwalsertal');
-        map.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
-      },
+      () => { console.warn('Standort nicht ermittelt'); },
       { enableHighAccuracy: false, timeout: 5000 }
     );
   }
+
+  // Aktuelle Position nach jeder Bewegung cachen — naechster Besuch
+  // startet sofort hier, kein erneutes GPS-Roundtrip noetig.
+  map.on('moveend', () => {
+    const c = map.getCenter();
+    try {
+      localStorage.setItem('gk_last_map_view', JSON.stringify({
+        lat: c.lat, lng: c.lng, zoom: map.getZoom()
+      }));
+    } catch (e) { /* ignorieren */ }
+  });
 
   // Gipfel laden — nicht blockierend, Panel danach füllen
   loadPeaks().then(() => {
