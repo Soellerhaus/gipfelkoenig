@@ -205,22 +205,18 @@ async function loadProfileForSeason(year) {
   const potdLose = 0;                                 // Gipfel des Tages (TODO)
 
   // Gebiete zaehlen: Hex-Territorien wo User die meisten verschiedenen Gipfel hat
+  // WICHTIG: Nutzt GK.map.getHexCell — gleicher Cube-Round-Algo wie die
+  // Karten-Anzeige. Vorher: rechteckiges Rounding fuehrte zu Inkonsistenz
+  // zwischen Karten-Hex und Lose-Berechnung.
   try {
-    if (userId && seasonSummits.length > 0) {
-      const HEX_SIZE = 5, LAT_KM = 111.32, LNG_KM = 75.9;
-      const sLat = HEX_SIZE / LAT_KM, sLng = HEX_SIZE / LNG_KM;
-      const colSp = 1.5 * sLng, rowSp = Math.sqrt(3) * sLat;
-
-      // Meine Peaks pro Hex zaehlen
+    if (userId && seasonSummits.length > 0 && GK.map && GK.map.getHexCell) {
       const myHexPeaks = {};
       const uniquePeakIds = [...new Set(seasonSummits.map(s => s.peak_id))];
       for (const pid of uniquePeakIds) {
         const peak = window._allPeaksCache ? window._allPeaksCache[pid] : null;
         if (!peak) continue;
-        const col = Math.round(peak.lng / colSp);
-        const rowOff = (col % 2 !== 0) ? rowSp / 2 : 0;
-        const row = Math.round((peak.lat - rowOff) / rowSp);
-        const key = col + ',' + row;
+        const cell = GK.map.getHexCell(peak.lat, peak.lng);
+        const key = cell.col + ',' + cell.row;
         if (!myHexPeaks[key]) myHexPeaks[key] = new Set();
         myHexPeaks[key].add(pid);
       }

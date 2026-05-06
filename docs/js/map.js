@@ -243,20 +243,35 @@ async function buildHexTerritoryInfo(peak, season) {
     const hex = getHexCell(peak.lat, peak.lng);
     const userId = GK.map._currentUserId;
 
-    // Alle erreichbaren Peaks in diesem Hex laden (Bounding Box des Hexagons)
+    // BBox des Hexagons als grober Server-Filter (bbox > hex, also Ueber-
+    // schussbereich)
     const hexPoly = getHexPolygon(hex.centerLat, hex.centerLng);
     const latMin = Math.min(...hexPoly.map(p => p[0]));
     const latMax = Math.max(...hexPoly.map(p => p[0]));
     const lngMin = Math.min(...hexPoly.map(p => p[1]));
     const lngMax = Math.max(...hexPoly.map(p => p[1]));
 
-    const { data: hexPeaks } = await GK.supabase
-      .from('peaks').select('id')
+    // Wichtig: lat/lng mitladen, damit wir client-seitig nochmal auf echte
+    // Hex-Zugehoerigkeit pruefen koennen. Vorher hat das gefehlt → Peaks aus
+    // Nachbarzellen wurden faelschlicherweise mitgezaehlt (User-Bug:
+    // "1/46" obwohl mehrere Gipfel im Hex bestiegen wurden).
+    const { data: bboxPeaks } = await GK.supabase
+      .from('peaks').select('id, lat, lng')
       .gte('lat', latMin).lte('lat', latMax)
       .gte('lng', lngMin).lte('lng', lngMax)
       .or('reachable.eq.true,reachable.is.null');
 
-    if (!hexPeaks || hexPeaks.length === 0) return '';
+    if (!bboxPeaks || bboxPeaks.length === 0) return '';
+
+    // EXAKTER FILTER: Nur Peaks, deren Hex-Zelle identisch mit der des
+    // geklickten Peaks ist. Das matched die VISUELLE Hex-Grenze auf der
+    // Karte 1:1.
+    const hexPeaks = bboxPeaks.filter(p => {
+      const c = getHexCell(p.lat, p.lng);
+      return c.col === hex.col && c.row === hex.row;
+    });
+
+    if (hexPeaks.length === 0) return '';
 
     const peakIds = hexPeaks.map(p => p.id);
     const totalPeaksInHex = peakIds.length;
@@ -744,21 +759,50 @@ function getTerritoryColor(userId) {
  * Hex-Zelle für eine gegebene Koordinate berechnen (flat-top Hex-Grid).
  * Gibt { col, row, centerLat, centerLng } zurück.
  *
- * Flat-top Spacing:
- *   colSpacing = 1.5 * s  (horizontal)
- *   rowSpacing = sqrt(3) * s (vertical)
- *   Ungerade Spalten um rowSpacing/2 nach oben versetzt.
+ * Verwendet KUBISCHES ROUNDING (Standard-Algorithmus fuer Hex-Pixel-zu-
+ * Zelle), nicht rechteckiges Rounding. Sonst landen Peaks nahe der
+ * Diagonal-Kante einer Zelle faelschlicherweise im rechteckigen Nachbarn,
+ * obwohl sie visuell im aktuellen Hexagon liegen. Das war der "Walmendinger
+ * Horn / Kuhgehrenspitze 1/46 vs 2/31"-Bug.
+ *
+ * Algorithmus:
+ *   1. lat/lng in einheitliche Hex-Koordinaten normalisieren (Anisotropie
+ *      durch verschiedene km/Grad fuer lat vs lng kompensieren).
+ *   2. Pixel-zu-Axial fuer flat-top Hex.
+ *   3. Cube-Round (rundet zur naechsten echten Hex-Zelle, nicht zum
+ *      naechsten Rechteck).
+ *   4. Axial → odd-q Offset (col, row).
  */
 function getHexCell(lat, lng) {
-  const colSpacing = 1.5 * S_LNG;
-  const rowSpacing = Math.sqrt(3) * S_LAT;
+  // 1. Normalisieren: 1 Einheit = Hex-Circumradius
+  const x = lng / S_LNG;
+  const y = lat / S_LAT;
 
-  const col = Math.round(lng / colSpacing);
-  const rowOffset = (col % 2 !== 0) ? rowSpacing / 2 : 0;
-  const row = Math.round((lat - rowOffset) / rowSpacing);
+  // 2. Pixel-zu-Axial fuer flat-top Hex (size = 1 in normalisierter Welt)
+  const qf = (2 / 3) * x;
+  const rf = (-1 / 3) * x + (Math.sqrt(3) / 3) * y;
+  const sf = -qf - rf;
 
-  const centerLng = col * colSpacing;
-  const centerLat = row * rowSpacing + rowOffset;
+  // 3. Cube-Round
+  let q = Math.round(qf);
+  let r = Math.round(rf);
+  let s = Math.round(sf);
+  const dq = Math.abs(q - qf);
+  const dr = Math.abs(r - rf);
+  const ds = Math.abs(s - sf);
+  if (dq > dr && dq > ds) q = -r - s;
+  else if (dr > ds) r = -q - s;
+  // sonst: s passt sich an, aber wir nutzen nur (q, r)
+
+  // 4. Axial (q, r) → odd-q Offset (col, row)
+  const col = q;
+  const row = r + (q - (q & 1)) / 2;
+
+  // Zentrum der Zelle in lat/lng zurueckrechnen (selber Algo wie vorher,
+  // damit getHexPolygon und Rendering identisch bleiben)
+  const centerLng = col * 1.5 * S_LNG;
+  const rowOffsetLat = (col % 2 !== 0) ? (Math.sqrt(3) / 2) * S_LAT : 0;
+  const centerLat = row * Math.sqrt(3) * S_LAT + rowOffsetLat;
   return { col, row, centerLat, centerLng };
 }
 
@@ -1473,6 +1517,10 @@ function initSearchControl(map) {
 // ---------------------------------------------------------------------------
 // Öffentliche API
 // ---------------------------------------------------------------------------
+
+/** Hex-Zellen-Berechnung exportieren — damit auth.js (Lose-Berechnung)
+ *  identisch zur Karten-Anzeige rechnet (statt eigener rechteckiger Math). */
+GK.map.getHexCell = getHexCell;
 
 /** Karte initialisieren */
 GK.map.init = initMap;
