@@ -133,11 +133,15 @@ function formatDate(dateStr) {
 // Aktuellen Benutzer holen
 // ---------------------------------------------------------------------------
 
-/** Eingeloggten Benutzer aus Supabase Auth auslesen */
+/** Eingeloggten Benutzer aus Supabase Auth auslesen.
+ * getSession() liest die Session SOFORT lokal aus dem Storage (kein
+ * Netzwerk-Roundtrip wie bei getUser()). Das ist hier korrekt, weil der
+ * Route-Guard in auth.js die Session bereits validiert hat — und verhindert,
+ * dass das Gipfel-Laden auf eine Server-Token-Validierung warten muss. */
 async function getCurrentUserId() {
   try {
-    const { data: { user } } = await GK.supabase.auth.getUser();
-    return user ? user.id : null;
+    const { data: { session } } = await GK.supabase.auth.getSession();
+    return session && session.user ? session.user.id : null;
   } catch (err) {
     console.error('Fehler beim Abrufen des Benutzers:', err);
     return null;
@@ -1249,26 +1253,6 @@ async function initMap() {
 
   // Orts-Suche einrichten
   initSearchControl(map);
-
-  // Benutzer-Standort ermitteln — Strava-Stadt bevorzugen, Browser-GPS als Fallback
-  let homeLocation = null;
-
-  // Versuche Strava-Standort aus Profil zu laden
-  try {
-    const userId = GK.map._currentUserId;
-    if (userId) {
-      const profil = await GK.api.getUserProfile(userId);
-      if (profil && profil.home_region) {
-        // Strava-Stadt geocodieren wenn vorhanden
-        const city = profil.display_name ? null : null; // Platzhalter
-      }
-    }
-  } catch (e) { /* ignorieren */ }
-
-  // Kleinwalsertal als Fallback wenn kein Standort
-  if (!homeLocation) {
-    homeLocation = MAP_DEFAULT_CENTER;
-  }
 
   // Home-Button auf der Karte
   const homeBtn = L.control({ position: 'topleft' });

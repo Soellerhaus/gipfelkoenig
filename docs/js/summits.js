@@ -22,11 +22,15 @@ function getSeason() {
   return new Date().getFullYear().toString();
 }
 
-/** Eingeloggten Benutzer aus Supabase Auth auslesen */
+/** Eingeloggten Benutzer aus Supabase Auth auslesen.
+ * getSession() liest die Session SOFORT lokal aus dem Storage statt einen
+ * Server-Roundtrip (getUser) zu machen. getUser() konnte beim Seitenstart
+ * kurzzeitig null liefern, bevor die Session validiert war — dann brach
+ * loadMySummits ab und "Meine Gipfel" blieb dauerhaft leer. */
 async function getLoggedInUserId() {
   try {
-    const { data: { user } } = await GK.supabase.auth.getUser();
-    return user ? user.id : null;
+    const { data: { session } } = await GK.supabase.auth.getSession();
+    return session && session.user ? session.user.id : null;
   } catch (err) {
     console.error('Fehler beim Abrufen des Benutzers:', err);
     return null;
