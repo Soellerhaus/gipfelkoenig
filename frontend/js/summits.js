@@ -441,7 +441,30 @@ async function loadMySummits(season) {
     recentHtml += ' = ' + basePts + ' Basis';
     if (hasPeak) recentHtml += ' <span style="opacity:0.7;">' + multiLabel + '</span>';
     recentHtml += ' = <span style="color:var(--color-gold);">' + pts + ' Pkt</span>';
-    recentHtml += '</div></div>';
+    recentHtml += '</div>';
+
+    // Teilen-Button — erzeugt eine Story-Card zum Posten (Wachstumskanal)
+    const shareBadges = [];
+    if (a.is_season_first) shareBadges.push({ emoji: '⭐', label: 'Pionier ×3' });
+    else if (a.is_personal_first) shareBadges.push({ emoji: '🆕', label: 'Erstbesuch' });
+    if (new Date(a.summited_at).getHours() < 7) shareBadges.push({ emoji: '🌅', label: 'Frühaufsteher' });
+    const sharePayload = (GK.share && GK.share.encodePayload) ? GK.share.encodePayload({
+      peakName: peak ? peak.name : 'Tour',
+      elevation: peak ? peak.elevation : null,
+      points: pts,
+      hm: hm,
+      km: km,
+      dateStr: datum,
+      icon: hasPeak ? '⛰️' : '🥾',
+      subtitle: !hasPeak ? 'Tour' : (a.is_season_first ? 'Pionier' : (a.is_personal_first ? 'Erstbesuch' : 'Gipfel')),
+      badges: shareBadges,
+    }) : '';
+    if (sharePayload) {
+      recentHtml += '<div style="text-align:right;margin-top:6px;">';
+      recentHtml += '<button data-share-summit="' + sharePayload + '" style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.35);color:var(--color-gold);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:0.72rem;font-weight:600;">📤 Teilen</button>';
+      recentHtml += '</div>';
+    }
+    recentHtml += '</div>';
   }
   recentHtml += '</div>';
 
