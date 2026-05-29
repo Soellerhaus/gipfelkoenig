@@ -243,6 +243,25 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    // Web-Push an einen User senden (fire-and-forget, blockiert die Verarbeitung nicht).
+    // Ruft die send-push Edge Function mit Service-Role-Key auf.
+    const sendPush = (targetUserId: string, title: string, body: string, tag?: string) => {
+      try {
+        const url = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push`
+        // Bewusst NICHT awaited — Push darf die Punkteverarbeitung nicht aufhalten.
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          },
+          body: JSON.stringify({ user_id: targetUserId, title, body, url: '/app.html', tag }),
+        }).catch((e) => console.error('sendPush fetch error:', e?.message || e))
+      } catch (e) {
+        console.error('sendPush error:', e)
+      }
+    }
+
     // 1. GPS-Track von Strava holen (Streams: latlng, altitude, time)
     const streamsUrl = `https://www.strava.com/api/v3/activities/${activity_id}/streams?keys=latlng,altitude,time&key_type=stream`
     const streamsRes = await fetch(streamsUrl, {
@@ -612,6 +631,8 @@ serve(async (req) => {
             icon: '👑',
             data: { peak_id: peakId, challenger_id: user_id }
           })
+          sendPush(previousKingId, '👑 Krone verloren!',
+            `${attackerName} hat deine Krone auf ${peak.name} erobert!`, `crown-${peakId}`)
         }
       } else if (currentOwner.user_id === user_id) {
         // User ist bereits König → Count aktualisieren
@@ -636,6 +657,8 @@ serve(async (req) => {
             icon: '⚔️',
             data: { peak_id: peakId, challenger_id: user_id, gap }
           })
+          sendPush(currentOwner.user_id, '⚔️ Krone wird angegriffen!',
+            `${attackerName} greift deine Krone auf ${peak.name} an! Nur noch ${gap} Vorsprung.`, `crown-${peakId}`)
         }
       }
 
@@ -827,6 +850,8 @@ serve(async (req) => {
               icon: '🏆',
               data: { overtaker_id: user_id }
             })
+            sendPush(victim.id, '🏆 Überholt!',
+              `${userName} hat dich in der Rangliste überholt!`, 'rank')
           }
         }
       } catch (rankErr) {

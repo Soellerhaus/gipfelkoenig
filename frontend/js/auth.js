@@ -1680,6 +1680,8 @@ function toggleNotifDropdown() {
   const isOpen = dd.style.display !== 'none';
   dd.style.display = isOpen ? 'none' : 'block';
   if (!isOpen) {
+    // Push-Opt-in-Karte ggf. anzeigen
+    if (window.GK && GK.push && GK.push.refreshOptinUI) GK.push.refreshOptinUI();
     // Alle als gelesen markieren (In-Memory + DB)
     _notifications.forEach(n => n.read = true);
     if (_currentNotifUserId && _dbNotificationsLoaded) {

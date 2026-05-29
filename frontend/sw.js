@@ -1,7 +1,7 @@
 // Bergkönig — Service Worker
 // Cache-Strategie: Cache First für Assets, Network First für API
 
-const CACHE_NAME = 'gipfelkoenig-v3'
+const CACHE_NAME = 'gipfelkoenig-v4'
 
 const OFFLINE_HTML = '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bergk\u00f6nig — Offline</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#1a1814;color:#f0ece4;font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem}.box{max-width:360px}.mountain{font-size:4rem;margin-bottom:1rem}.title{font-size:1.5rem;font-weight:700;margin-bottom:0.5rem}.title span{color:#c9a84c}.msg{color:#888;font-size:0.95rem;line-height:1.6;margin-bottom:1.5rem}.btn{display:inline-block;background:#c9a84c;color:#1a1814;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:1rem;cursor:pointer;border:none}.btn:active{opacity:0.8}</style></head><body><div class="box"><div class="mountain">\u26f0\ufe0f</div><div class="title">Berg<span>k\u00f6nig</span></div><p class="msg">Keine Internetverbindung.<br>Pr\u00fcfe dein WLAN oder mobile Daten und versuche es erneut.</p><button class="btn" onclick="location.reload()">Erneut versuchen</button></div></body></html>'
 const STATIC_ASSETS = [
@@ -15,6 +15,9 @@ const STATIC_ASSETS = [
   '/js/summits.js',
   '/js/game.js',
   '/js/notifications.js',
+  '/js/share.js',
+  '/js/onboarding.js',
+  '/js/push.js',
   '/manifest.json',
   '/icons/icon.svg'
 ]
@@ -47,6 +50,14 @@ self.addEventListener('activate', (event) => {
 // Fetch-Strategie
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
+
+  // Navigationen (HTML-Seiten): Network First — nie veraltetes HTML ausliefern.
+  // Wichtig, da der SW jetzt registriert wird: sonst würde app.html aus dem
+  // Cache "einfrieren" und Updates erst nach SW-Wechsel sichtbar.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(networkFirstHtml(event.request))
+    return
+  }
 
   // API-Calls: Network First (Supabase, Strava, ALBINA)
   if (url.hostname.includes('supabase') ||
@@ -91,6 +102,25 @@ async function cacheFirst(request) {
   }
 }
 
+// Network First für HTML-Navigationen: frisches HTML, Offline-Fallback aus Cache
+async function networkFirstHtml(request) {
+  try {
+    const response = await fetch(request)
+    if (response && response.ok) {
+      const cache = await caches.open(CACHE_NAME)
+      cache.put('/app.html', response.clone())
+    }
+    return response
+  } catch (error) {
+    const cached = await caches.match('/app.html') || await caches.match(request)
+    if (cached) return cached
+    return new Response(OFFLINE_HTML, {
+      status: 503,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    })
+  }
+}
+
 // Network First: Netzwerk versuchen, bei Fehler Cache
 async function networkFirst(request) {
   try {
@@ -110,13 +140,17 @@ async function networkFirst(request) {
 self.addEventListener('push', (event) => {
   if (!event.data) return
 
-  const data = event.data.json()
+  let data = {}
+  try { data = event.data.json() } catch (e) { data = { body: event.data.text() } }
+
   const options = {
     body: data.body || 'Neue Benachrichtigung',
-    icon: '/icons/icon.svg',
-    badge: '/icons/icon.svg',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
     vibrate: [100, 50, 100],
-    data: data.url ? { url: data.url } : {}
+    tag: data.tag || undefined,
+    renotify: data.tag ? true : undefined,
+    data: { url: data.url || '/app.html' }
   }
 
   event.waitUntil(
@@ -129,6 +163,15 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const url = event.notification.data?.url || '/app.html'
   event.waitUntil(
-    self.clients.openWindow(url)
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Schon offene App fokussieren statt neues Fenster zu öffnen
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate && client.navigate(url)
+          return client.focus()
+        }
+      }
+      return self.clients.openWindow(url)
+    })
   )
 })

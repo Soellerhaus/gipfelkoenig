@@ -45,6 +45,13 @@
             <span style="font-size:0.8rem; font-weight:600; color:var(--color-gold);">Benachrichtigungen</span>
             <span id="notif-mark-all" style="font-size:0.65rem; color:var(--color-muted); cursor:pointer; opacity:0.7;" onclick="event.stopPropagation(); if(window._currentNotifUserId && window.GK.notifications) { GK.notifications.markAllRead(window._currentNotifUserId); document.querySelectorAll('#notif-list > div').forEach(d => d.style.background='none'); updateNotifBadge(); }">Alle gelesen</span>
           </div>
+          <!-- Push-Opt-in: erscheint nur, wenn Push unterstützt & noch nicht aktiv -->
+          <div id="push-optin" style="display:none; padding:10px 14px; border-bottom:1px solid var(--color-border); background:rgba(201,168,76,0.06);">
+            <div style="font-size:0.72rem; color:var(--color-cream); line-height:1.4; margin-bottom:8px;">
+              📲 Push aktivieren — werde sofort benachrichtigt, wenn deine Krone angegriffen wird oder dich jemand überholt.
+            </div>
+            <button id="push-enable-btn" onclick="event.stopPropagation(); if(window.GK&&GK.push) GK.push.enable();" style="width:100%; background:var(--color-gold); color:#1a1814; border:none; padding:8px; border-radius:8px; font-weight:700; font-size:0.72rem; cursor:pointer;">Benachrichtigungen einschalten</button>
+          </div>
           <div id="notif-list" style="padding:4px 0;">
             <div style="padding:12px 14px; font-size:0.75rem; color:var(--color-muted); text-align:center;">Keine neuen Benachrichtigungen</div>
           </div>
@@ -403,6 +410,7 @@
   <script src="js/regions.js"></script>
   <script src="./js/game.js?v=20260326"></script>
   <script src="./js/notifications.js"></script>
+  <script src="./js/push.js?v=20260529"></script>
   <script src="./js/onboarding.js?v=20260529"></script>
   <!-- gpx-upload.js entfernt — GPX-Upload erfolgt über settings.html -->
   <script src="./js/feed.js?v=20260326"></script>
