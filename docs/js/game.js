@@ -386,6 +386,27 @@ window.GK.game = (() => {
         return;
       }
 
+      // Eigenen Platz ermitteln und ganz oben gut sichtbar anzeigen.
+      // Das ist der "komm zurück und schau, wo du stehst"-Haken.
+      const myId = (GK.auth && GK.auth.user) ? GK.auth.user.id : null;
+      const myIndex = myId ? filteredData.findIndex(e => e.id === myId) : -1;
+      if (myIndex >= 0) {
+        const me = filteredData[myIndex];
+        const ahead = myIndex > 0 ? filteredData[myIndex - 1] : null;
+        const gap = ahead ? (ahead.total_points - me.total_points) : 0;
+        const banner = document.createElement('div');
+        banner.style.cssText = 'position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.7rem 0.85rem;margin-bottom:0.6rem;background:var(--color-gold);color:#1a1a1a;border-radius:10px;';
+        banner.innerHTML = `
+          <span style="font-size:1rem;font-weight:800;">👑 Dein Platz: #${myIndex + 1}<span style="font-weight:600;opacity:0.7;"> von ${filteredData.length}</span></span>
+          <span style="font-size:0.8rem;font-weight:700;text-align:right;">${
+            myIndex === 0
+              ? 'Du führst! 🏔️'
+              : (gap).toLocaleString('de') + ' Pkt bis #' + myIndex
+          }</span>
+        `;
+        listEl.appendChild(banner);
+      }
+
       filteredData.forEach((entry, idx) => {
         const rank = idx + 1;
         let rankIcon = '';
@@ -401,8 +422,9 @@ window.GK.game = (() => {
         const userRank = getRank(summitCount, crowns);
         const rankBadge = userRank.icon + ' ' + userRank.name;
 
+        const isMe = myId && entry.id === myId;
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0;border-bottom:1px solid var(--color-border);';
+        row.style.cssText = 'display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.4rem;border-bottom:1px solid var(--color-border);' + (isMe ? 'background:rgba(201,168,76,0.14);border-radius:8px;' : '');
         row.innerHTML = `
           <div style="min-width:28px;text-align:center;font-weight:700;font-family:var(--font-mono);font-size:0.85rem;color:${rank <= 3 ? 'var(--color-gold)' : 'var(--color-muted)'};">
             ${rankIcon}${rank}

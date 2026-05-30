@@ -281,7 +281,7 @@ GK.api.getLeaderboard = async function (region, season, limit) {
     const userIds = Object.keys(userStats);
     const { data: profiles, error: profileError } = await supabaseClient
       .from('user_profiles')
-      .select('id, username, display_name, avatar_type')
+      .select('id, username, display_name, avatar_type, is_test_user')
       .in('id', userIds);
 
     if (profileError) throw profileError;
@@ -300,11 +300,14 @@ GK.api.getLeaderboard = async function (region, season, limit) {
           username: profile.username,
           display_name: profile.display_name,
           avatar_type: profile.avatar_type,
+          is_test_user: profile.is_test_user === true,
           total_points: userStats[uid].points,
           summit_count: userStats[uid].peaks.size,
           tour_count: userStats[uid].tours,
         };
       })
+      // Fake-/Testprofile gehören nicht in die echte Wertung
+      .filter(u => !u.is_test_user)
       .sort((a, b) => b.total_points - a.total_points)
       .slice(0, limit || 50);
 
