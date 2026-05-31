@@ -1377,6 +1377,10 @@ async function initMap() {
     );
   }
 
+  // Live-Standort: blauer Punkt + Genauigkeitskreis, folgt dem echten GPS.
+  // Button (unten links) zentriert die Karte auf die aktuelle Position.
+  setupLiveLocation(map);
+
   // Aktuelle Position nach jeder Bewegung cachen — naechster Besuch
   // startet sofort hier, kein erneutes GPS-Roundtrip noetig.
   map.on('moveend', () => {
@@ -1420,6 +1424,101 @@ async function initMap() {
   });
 
   console.log('Karte initialisiert.');
+}
+
+// ---------------------------------------------------------------------------
+// Live-GPS-Standort auf der Karte ("Du bist hier" — blauer Punkt)
+// Folgt der echten Position via watchPosition und aktualisiert Punkt + Kreis.
+// ---------------------------------------------------------------------------
+let _gkLocMarker = null;   // blauer Punkt (circleMarker)
+let _gkLocCircle = null;   // Genauigkeitskreis (Meter)
+let _gkLocWatchId = null;  // watchPosition-Handle
+let _gkLocFollow = false;  // folgt die Karte aktiv der Position?
+
+/** Standort-Button + stillen Hintergrund-Watch einrichten. */
+function setupLiveLocation(map) {
+  if (!('geolocation' in navigator)) return;
+
+  // Standort-Button (unten links) — zentriert/folgt der aktuellen Position
+  const locateCtl = L.control({ position: 'bottomleft' });
+  locateCtl.onAdd = function () {
+    const div = L.DomUtil.create('div', 'leaflet-bar');
+    div.innerHTML = '<a href="#" id="locate-btn" title="Mein Standort" ' +
+      'style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;' +
+      'background:var(--color-bg-card,#2d2a26);border-radius:4px;text-decoration:none;">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4a90e2" ' +
+      'stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/>' +
+      '<line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/>' +
+      '<line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg></a>';
+    div.querySelector('a').addEventListener('click', function (e) {
+      e.preventDefault();
+      _gkLocFollow = true;
+      startLocationWatch(map, true);
+    });
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  };
+  locateCtl.addTo(map);
+
+  // Sobald der User selbst die Karte verschiebt: nicht mehr automatisch folgen
+  map.on('dragstart', () => { _gkLocFollow = false; });
+
+  // Still im Hintergrund starten, damit der Punkt sofort sichtbar wird
+  // (ohne die Karte ungefragt zu verschieben).
+  startLocationWatch(map, false);
+}
+
+/** GPS-Watch starten. recenter=true zentriert beim ersten Fix auf die Position. */
+function startLocationWatch(map, recenter) {
+  if (!('geolocation' in navigator)) return;
+
+  // Watch laeuft bereits: nur ggf. auf den bekannten Punkt zentrieren
+  if (_gkLocWatchId !== null) {
+    if (recenter && _gkLocMarker) {
+      map.setView(_gkLocMarker.getLatLng(), Math.max(map.getZoom(), 15), { animate: true });
+    }
+    return;
+  }
+
+  let firstFix = recenter;
+  _gkLocWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      const latlng = [latitude, longitude];
+      updateLocationMarker(map, latlng, accuracy);
+      if (firstFix) {
+        map.setView(latlng, Math.max(map.getZoom(), 15), { animate: true });
+        firstFix = false;
+      } else if (_gkLocFollow) {
+        map.panTo(latlng, { animate: true });
+      }
+    },
+    (err) => { console.warn('GPS-Watch Fehler:', err && err.message); },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+}
+
+/** Blauen Punkt + Genauigkeitskreis erstellen/aktualisieren. */
+function updateLocationMarker(map, latlng, accuracy) {
+  if (!_gkLocMarker) {
+    // Genauigkeitskreis (in Metern) — dezent
+    _gkLocCircle = L.circle(latlng, {
+      radius: accuracy || 30,
+      color: '#4a90e2', weight: 1, opacity: 0.4,
+      fillColor: '#4a90e2', fillOpacity: 0.12,
+      interactive: false,
+    }).addTo(map);
+    // Blauer Punkt mit weissem Rand
+    _gkLocMarker = L.circleMarker(latlng, {
+      radius: 8, color: '#ffffff', weight: 3,
+      fillColor: '#4a90e2', fillOpacity: 1,
+    }).addTo(map);
+    _gkLocMarker.bindTooltip('Dein Standort', { direction: 'top', offset: [0, -8] });
+  } else {
+    _gkLocMarker.setLatLng(latlng);
+    _gkLocCircle.setLatLng(latlng);
+    if (accuracy) _gkLocCircle.setRadius(accuracy);
+  }
 }
 
 // ---------------------------------------------------------------------------
