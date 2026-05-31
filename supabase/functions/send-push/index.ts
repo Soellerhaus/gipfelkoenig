@@ -32,7 +32,34 @@ serve(async (req) => {
     )
 
     const payload = await req.json()
-    const { user_id, title, body, url, icon, tag } = payload
+
+    // Zwei Aufruf-Arten unterstützen:
+    // 1) Direkter Aufruf: { user_id|user_ids, title, body, url, icon, tag }
+    // 2) Supabase Database Webhook auf notifications: { type:'INSERT', record:{...} }
+    let user_id: string | undefined
+    let title: string | undefined
+    let body: string | undefined
+    let url: string | undefined
+    let icon: string | undefined
+    let tag: string | undefined
+
+    if (payload && payload.record && (payload.type === "INSERT" || payload.table === "notifications")) {
+      const r = payload.record
+      user_id = r.user_id
+      title = r.title
+      body = r.body
+      // r.icon ist ein Emoji (z.B. 👑) — NICHT als Bild-Icon verwenden,
+      // sonst lädt der Service Worker einen ungültigen Pfad. Standard-PNG nutzen.
+      tag = r.type
+    } else {
+      user_id = payload.user_id
+      title = payload.title
+      body = payload.body
+      url = payload.url
+      icon = payload.icon
+      tag = payload.tag
+    }
+
     const userIds: string[] = payload.user_ids || (user_id ? [user_id] : [])
 
     if (userIds.length === 0 || !title || !body) {
