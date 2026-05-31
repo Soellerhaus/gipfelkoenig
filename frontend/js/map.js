@@ -1453,7 +1453,28 @@ function setupLiveLocation(map) {
     div.querySelector('a').addEventListener('click', function (e) {
       e.preventDefault();
       _gkLocFollow = true;
-      startLocationWatch(map, true);
+      // Sofort eine frische Position holen — das loest bei Bedarf den
+      // Standort-Berechtigungs-Dialog aus (getrennt von Benachrichtigungen!).
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude, accuracy } = pos.coords;
+          updateLocationMarker(map, [latitude, longitude], accuracy);
+          map.setView([latitude, longitude], Math.max(map.getZoom(), 15), { animate: true });
+          startLocationWatch(map, false); // danach live weiterverfolgen
+        },
+        (err) => {
+          console.warn('Standort-Fehler:', err && err.message);
+          if (GK.showToast) {
+            GK.showToast(
+              err && err.code === 1
+                ? 'Standort ist blockiert — bitte in den Browser-/Android-Einstellungen für diese Seite erlauben.'
+                : 'Standort konnte nicht ermittelt werden. GPS aktiv?',
+              'error'
+            );
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
     });
     L.DomEvent.disableClickPropagation(div);
     return div;
@@ -1463,9 +1484,13 @@ function setupLiveLocation(map) {
   // Sobald der User selbst die Karte verschiebt: nicht mehr automatisch folgen
   map.on('dragstart', () => { _gkLocFollow = false; });
 
-  // Still im Hintergrund starten, damit der Punkt sofort sichtbar wird
-  // (ohne die Karte ungefragt zu verschieben).
-  startLocationWatch(map, false);
+  // Still im Hintergrund nur starten, wenn Standort BEREITS erlaubt ist —
+  // sonst wuerde beim Laden ungefragt ein Berechtigungs-Dialog aufpoppen.
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'geolocation' })
+      .then((status) => { if (status.state === 'granted') startLocationWatch(map, false); })
+      .catch(() => { /* Permissions API nicht verfuegbar — dann nur per Button */ });
+  }
 }
 
 /** GPS-Watch starten. recenter=true zentriert beim ersten Fix auf die Position. */

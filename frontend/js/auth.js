@@ -1682,12 +1682,15 @@ function toggleNotifDropdown() {
   if (!isOpen) {
     // Push-Opt-in-Karte ggf. anzeigen
     if (window.GK && GK.push && GK.push.refreshOptinUI) GK.push.refreshOptinUI();
-    // Alle als gelesen markieren (In-Memory + DB)
+    // Alle als gelesen markieren (In-Memory + DB).
+    // markAllRead markiert _dbNotifications synchron (optimistisch) BEVOR der
+    // DB-Call awaited wird — daher zeigen Badge + Liste sofort den Lesestatus.
     _notifications.forEach(n => n.read = true);
     if (_currentNotifUserId && _dbNotificationsLoaded) {
       GK.notifications.markAllRead(_currentNotifUserId);
     }
     updateNotifBadge();
+    renderNotifications();
   }
 }
 

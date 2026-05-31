@@ -36,14 +36,15 @@ window.GK.notifications = (() => {
    * Einzelne Notification als gelesen markieren
    */
   async function markAsRead(notificationId) {
+    // Optimistisch: sofort lokal markieren, damit die UI ohne Warten reagiert.
+    const n = _dbNotifications.find(n => n.id === notificationId);
+    if (n) n.read = true;
     try {
-      await GK.supabase
+      const { error } = await GK.supabase
         .from('notifications')
         .update({ read: true })
         .eq('id', notificationId);
-
-      const n = _dbNotifications.find(n => n.id === notificationId);
-      if (n) n.read = true;
+      if (error) throw error;
     } catch (err) {
       console.error('Fehler beim Markieren:', err);
     }
@@ -53,14 +54,15 @@ window.GK.notifications = (() => {
    * Alle DB-Notifications als gelesen markieren
    */
   async function markAllRead(userId) {
+    // Optimistisch: sofort lokal markieren, damit Badge + Liste ohne Warten reagieren.
+    _dbNotifications.forEach(n => n.read = true);
     try {
-      await GK.supabase
+      const { error } = await GK.supabase
         .from('notifications')
         .update({ read: true })
         .eq('user_id', userId)
         .eq('read', false);
-
-      _dbNotifications.forEach(n => n.read = true);
+      if (error) throw error;
     } catch (err) {
       console.error('Fehler beim Markieren aller:', err);
     }
