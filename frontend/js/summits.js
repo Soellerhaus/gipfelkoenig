@@ -322,8 +322,11 @@ async function loadMySummits(season) {
     if (peaks.size >= 2) comboDates.add(date);
   }
 
-  // Sortieren: neuestes zuerst
+  // Sortieren: nach Anzahl Besteigungen (haeufigste zuerst),
+  // bei Gleichstand das zuletzt bestiegene zuerst.
   const sortedGroups = [...grouped.entries()].sort((a, b) => {
+    const byCount = b[1].length - a[1].length;
+    if (byCount !== 0) return byCount;
     return new Date(b[1][0].summited_at).getTime() - new Date(a[1][0].summited_at).getTime();
   });
 
@@ -590,6 +593,12 @@ async function loadMySummits(season) {
 
     const cardId = 'peak-card-' + peakId;
 
+    // Peak-Flow Deep-Link: oeffnet den Gipfel direkt auf der Peak-Flow Karte.
+    // Gleiche Supabase-Peaks-Tabelle, daher passen die Koordinaten 1:1.
+    const pfLink = (peak && peak.lat != null && peak.lng != null)
+      ? `<a href="https://www.peak-flow.app/?lat=${peak.lat}&lng=${peak.lng}&peak=${encodeURIComponent(peakName)}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:0.72rem;color:#4a90e2;text-decoration:none;font-weight:600;">🗺️ Auf Peak-Flow öffnen →</a>`
+      : '';
+
     return `
       <div class="peak-card ${rankClass}" id="${cardId}" onclick="document.getElementById('${cardId}').classList.toggle('expanded')">
         <div class="progress-bar" style="width:${progressWidth}%;"></div>
@@ -611,6 +620,7 @@ async function loadMySummits(season) {
         <div class="breakdown">
           <div style="font-size:0.7rem;color:var(--color-gold);margin-bottom:6px;font-weight:600;">Alle Besteigungen</div>
           ${breakdownHtml}
+          ${pfLink}
         </div>
       </div>
     `;
