@@ -1329,32 +1329,9 @@ async function initMap() {
   };
   hexCombo.addTo(map);
 
-  // POI-Toggle-Button (Scharten, Huetten, Aussichtspunkte etc.)
-  // Default: AUS (User hat sich beschwert, dass POIs stoeren). State in localStorage.
-  const poiToggle = L.control({ position: 'topleft' });
-  poiToggle.onAdd = function () {
-    const div = L.DomUtil.create('div', 'leaflet-bar');
-    const savedPoi = localStorage.getItem('gk_poi_visible');
-    // Default: AUS (null) — User-Wunsch
-    const poiVisible = savedPoi === 'true';
-    GK.map._poiVisible = poiVisible;
-    const color = poiVisible ? '#c9a84c' : '#666';
-    div.innerHTML = '<a href="#" title="POIs ein/aus (Huetten, Scharten, Aussichtspunkte)" id="poi-toggle-btn" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--color-bg-card,#2d2a26);color:' + color + ';font-size:16px;text-decoration:none;border-radius:4px;">📍</a>';
-    div.querySelector('a').addEventListener('click', function (e) {
-      e.preventDefault();
-      GK.map._poiVisible = !GK.map._poiVisible;
-      localStorage.setItem('gk_poi_visible', GK.map._poiVisible);
-      this.style.color = GK.map._poiVisible ? '#c9a84c' : '#666';
-      if (GK.map._poiVisible) {
-        loadPOIs(); // Sofort laden wenn aktiviert
-      } else {
-        if (poiLayer) poiLayer.clearLayers();
-      }
-    });
-    L.DomEvent.disableClickPropagation(div);
-    return div;
-  };
-  poiToggle.addTo(map);
+  // POIs (Scharten, Huetten, Aussichtspunkte) werden NICHT mehr angezeigt —
+  // der Toggle-Button (Stecknadel) wurde auf User-Wunsch entfernt.
+  GK.map._poiVisible = false;
 
   // -------------------------------------------------------------------------
   // Browser-GPS NUR beim ALLERERSTEN Besuch triggern (kein Cache vorhanden).
@@ -1405,8 +1382,6 @@ async function initMap() {
   map.on('zoomend', loadPeaksDebounced);
   map.on('moveend', loadTerritoriesDebounced);
   map.on('zoomend', loadTerritoriesOnZoom);
-  map.on('moveend', loadPOIsDebounced);
-  map.on('zoomend', loadPOIsDebounced);
 
   // Hex-Avatare SOFORT verstecken sobald sich was bewegt — verhindert
   // dass alte (riesige) Hex-Bilder aus dem vorherigen Zoom-Level
@@ -1443,13 +1418,13 @@ function setupLiveLocation(map) {
   const locateCtl = L.control({ position: 'bottomleft' });
   locateCtl.onAdd = function () {
     const div = L.DomUtil.create('div', 'leaflet-bar');
-    div.innerHTML = '<a href="#" id="locate-btn" title="Mein Standort" ' +
+    div.innerHTML = '<a href="#" id="locate-btn" title="Meine GPS-Position" ' +
       'style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;' +
       'background:var(--color-bg-card,#2d2a26);border-radius:4px;text-decoration:none;">' +
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4a90e2" ' +
-      'stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/>' +
-      '<line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/>' +
-      '<line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg></a>';
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 11l9-7 9 7"/>' +
+      '<path d="M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg></a>';
     div.querySelector('a').addEventListener('click', function (e) {
       e.preventDefault();
       _gkLocFollow = true;
