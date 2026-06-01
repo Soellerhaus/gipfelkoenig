@@ -43,7 +43,7 @@
         <div id="notif-dropdown" style="display:none; position:fixed; top:48px; right:8px; width:300px; max-height:350px; overflow-y:auto; background:var(--color-bg-card); border:1px solid var(--color-gold); border-radius:10px; z-index:2000; box-shadow:0 4px 20px rgba(0,0,0,0.5); padding:0;">
           <div style="padding:10px 14px; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:center;">
             <span style="font-size:0.8rem; font-weight:600; color:var(--color-gold);">Benachrichtigungen</span>
-            <span id="notif-mark-all" style="font-size:0.65rem; color:var(--color-muted); cursor:pointer; opacity:0.7;" onclick="event.stopPropagation(); if(window._currentNotifUserId && window.GK.notifications) { GK.notifications.markAllRead(window._currentNotifUserId); document.querySelectorAll('#notif-list > div').forEach(d => d.style.background='none'); updateNotifBadge(); }">Alle gelesen</span>
+            <span id="notif-mark-all" style="font-size:0.65rem; color:var(--color-muted); cursor:pointer; opacity:0.7;" onclick="event.stopPropagation(); if(window.GK && GK.markAllNotifsRead) GK.markAllNotifsRead();">Alle gelesen</span>
           </div>
           <!-- Push-Opt-in: erscheint nur, wenn Push unterstützt & noch nicht aktiv -->
           <div id="push-optin" style="display:none; padding:10px 14px; border-bottom:1px solid var(--color-border); background:rgba(201,168,76,0.06);">
@@ -403,7 +403,7 @@
   </div>
 
   <script src="./js/api.js"></script>
-  <script src="./js/auth.js?v=20260531"></script>
+  <script src="./js/auth.js?v=20260531b"></script>
   <script src="./js/map.js?v=20260531b"></script>
   <script src="./js/share.js?v=20260529"></script>
   <script src="./js/summits.js?v=20260531b"></script>

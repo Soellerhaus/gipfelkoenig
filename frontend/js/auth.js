@@ -1642,29 +1642,83 @@ function updateNotifBadge() {
   }
 }
 
+// Steuert, ob bereits gelesene (alte) Benachrichtigungen mit angezeigt werden.
+// Standard: nur neue/ungelesene zeigen. Der Gast kann aeltere per Klick einblenden.
+let _showReadNotifs = false;
+
 function renderNotifications() {
   const list = document.getElementById('notif-list');
   if (!list) return;
   const all = getAllNotifications();
-  if (all.length === 0) {
-    list.innerHTML = '<div style="padding:12px 14px;font-size:0.75rem;color:var(--color-muted);text-align:center;">Keine Benachrichtigungen</div>';
-    return;
+  const readCount = all.filter(n => n.read).length;
+  // Standardansicht: nur ungelesene. Mit Umschalter werden auch gelesene gezeigt.
+  const visible = _showReadNotifs ? all : all.filter(n => !n.read);
+
+  let html = '';
+  if (visible.length === 0) {
+    html = '<div style="padding:12px 14px;font-size:0.75rem;color:var(--color-muted);text-align:center;">'
+      + (_showReadNotifs ? 'Keine Benachrichtigungen' : 'Keine neuen Benachrichtigungen')
+      + '</div>';
+  } else {
+    html = visible.map(n => {
+      const ago = timeAgo(n.time);
+      const bg = n.read ? '' : 'background:rgba(201,168,76,0.06);';
+      // Eindeutiger Schluessel: DB-UUID oder Memory-Key (type+Zeit)
+      const key = n.id || ('mem-' + n.type + '-' + n.time.getTime());
+      const url = (n.data && n.data.url) ? n.data.url : '';
+      return '<div style="padding:8px 14px;border-bottom:1px solid var(--color-border);' + bg + 'cursor:pointer;" '
+        + 'onclick="GK.notifClick(\'' + key + '\',\'' + url + '\')">'
+        + '<div style="display:flex;gap:8px;align-items:flex-start;">'
+        + '<span style="font-size:1.1rem;">' + n.icon + '</span>'
+        + '<div style="flex:1;">'
+        + '<div style="font-size:0.75rem;color:var(--color-text);line-height:1.3;">' + n.text + '</div>'
+        + '<div style="font-size:0.6rem;color:var(--color-muted);margin-top:2px;">' + ago + '</div>'
+        + '</div></div></div>';
+    }).join('');
   }
-  list.innerHTML = all.map(n => {
-    const ago = timeAgo(n.time);
-    const bg = n.read ? '' : 'background:rgba(201,168,76,0.06);';
-    const clickAttr = n.data && n.data.url
-      ? 'onclick="window.location.href=\'' + n.data.url + '\'"'
-      : 'onclick="this.style.background=\'none\'"';
-    return '<div style="padding:8px 14px;border-bottom:1px solid var(--color-border);' + bg + 'cursor:pointer;" ' + clickAttr + '>'
-      + '<div style="display:flex;gap:8px;align-items:flex-start;">'
-      + '<span style="font-size:1.1rem;">' + n.icon + '</span>'
-      + '<div style="flex:1;">'
-      + '<div style="font-size:0.75rem;color:var(--color-text);line-height:1.3;">' + n.text + '</div>'
-      + '<div style="font-size:0.6rem;color:var(--color-muted);margin-top:2px;">' + ago + '</div>'
-      + '</div></div></div>';
-  }).join('');
+
+  // Umschalter fuer aeltere (gelesene) Nachrichten — nur wenn es welche gibt.
+  if (readCount > 0) {
+    html += '<div onclick="GK.toggleShowRead()" style="padding:8px 14px;text-align:center;font-size:0.65rem;color:var(--color-muted);cursor:pointer;border-top:1px solid var(--color-border);">'
+      + (_showReadNotifs ? '▲ Ältere ausblenden' : '▼ ' + readCount + ' ältere anzeigen')
+      + '</div>';
+  }
+
+  list.innerHTML = html;
 }
+
+// Einzelne Benachrichtigung anklicken: als gelesen markieren (verschwindet aus
+// der Standardansicht) und ggf. zum Ziel-Link navigieren.
+window.GK = window.GK || {};
+GK.notifClick = function(key, url) {
+  if (key && key.indexOf('mem-') === 0) {
+    _notifications.forEach(n => {
+      if (('mem-' + n.type + '-' + n.time.getTime()) === key) n.read = true;
+    });
+  } else if (key && _currentNotifUserId && GK.notifications) {
+    GK.notifications.markAsRead(key); // setzt read=true lokal in _dbNotifications
+  }
+  updateNotifBadge();
+  renderNotifications();
+  if (url) window.location.href = url;
+};
+
+// Aeltere (gelesene) Nachrichten ein-/ausblenden.
+GK.toggleShowRead = function() {
+  _showReadNotifs = !_showReadNotifs;
+  renderNotifications();
+};
+
+// "Alle gelesen": markiert alles als gelesen → alte verschwinden, nur neue bleiben.
+GK.markAllNotifsRead = function() {
+  _notifications.forEach(n => n.read = true);
+  if (_currentNotifUserId && _dbNotificationsLoaded && GK.notifications) {
+    GK.notifications.markAllRead(_currentNotifUserId);
+  }
+  _showReadNotifs = false;
+  updateNotifBadge();
+  renderNotifications();
+};
 
 function timeAgo(date) {
   const s = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -1682,14 +1736,10 @@ function toggleNotifDropdown() {
   if (!isOpen) {
     // Push-Opt-in-Karte ggf. anzeigen
     if (window.GK && GK.push && GK.push.refreshOptinUI) GK.push.refreshOptinUI();
-    // Alle als gelesen markieren (In-Memory + DB).
-    // markAllRead markiert _dbNotifications synchron (optimistisch) BEVOR der
-    // DB-Call awaited wird — daher zeigen Badge + Liste sofort den Lesestatus.
-    _notifications.forEach(n => n.read = true);
-    if (_currentNotifUserId && _dbNotificationsLoaded) {
-      GK.notifications.markAllRead(_currentNotifUserId);
-    }
-    updateNotifBadge();
+    // Beim Oeffnen NICHT automatisch alles als gelesen markieren —
+    // der Gast entscheidet selbst (Klick auf Eintrag oder "Alle gelesen").
+    // Standardansicht zeigt nur neue/ungelesene Benachrichtigungen.
+    _showReadNotifs = false;
     renderNotifications();
   }
 }
