@@ -473,6 +473,9 @@ async function loadMySummits(season) {
     const regionCounts = {};
     for (const [pid, peak] of peakMap) {
       if (!peak.lat || !peak.lng) continue;
+      // Nur besteigbare Gipfel zaehlen (reachable=false ausschliessen;
+      // NULL = noch nicht analysiert = erlaubt, wie auf der Karte)
+      if (peak.reachable === false) continue;
       for (const sr of SUB_REGIONS) {
         if (peak.lat >= sr.latMin && peak.lat <= sr.latMax &&
             peak.lng >= sr.lngMin && peak.lng <= sr.lngMax) {
@@ -499,6 +502,8 @@ async function loadMySummits(season) {
         GK.supabase.from('peaks').select('*', { count: 'exact', head: true })
           .gte('lat', r.sr.latMin).lte('lat', r.sr.latMax)
           .gte('lng', r.sr.lngMin).lte('lng', r.sr.lngMax)
+          // Nur besteigbare Gipfel in den Gesamtwert (reachable=false ausschliessen)
+          .or('reachable.eq.true,reachable.is.null')
           .then(({ count }) => count || r.data.count)
           .catch(() => r.data.count)
       ));
