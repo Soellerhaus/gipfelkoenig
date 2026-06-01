@@ -361,9 +361,6 @@ async function loadMySummits(season) {
         <div style="font-size:0.65rem;color:var(--color-muted);text-transform:uppercase;letter-spacing:1px;">Kilometer</div>
       </div>
     </div>
-    <div style="text-align:center;margin-bottom:1rem;">
-      <div style="font-size:1.8rem;font-weight:700;color:var(--color-gold);font-family:var(--font-display);">${totalPoints.toLocaleString('de')} Punkte</div>
-    </div>
   `;
 
   // "Nächstes Los" Motivation
@@ -614,7 +611,11 @@ async function loadMySummits(season) {
     `;
   }).join('');
 
-  container.innerHTML = statsHtml + nextLosHtml + recentHtml + regionProgressHtml + (sortedGroups.length > 0 ? '<div style="font-size:0.85rem;font-weight:600;color:var(--color-gold);margin-bottom:8px;">Deine Gipfel</div>' + cardsHtml : '');
+  // Reihenfolge (User-Wunsch): Gesamt-Statistik zuerst, dann Regionen-Fortschritt,
+  // dann die eigenen Gipfel mit allen Besteigungen.
+  // Bewusst WEGGELASSEN: grosse Punkte-Zahl, "Naechstes Los"-Box (nextLosHtml)
+  // und "Letzte Aktivitaeten" (recentHtml) — keine Punkte-/Lose-Info mehr.
+  container.innerHTML = statsHtml + regionProgressHtml + (sortedGroups.length > 0 ? '<div style="font-size:0.85rem;font-weight:600;color:var(--color-gold);margin-bottom:8px;">Deine Gipfel</div>' + cardsHtml : '');
 }
 
 // ---------------------------------------------------------------------------
