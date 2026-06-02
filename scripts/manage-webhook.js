@@ -102,6 +102,28 @@ async function main() {
     return
   }
 
+  // ensure: idempotenter Selbstheilungs-Modus fuer den taeglichen Cron.
+  // - Korrektes Abo vorhanden  → nichts tun (kein Churn)
+  // - Falsches/verwaistes Abo  → loeschen
+  // - Kein korrektes Abo       → neu anlegen
+  // Exit-Code 0 = alles ok / repariert, 2 = Reparatur fehlgeschlagen.
+  if (action === 'ensure') {
+    const correct = subs.find(s => s.callback_url === CALLBACK_URL)
+    if (correct) {
+      console.log('✓ Abo aktiv (ID ' + correct.id + ') — nichts zu tun.')
+      return
+    }
+    console.log('⚠ Kein korrektes Abo gefunden — heile selbst...')
+    for (const s of subs) {
+      console.log(`  Lösche verwaistes Abo ${s.id}...`)
+      try { await deleteSubscription(s.id) } catch (e) { console.error('  Delete-Fehler:', e.message) }
+    }
+    const newSub = await createSubscription()
+    console.log('  ✓ Neues Abo erstellt: ID ' + newSub.id)
+    console.log('SELBSTHEILUNG ERFOLGREICH')
+    return
+  }
+
   if (action === 'delete' || action === 'fix') {
     for (const s of subs) {
       console.log(`Lösche Subscription ${s.id}...`)
