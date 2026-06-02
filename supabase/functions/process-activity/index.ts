@@ -430,7 +430,7 @@ serve(async (req) => {
           checkin_method: 'strava', points: noGipfelPts,
           is_season_first: false, is_personal_first: false,
           safety_ok: true, safety_level: 0,
-          elevation_gain: noGipfelHM, distance: noGipfelKM * 1000
+          elevation_gain: noGipfelHM, distance: noGipfelKM
         })
         totalPoints = noGipfelPts
 
@@ -562,7 +562,7 @@ serve(async (req) => {
         checkin_method: 'strava',
         points,
         elevation_gain: elevGain,
-        distance: distKm * 1000,
+        distance: distKm,
         is_season_first: isSeasonFirst,
         is_personal_first: isPersonalFirst,
         safety_ok: true,
