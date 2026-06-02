@@ -8,6 +8,60 @@
 window.GK = window.GK || {};
 GK.onboarding = {};
 
+// ===========================================================================
+// Sicherheits-Disclaimer — einmalig beim ersten App-Start, muss bestaetigt
+// werden. Bergkoenig ist ein Spiel, kein Tourenplaner. Wo Lawinendaten
+// vorliegen, sperren wir gefaehrliche Gipfel — ueberall sonst gilt:
+// auf eigene Verantwortung.
+// ===========================================================================
+(function () {
+  'use strict';
+  const ACK = 'bergkoenig_safety_ack_v1';
+
+  function showDisclaimer() {
+    if (localStorage.getItem(ACK)) return;
+    if (document.getElementById('gk-safety-modal')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'gk-safety-modal';
+    overlay.style.cssText =
+      'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,0.7);' +
+      'display:flex;align-items:center;justify-content:center;padding:18px;';
+    overlay.innerHTML =
+      '<div style="max-width:420px;background:linear-gradient(135deg,#2a2620,#1c1915);' +
+      'border:1px solid var(--color-gold,#c9a84c);border-radius:16px;padding:22px;' +
+      'box-shadow:0 12px 40px rgba(0,0,0,0.6);">' +
+        '<div style="font-size:2rem;text-align:center;margin-bottom:8px;">⚠️</div>' +
+        '<h2 style="font-family:var(--font-display,serif);color:var(--color-gold,#c9a84c);' +
+        'text-align:center;margin:0 0 12px;font-size:1.2rem;">Sicherheitshinweis</h2>' +
+        '<p style="color:var(--color-cream,#f0ece4);font-size:0.85rem;line-height:1.5;margin:0 0 10px;">' +
+          'Bergkönig ist ein <strong>Spiel</strong>, kein Tourenplaner. Berge bergen echte ' +
+          'Gefahren — Lawinen, Wetter, Absturz. Du bist <strong>auf eigene Verantwortung</strong> unterwegs.' +
+        '</p>' +
+        '<p style="color:var(--color-muted,#a89b86);font-size:0.78rem;line-height:1.5;margin:0 0 18px;">' +
+          'Prüfe Verhältnisse, Lawinenlage und dein Können immer selbst. Wo Lawinendaten ' +
+          'vorliegen, sperren wir gefährliche Gipfel — verlass dich aber nie allein darauf.' +
+        '</p>' +
+        '<button id="gk-safety-ok" style="width:100%;background:var(--color-gold,#c9a84c);' +
+        'color:#1a1814;border:none;padding:11px;border-radius:10px;font-weight:700;' +
+        'font-size:0.9rem;cursor:pointer;">Verstanden — auf eigene Gefahr</button>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+    overlay.querySelector('#gk-safety-ok').addEventListener('click', function () {
+      localStorage.setItem(ACK, new Date().toISOString());
+      overlay.remove();
+    });
+  }
+
+  GK.onboarding.showSafetyDisclaimer = showDisclaimer;
+  GK.onboarding.resetSafetyAck = function () { localStorage.removeItem(ACK); };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(showDisclaimer, 600); // vor dem Kronen-Banner
+  });
+})();
+
 (function () {
   'use strict';
 
