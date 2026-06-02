@@ -114,7 +114,7 @@
       try {
         const { data: authData, error: authError } = await GK.supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: 'https://bergkoenig.app/app.html' }
+          options: { emailRedirectTo: 'https://www.bergkoenig.app/app.html' }
         });
         if (authError) throw authError;
 
