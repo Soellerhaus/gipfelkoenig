@@ -270,49 +270,40 @@ serve(async (req) => {
     const activity = await activityRes.json()
     const activityStart = new Date(activity.start_date)
 
-    // 3. Alle GPS-Punkte gegen peaks Tabelle prüfen (PostGIS 80m Radius)
-    // Wir prüfen nicht jeden Punkt einzeln sondern nur die höchsten Punkte
-    // und Punkte mit geringer Geschwindigkeit (= potenzielle Gipfelpausen)
+    // 3. GPS-Punkte gegen Gipfel pruefen — EFFIZIENT (1 DB-Abfrage statt ~1 pro Punkt).
+    // WICHTIG: Frueher lief pro 10. GPS-Punkt eine eigene PostGIS-Abfrage. Bei langen
+    // Touren (z.B. 10.000 Punkte) waren das ~1000 DB-Roundtrips → Funktion lief ins
+    // Zeitlimit (WORKER_RESOURCE_LIMIT) und die Tour wurde NICHT importiert.
+    // Jetzt: nahe Gipfel EINMAL per Bounding-Box laden, dann im Speicher pruefen.
     const gpsPoints: [number, number][] = latlngStream.data
     const foundPeaks = new Map<number, { lat: number, lng: number, timeOffset: number }>()
 
-    // Prüfe jeden 10. Punkt und alle Punkte nahe lokalen Maxima
-    for (let i = 0; i < gpsPoints.length; i += 10) {
+    // Bounding-Box der gesamten Tour
+    const trackLatMin = Math.min(...gpsPoints.map((p: any) => p[0]))
+    const trackLatMax = Math.max(...gpsPoints.map((p: any) => p[0]))
+    const trackLngMin = Math.min(...gpsPoints.map((p: any) => p[1]))
+    const trackLngMax = Math.max(...gpsPoints.map((p: any) => p[1]))
+
+    // Alle erreichbaren Gipfel im Tour-Bereich EINMAL laden
+    const { data: trackPeaks } = await supabase
+      .from('peaks')
+      .select('id, name, lat, lng, elevation, osm_region, season_from, season_to')
+      .eq('reachable', true)
+      .gte('lat', trackLatMin - 0.005).lte('lat', trackLatMax + 0.005)
+      .gte('lng', trackLngMin - 0.005).lte('lng', trackLngMax + 0.005)
+      .limit(3000)
+
+    const candidatePeaks = trackPeaks || []
+
+    // GPS-Punkte im Speicher pruefen (jeder 5. reicht; 80m Radius).
+    // Schneller Vorfilter via Math.abs (~111m), erst dann Haversine.
+    for (let i = 0; i < gpsPoints.length; i += 5) {
       const [lat, lng] = gpsPoints[i]
       const timeOffset = timeStream?.data?.[i] || 0
-
-      // PostGIS Query: Gipfel innerhalb 80m
-      const { data: nearbyPeaks } = await supabase.rpc('find_nearby_peaks', {
-        p_lat: lat,
-        p_lng: lng,
-        p_radius: 80
-      }).select('id, name, elevation, osm_region, season_from, season_to')
-
-      // Fallback: Direkte Query wenn RPC nicht existiert
-      if (!nearbyPeaks) {
-        const { data: peaks } = await supabase
-          .from('peaks')
-          .select('id, name, lat, lng, elevation, osm_region, season_from, season_to')
-          .eq('reachable', true)
-          .gte('lat', lat - 0.001)
-          .lte('lat', lat + 0.001)
-          .gte('lng', lng - 0.001)
-          .lte('lng', lng + 0.001)
-
-        if (peaks) {
-          for (const peak of peaks) {
-            // Haversine Distanz prüfen (80m)
-            const dist = haversineDistance(lat, lng, peak.lat, peak.lng)
-            if (dist <= 80 && !foundPeaks.has(peak.id)) {
-              foundPeaks.set(peak.id, { lat, lng, timeOffset })
-            }
-          }
-        }
-        continue
-      }
-
-      for (const peak of nearbyPeaks || []) {
-        if (!foundPeaks.has(peak.id)) {
+      for (const peak of candidatePeaks) {
+        if (foundPeaks.has(peak.id)) continue
+        if (Math.abs(peak.lat - lat) > 0.001 || Math.abs(peak.lng - lng) > 0.001) continue
+        if (haversineDistance(lat, lng, peak.lat, peak.lng) <= 80) {
           foundPeaks.set(peak.id, { lat, lng, timeOffset })
         }
       }
