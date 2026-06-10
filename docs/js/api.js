@@ -106,7 +106,10 @@ GK.api.getPeaksByIds = async function (ids) {
     try {
       const { data } = await supabaseClient
         .from('peaks')
-        .select('*')
+        // Leichte Spalten statt select('*') — KEINE description/Geometrie
+        // (sonst auf der Nano-DB zu langsam). Beschreibung wird bei Bedarf
+        // einzeln nachgeladen (siehe map.js openPeakPanel).
+        .select('id, name, lat, lng, elevation, osm_region, reachable, is_active, difficulty, season_from, season_to')
         .in('id', batch);
       if (data) {
         for (const p of data) {
