@@ -31,13 +31,19 @@ GK.api = {};
  */
 GK.api.getPeaks = async function (bounds) {
   try {
+    // WICHTIG (Performance): NUR die fuer die Karten-Marker noetigen Spalten laden.
+    // Frueher "select('*')" — das zog u.a. die lange "description" + Geometrie fuer
+    // JEDEN Gipfel. Bei 139.000 Gipfeln lief die Abfrage in einen 504-Timeout und
+    // sattigte die DB (→ auch Login fiel aus). Die Beschreibung wird erst beim
+    // Oeffnen eines Gipfels nachgeladen. Limit als Sicherheitsnetz bei Weitzoom.
     const { data, error } = await supabaseClient
       .from('peaks')
-      .select('*')
+      .select('id, name, lat, lng, elevation, reachable, is_active')
       .gte('lat', bounds.south)
       .lte('lat', bounds.north)
       .gte('lng', bounds.west)
-      .lte('lng', bounds.east);
+      .lte('lng', bounds.east)
+      .limit(2000);
 
     if (error) throw error;
     return data;
