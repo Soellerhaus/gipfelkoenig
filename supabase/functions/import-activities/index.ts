@@ -73,9 +73,29 @@ function delay(ms: number): Promise<void> {
 }
 
 // GPS-Punkte gegen Gipfel prüfen
+// Google Encoded Polyline decodieren → Liste von [lat, lng].
+// Strava liefert "summary_polyline" bereits in der Aktivitaeten-Liste mit,
+// dadurch brauchen wir KEINEN extra Stream-Abruf pro Tour (kein Rate-Limit,
+// keine 1,5s-Pause) → Import wird drastisch schneller.
+function decodePolyline(encoded: string): [number, number][] {
+  const points: [number, number][] = []
+  let index = 0, lat = 0, lng = 0
+  while (index < encoded.length) {
+    let b: number, shift = 0, result = 0
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1)
+    shift = 0; result = 0
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1)
+    points.push([lat / 1e5, lng / 1e5])
+  }
+  return points
+}
+
 function findPeaksInTrack(gpsPoints: [number, number][], timeOffsets: number[], peaks: any[]): Map<number, { peak: any, timeOffset: number }> {
   const found = new Map<number, { peak: any, timeOffset: number }>()
-  for (let i = 0; i < gpsPoints.length; i += 3) {
+  // Jeden Punkt pruefen (Polyline ist bereits vereinfacht/sparsam).
+  for (let i = 0; i < gpsPoints.length; i += 1) {
     const [lat, lng] = gpsPoints[i]
     const timeOffset = timeOffsets[i] || 0
     for (const peak of peaks) {
@@ -261,30 +281,13 @@ serve(async (req) => {
           continue
         }
 
-        // GPS-Streams holen
-        await delay(1500) // Rate Limiting
-        const streamUrl = `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=latlng,time&key_type=stream`
-        const streamRes = await fetch(streamUrl, {
-          headers: { 'Authorization': `Bearer ${activeToken}` }
-        })
-
-        if (!streamRes.ok) {
-          if (streamRes.status === 429) {
-            // Rate Limit — Seite abbrechen, Frontend soll später retry machen
-            console.log('Rate Limit erreicht — breche Seite ab, Frontend soll warten und erneut versuchen')
-            return new Response(JSON.stringify({
-              done: false, page, rate_limited: true, has_more: true,
-              summits_found: summitsFound, points: pagePoints, peaks: peakNames,
-              oldest_date: activity.start_date
-            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-          }
-          continue
-        }
-
-        const streams = await streamRes.json()
-        const latlng = streams.find((s: any) => s.type === 'latlng')?.data
-        const time = streams.find((s: any) => s.type === 'time')?.data || []
-        if (!latlng?.length) continue
+        // GPS-Spur aus der summary_polyline — kommt schon in der Aktivitaeten-
+        // Liste mit. KEIN extra Strava-Abruf, KEINE 1,5s-Pause, kein Rate-Limit.
+        const poly = activity.map?.summary_polyline
+        if (!poly) continue
+        const latlng = decodePolyline(poly)
+        if (!latlng.length) continue
+        const time: number[] = [] // Polyline hat keine Zeit → Gipfelzeit = Aktivitaetsstart
 
         // Gipfel suchen (nur nahe Gipfel, nicht 42k!)
         const found = findPeaksInTrack(latlng, time, nearbyPeaks)
