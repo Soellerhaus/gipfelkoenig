@@ -363,12 +363,12 @@
       }
       if (!code) return;
 
-      // Erkennung: Strava oder Suunto Callback?
-      // Erkennung über pending_oauth Flag (zuverlässiger als State-Vergleich)
-      const pendingOAuth = localStorage.getItem('pending_oauth');
+      // Routing per scope-Parameter: Strava-Callbacks tragen IMMER "scope",
+      // Suunto-Callbacks NIE. Das ist eindeutig und altert nicht (anders als
+      // localStorage-Flags, die bei abgebrochenen Flows haengenbleiben und
+      // einen Code an den falschen Anbieter schicken).
       localStorage.removeItem('pending_oauth');
-
-      if (pendingOAuth === 'suunto') return; // Suunto-Handler verarbeitet es
+      if (!params.get('scope')) return; // Kein Strava-Callback → Suunto-Handler macht's
 
       // Strava Callback — State-Check weich (localStorage statt sessionStorage)
       const savedStravaState = localStorage.getItem('strava_oauth_state');
@@ -489,6 +489,14 @@
       const code = params.get('code');
       const state = params.get('state');
       const error = params.get('error');
+
+      // Strava-Callbacks tragen "scope", Suunto nie → verhindert, dass ein
+      // Strava-Code (bei veraltetem suunto_oauth_state) faelschlich an Suunto
+      // geht ("invalid authorization code"). Stale State gleich aufraeumen.
+      if (params.get('scope')) {
+        localStorage.removeItem('suunto_oauth_state');
+        return;
+      }
 
       // Nur verarbeiten wenn Suunto-State vorhanden (nicht Strava)
       const savedState = localStorage.getItem('suunto_oauth_state');
