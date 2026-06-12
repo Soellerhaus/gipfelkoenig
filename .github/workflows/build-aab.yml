@@ -1,0 +1,58 @@
+name: Build Android AAB
+
+# Baut die signierte Android-App (.aab) fuer den Play Store in der Cloud.
+# Manuell ausloesen: Actions -> "Build Android AAB" -> Run workflow.
+#
+# Benoetigte GitHub-Secrets (Settings -> Secrets and variables -> Actions):
+#   SIGNING_KEYSTORE  = base64 des bergkoenig.keystore  (base64 -w0 bergkoenig.keystore)
+#   KEYSTORE_PASSWORD = <Keystore-Passwort>   (steht in twa/signing-key-info.txt)
+#   KEY_ALIAS         = <Key-Alias>           (steht in twa/signing-key-info.txt)
+#   KEY_PASSWORD      = <Key-Passwort>        (steht in twa/signing-key-info.txt)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Capacitor dependencies
+        run: npm install
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Capacitor sync (Web-Assets -> android)
+        run: npx cap sync android
+
+      - name: Decode signing keystore
+        run: echo "${{ secrets.SIGNING_KEYSTORE }}" | base64 -d > android/app/signing.keystore
+
+      - name: Build AAB
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/app/signing.keystore \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: bergkoenig-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
