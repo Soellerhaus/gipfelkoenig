@@ -1,0 +1,41 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build und Upload zu TestFlight (App Store Connect API, automatische Cloud-Signierung)"
+  lane :beta do
+    # App Store Connect API-Key aus den ENV-Secrets (p8-Inhalt)
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_content: ENV["ASC_KEY_P8"],
+      is_key_content_base64: false,
+      in_house: false
+    )
+
+    # Build-Nummer = GitHub-Run-Nummer (TestFlight verlangt steigende Nummern)
+    increment_build_number(
+      xcodeproj: "ios/App/App.xcodeproj",
+      build_number: ENV["BUILD_NUMBER"]
+    )
+
+    # Archiv bauen + signieren — automatische Signierung mit Cloud-Zertifikat
+    # (-allowProvisioningUpdates: Xcode erstellt Cert + Profil ueber den API-Key)
+    build_app(
+      project: "ios/App/App.xcodeproj",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates",
+      export_options: {
+        signingStyle: "automatic",
+        teamID: ENV["APPLE_TEAM_ID"]
+      }
+    )
+
+    # Hochladen zu TestFlight
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end

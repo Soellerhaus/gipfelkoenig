@@ -1,0 +1,46 @@
+name: Build iOS (TestFlight)
+
+# Baut die iOS-App auf einem GitHub-Cloud-Mac, signiert automatisch (App Store
+# Connect API + Cloud-Zertifikat) und laedt zu TestFlight. KEIN eigener Mac noetig.
+# Manuell ausloesen: Actions -> "Build iOS (TestFlight)" -> Run workflow.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  ios:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Xcode auswaehlen
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: JS-Abhaengigkeiten
+        run: npm install
+
+      - name: Capacitor sync iOS (Web-Assets + SPM)
+        run: npx cap sync ios
+
+      - name: Ruby + fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Build & Upload zu TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: bundle exec fastlane ios beta
