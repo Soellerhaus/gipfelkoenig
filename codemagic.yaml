@@ -22,28 +22,25 @@ workflows:
         bundle_identifier: app.bergkoenig.www
       vars:
         BUNDLE_ID: "app.bergkoenig.www"
-        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
       node: 20
       xcode: latest
-      cocoapods: default
     scripts:
       - name: NPM install
         script: npm install
-      - name: Capacitor iOS sync (Web-Assets -> iOS)
+      - name: Capacitor iOS sync (Web-Assets -> iOS, SPM)
         script: npx cap sync ios
-      - name: CocoaPods install
-        script: cd ios/App && pod install
       - name: Code-Signing (Profile laden)
         script: xcode-project use-profiles
       - name: Build-Nummer setzen
         script: |
           cd ios/App
           agvtool new-version -all "$BUILD_NUMBER"
-      - name: IPA bauen
+      - name: IPA bauen (SPM, kein CocoaPods)
         script: |
           xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
+            --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
