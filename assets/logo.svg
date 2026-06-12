@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a1814"/>
+  <!-- Berg-Silhouette -->
+  <polygon points="256,80 400,360 112,360" fill="#2d2a26" stroke="#c9a84c" stroke-width="4"/>
+  <polygon points="200,180 300,360 100,360" fill="#2d2a26" stroke="#c9a84c" stroke-width="3" opacity="0.6"/>
+  <!-- Schneekappe -->
+  <polygon points="256,80 280,140 232,140" fill="#f0ece4"/>
+  <!-- Krone -->
+  <g transform="translate(206,50)" fill="#c9a84c">
+    <polygon points="50,0 60,25 75,5 70,30 100,0 85,35 50,45 15,35 0,0 30,30 25,5 40,25"/>
+  </g>
+</svg>

@@ -47,5 +47,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Bergkönig nutzt deinen Standort für den GPS-Check-in am Gipfel und um dich auf der Karte zu zeigen.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Bergkönig nutzt deinen Standort für den GPS-Check-in am Gipfel und um dich auf der Karte zu zeigen.</string>
 </dict>
 </plist>
