@@ -4,6 +4,7 @@ node_modules/
 
 # Signing-Geheimnisse — niemals committen
 *.keystore
+*.keystore.b64
 *.jks
 **/signing-key-info.txt
 *.p8
