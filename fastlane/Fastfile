@@ -3,6 +3,10 @@ default_platform(:ios)
 platform :ios do
   desc "Build und Upload zu TestFlight (match Distribution-Signierung)"
   lane :beta do
+    # CI-Keychain anlegen + entsperren (verhindert codesign-Hang: ohne das
+    # wartet codesign auf einen Keychain-Zugriffs-Dialog, der auf CI nie kommt).
+    setup_ci
+
     # App Store Connect API-Key (p8 in Datei schreiben)
     key_path = File.expand_path("AuthKey.p8")
     File.write(key_path, ENV["ASC_KEY_P8"])
