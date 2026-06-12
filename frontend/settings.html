@@ -246,6 +246,7 @@
   </div>
 
   <script src="./js/api.js"></script>
+  <script src="./js/native.js"></script>
   <script>
     const STRAVA_CLIENT_ID = '211591';
 
@@ -335,7 +336,7 @@
       localStorage.setItem('strava_oauth_state', state);
       localStorage.setItem('pending_oauth', 'strava');
       const redirectUri = 'https://bergkoenig.app/settings.html';
-      window.location.href =
+      const authUrl =
         'https://www.strava.com/oauth/authorize' +
         '?client_id=' + STRAVA_CLIENT_ID +
         '&redirect_uri=' + encodeURIComponent(redirectUri) +
@@ -343,6 +344,9 @@
         '&scope=read,activity:read_all,activity:write' +
         '&state=' + state +
         '&approval_prompt=force';
+      // Native App: System-Browser (Ruecksprung via App-Link) · Web: Weiterleitung
+      if (window.GK && GK.native && GK.native.isNative) GK.native.openOAuth(authUrl);
+      else window.location.href = authUrl;
     };
     var stravaBtn = document.getElementById('connect-strava-btn');
     if (stravaBtn) stravaBtn.addEventListener('click', (e) => {
@@ -470,13 +474,16 @@
       localStorage.setItem('pending_oauth', 'suunto');
       const clientId = '32db5831-859b-4ba5-888d-4b35d8dba7fe';
       const redirectUri = encodeURIComponent('https://bergkoenig.app/settings.html');
-      window.location.href =
+      const authUrl =
         'https://cloudapi-oauth.suunto.com/oauth/authorize' +
         '?response_type=code' +
         '&client_id=' + clientId +
         '&redirect_uri=' + redirectUri +
         '&scope=workout' +
         '&state=' + state;
+      // Native App: System-Browser (Ruecksprung via App-Link) · Web: Weiterleitung
+      if (window.GK && GK.native && GK.native.isNative) GK.native.openOAuth(authUrl);
+      else window.location.href = authUrl;
     };
     document.getElementById('connect-suunto-btn').addEventListener('click', (e) => {
       e.preventDefault();

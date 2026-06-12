@@ -18,6 +18,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- App Links: OAuth-Ruecksprung (Strava/Suunto) oeffnet die App.
+                 Verifiziert ueber /.well-known/assetlinks.json auf bergkoenig.app. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="bergkoenig.app" android:pathPrefix="/settings.html" />
+                <data android:scheme="https" android:host="www.bergkoenig.app" android:pathPrefix="/settings.html" />
+                <data android:scheme="https" android:host="bergkoenig.app" android:pathPrefix="/connect.html" />
+                <data android:scheme="https" android:host="www.bergkoenig.app" android:pathPrefix="/connect.html" />
+            </intent-filter>
         </activity>
 
         <provider

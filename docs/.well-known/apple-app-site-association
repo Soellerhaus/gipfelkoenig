@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "7K4RT87LGF.app.bergkoenig.www",
+        "paths": [ "/settings.html", "/settings.html*", "/connect.html", "/connect.html*" ]
+      }
+    ]
+  }
+}
