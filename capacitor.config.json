@@ -1,0 +1,17 @@
+{
+  "appId": "app.bergkoenig.www",
+  "appName": "Bergkönig",
+  "webDir": "frontend",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#1a1814"
+    },
+    "Geolocation": {
+      "enableHighAccuracy": true
+    }
+  }
+}

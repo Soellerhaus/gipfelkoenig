@@ -1,5 +1,23 @@
 {
+  "name": "bergkoenig",
+  "version": "1.0.1",
+  "description": "Bergkönig — Gipfel sammeln, Kronen erobern (Capacitor App-Huelle fuer iOS + Android)",
+  "scripts": {
+    "cap:sync": "cap sync",
+    "cap:ios": "cap sync ios",
+    "cap:android": "cap sync android"
+  },
   "dependencies": {
-    "@supabase/supabase-js": "^2.99.3"
+    "@supabase/supabase-js": "^2.99.3",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/share": "^8.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
+    "@capacitor/android": "^8.4.0"
   }
 }

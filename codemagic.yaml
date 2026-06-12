@@ -1,0 +1,55 @@
+# Codemagic CI — baut die Bergkönig iOS-App auf einem Cloud-Mac,
+# signiert sie und lädt sie automatisch zu App Store Connect / TestFlight.
+# KEIN eigener Mac nötig.
+#
+# EINMALIG in der Codemagic-Web-UI einzurichten (Claudio):
+#  1) Mit GitHub anmelden → dieses Repo (Soellerhaus/gipfelkoenig) hinzufügen
+#  2) Team → Integrations → App Store Connect → API-Key hochladen (.p8 + Key ID + Issuer ID)
+#     und diese Integration exakt "CodemagicAppStoreKey" nennen (siehe unten).
+#  3) In App Store Connect eine App mit Bundle-ID app.bergkoenig.www anlegen.
+#  4) Build starten. Fertig → landet in TestFlight.
+
+workflows:
+  ios-release:
+    name: Bergkönig iOS Release
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: CodemagicAppStoreKey   # Name der API-Key-Integration aus der Codemagic-UI
+    environment:
+      ios_signing:
+        distribution_type: app_store             # Codemagic erstellt Zertifikat + Profil automatisch
+        bundle_identifier: app.bergkoenig.www
+      vars:
+        BUNDLE_ID: "app.bergkoenig.www"
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: NPM install
+        script: npm install
+      - name: Capacitor iOS sync (Web-Assets -> iOS)
+        script: npx cap sync ios
+      - name: CocoaPods install
+        script: cd ios/App && pod install
+      - name: Code-Signing (Profile laden)
+        script: xcode-project use-profiles
+      - name: Build-Nummer setzen
+        script: |
+          cd ios/App
+          agvtool new-version -all "$BUILD_NUMBER"
+      - name: IPA bauen
+        script: |
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true     # erst TestFlight (sicher testbar)
+        submit_to_app_store: false     # finale Store-Freigabe machst du manuell im App Store Connect
