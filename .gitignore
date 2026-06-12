@@ -9,3 +9,4 @@ node_modules/
 **/signing-key-info.txt
 *.p8
 *.mobileprovision
+**/match_password.txt
