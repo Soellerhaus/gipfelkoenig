@@ -5,7 +5,7 @@
   "start_url": "/app.html",
   "display": "standalone",
   "background_color": "#1a1814",
-  "theme_color": "#c9a84c",
+  "theme_color": "#1a1814",
   "orientation": "portrait-primary",
   "id": "/app.html",
   "scope": "/",

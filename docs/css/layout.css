@@ -217,7 +217,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1rem;
+  /* padding-top = Safe-Area: Logo/Glocke rutschen unter den Notch */
+  padding: var(--safe-top) 1rem 0;
   background: var(--color-bg);
   border-bottom: 1px solid var(--granite);
   position: sticky;
@@ -507,6 +508,8 @@
   left: 0;
   right: 0;
   z-index: 1000;
+  /* padding-bottom = Safe-Area: Buttons bleiben ueber dem Home-Indikator */
+  padding-bottom: var(--safe-bottom);
 }
 
 .nav-item {

@@ -42,8 +42,14 @@
   --shadow-sm:       none;
 
   --transition:      0.2s ease;
-  --header-height:   56px;
-  --nav-height:      52px;
+
+  /* iOS Safe-Area (Notch / Home-Indikator). Auf Geraeten OHNE Notch liefert
+     env() 0 -> KEIN Effekt auf Android/Desktop. In die Hoehen-Variablen
+     gefaltet, damit alle bestehenden Abstaende automatisch korrekt sitzen. */
+  --safe-top:        env(safe-area-inset-top, 0px);
+  --safe-bottom:     env(safe-area-inset-bottom, 0px);
+  --header-height:   calc(56px + var(--safe-top));
+  --nav-height:      calc(52px + var(--safe-bottom));
 }
 
 /* Reset */
