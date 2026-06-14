@@ -226,13 +226,122 @@ async function updateStravaDescriptionWithRetry(
   return false
 }
 
+// PUSH-ONLY: Setzt Titel + Beschreibung einer BEREITS verbuchten Aktivitaet neu,
+// OHNE Gipfel/Punkte neu zu verarbeiten. Fuer Strava-'update'-Events — typisch:
+// Garmin ueberschreibt nach dem Upload Titel/Beschreibung wieder, unser Erst-Push
+// geht verloren. Hier KEINE Punkte-/Krone-/Notification-Logik → bei Mehrfach-
+// ausfuehrung voellig gefahrlos (kein Doppel-Zaehlen).
+async function rePushStravaDescription(
+  supabase: any,
+  user_id: string,
+  activity_id: string | number,
+  strava_token: string
+): Promise<Response> {
+  const ok = (m: string, extra: any = {}) =>
+    new Response(JSON.stringify({ message: m, ...extra }), { headers: { 'Content-Type': 'application/json' } })
+
+  // Bereits verbuchte (sichere) Gipfel dieser Aktivitaet laden — Hoechstpunkte zuerst
+  const { data: rows } = await supabase
+    .from('summits')
+    .select('peak_id, points, season, peaks(name, elevation, lat, lng)')
+    .eq('user_id', user_id)
+    .eq('strava_activity_id', activity_id.toString())
+    .eq('safety_ok', true)
+    .order('points', { ascending: false })
+
+  if (!rows || rows.length === 0) return ok('repush: keine Summits')
+
+  // Push-Einstellungen
+  const { data: us } = await supabase.from('user_profiles')
+    .select('strava_post_summits, strava_post_title').eq('id', user_id).single()
+  const descEnabled = us?.strava_post_summits !== false
+  const titleEnabled = us?.strava_post_title !== false
+  if (!descEnabled && !titleEnabled) return ok('repush: deaktiviert')
+
+  // Aktuelle Strava-Aktivitaet holen
+  const actRes = await fetch(`https://www.strava.com/api/v3/activities/${activity_id}`, {
+    headers: { 'Authorization': `Bearer ${strava_token}` }
+  })
+  if (!actRes.ok) return ok('repush: Strava-GET ' + actRes.status)
+  const actData = await actRes.json()
+  const existingDesc = actData.description || ''
+
+  // Marker noch da → Garmin hat NICHT ueberschrieben, nichts zu tun (verhindert Loop)
+  if (existingDesc.includes('bergkoenig.app')) return ok('repush: Marker vorhanden, ok')
+
+  const totalPoints = rows.reduce((s: number, r: any) => s + (r.points || 0), 0)
+  const peaks = rows.filter((r: any) => r.peak_id && r.peaks).map((r: any) => ({
+    name: r.peaks.name, elevation: r.peaks.elevation, lat: r.peaks.lat, lng: r.peaks.lng
+  }))
+  const season = rows[0].season
+
+  // Koenig-Status (aktueller Saison-Eigentuemer der Gipfel)
+  let kingCount = 0
+  for (const r of rows) {
+    if (!r.peak_id) continue
+    const { data: own } = await supabase.from('ownership')
+      .select('user_id').eq('peak_id', r.peak_id).eq('season', season).maybeSingle()
+    if (own?.user_id === user_id) kingCount++
+  }
+
+  // Beschreibung bauen — identisches Format wie der Erst-Push
+  let txt = ''
+  if (peaks.length === 0) {
+    txt = `🏃 +${totalPoints} Pkt`
+  } else if (kingCount >= 1 && peaks.length === 1) {
+    txt = `👑 Bergkönig ${peaks[0].name} (${peaks[0].elevation}m) · +${totalPoints} Pkt`
+  } else if (kingCount >= 1 && peaks.length >= 2) {
+    txt = `👑 Bergkönig ${peaks[0].name} + ${peaks.length - 1} weitere · +${totalPoints} Pkt`
+  } else if (peaks.length === 1) {
+    txt = `⛰️ ${peaks[0].name} (${peaks[0].elevation}m) · +${totalPoints} Pkt`
+  } else if (peaks.length === 2) {
+    txt = `⛰️ ${peaks[0].name} + ${peaks[1].name} · +${totalPoints} Pkt`
+  } else {
+    txt = `⛰️ ${peaks.length} Gipfel · +${totalPoints} Pkt`
+  }
+  txt += '\n' + getStravaCTA(activity_id)
+  if (peaks.length >= 3) {
+    txt += '\n' + peaks.map((p: any) => `${p.name} (${p.elevation}m)`).join(', ')
+  }
+
+  const newDesc = descEnabled ? (txt + (existingDesc ? '\n\n' + existingDesc : '')) : undefined
+
+  // Titel (deterministisch aus activity_id → identisch zum Erst-Push)
+  let newTitle: string | undefined = undefined
+  if (titleEnabled) {
+    try {
+      const start = new Date(actData.start_date)
+      const hour = start.getUTCHours()
+      const elevGain = actData.total_elevation_gain ? Math.round(actData.total_elevation_gain) : 0
+      const dateStr = start.toISOString().split('T')[0]
+      let weather: any = null
+      if (peaks[0]?.lat && peaks[0]?.lng) weather = await fetchWeather(peaks[0].lat, peaks[0].lng, dateStr, hour)
+      newTitle = generateActivityTitle(String(activity_id), weather, hour, elevGain)
+    } catch (e) { console.warn('repush Titel-Fehler:', e) }
+  }
+
+  if (newDesc !== undefined) {
+    await updateStravaDescriptionWithRetry(activity_id, strava_token, newDesc, 'bergkoenig.app', 5, newTitle)
+  } else if (newTitle) {
+    try {
+      await fetch(`https://www.strava.com/api/v3/activities/${activity_id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${strava_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTitle })
+      })
+    } catch (e) { console.warn('repush Titel-PUT:', e) }
+  }
+
+  return ok('repush ausgefuehrt', { peaks: peaks.length, totalPoints })
+}
+
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }
 
   try {
-    const { user_id, activity_id, strava_token } = await req.json()
+    const { user_id, activity_id, strava_token, mode } = await req.json()
 
     if (!user_id || !activity_id || !strava_token) {
       return new Response('Fehlende Parameter', { status: 400 })
@@ -242,6 +351,13 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
+
+    // PUSH-ONLY (Strava-'update'-Event): nur Titel/Beschreibung neu setzen,
+    // KEINE Neuverarbeitung von Gipfeln/Punkten. Faengt den Fall ab, dass Garmin
+    // nach dem Upload Titel/Beschreibung ueberschreibt.
+    if (mode === 'repush') {
+      return await rePushStravaDescription(supabase, user_id, activity_id, strava_token)
+    }
 
     // 1. GPS-Track von Strava holen (Streams: latlng, altitude, time)
     const streamsUrl = `https://www.strava.com/api/v3/activities/${activity_id}/streams?keys=latlng,altitude,time&key_type=stream`
@@ -444,6 +560,23 @@ serve(async (req) => {
         .single()
 
       if (!peak) continue
+
+      // IDEMPOTENZ: Wurde dieser Gipfel fuer DIESE Aktivitaet schon verbucht?
+      // Strava kann das 'create'-Event mehrfach zustellen (at-least-once) → ohne
+      // diesen Check entstuenden doppelte Summits + doppelte Punkte (passiert bereits
+      // am 3.5.2026). Bei Doppel-Zustellung hat der erste Lauf Punkte & Strava-Push
+      // schon erledigt → zweiten Lauf hier einfach ueberspringen.
+      const { data: dupSummit } = await supabase
+        .from('summits')
+        .select('id')
+        .eq('user_id', user_id)
+        .eq('strava_activity_id', activity_id.toString())
+        .eq('peak_id', peakId)
+        .maybeSingle()
+      if (dupSummit) {
+        console.log(`Gipfel ${peak.name} fuer Aktivitaet ${activity_id} bereits verbucht — uebersprungen`)
+        continue
+      }
 
       // Gipfel-Zeitpunkt berechnen
       const summitTime = new Date(activityStart.getTime() + (gpsData.timeOffset * 1000))

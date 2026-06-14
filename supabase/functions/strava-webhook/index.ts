@@ -10,9 +10,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Verarbeitet ein einzelnes Activity-Create-Event vollstaendig im Hintergrund.
+// Verarbeitet ein Activity-Event vollstaendig im Hintergrund.
+// mode 'create' = volle Verarbeitung (Gipfel/Punkte). mode 'repush' = nur
+// Titel/Beschreibung neu setzen (Strava-'update'-Event, z.B. Garmin ueberschreibt).
 // Wirft NIE — alle Fehler werden geloggt, damit Strava trotzdem 200 sieht.
-async function handleActivityCreate(body: any): Promise<void> {
+async function handleActivity(body: any, mode: 'create' | 'repush' = 'create'): Promise<void> {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -76,18 +78,19 @@ async function handleActivityCreate(body: any): Promise<void> {
       body: JSON.stringify({
         user_id: user.id,
         activity_id: body.object_id,
-        strava_token: accessToken
+        strava_token: accessToken,
+        mode
       })
     })
 
     if (!res.ok) {
       const txt = await res.text().catch(() => '')
-      console.error(`process-activity HTTP ${res.status}: ${txt}`)
+      console.error(`process-activity (${mode}) HTTP ${res.status}: ${txt}`)
     } else {
-      console.log(`process-activity OK fuer ${body.object_id}`)
+      console.log(`process-activity (${mode}) OK fuer ${body.object_id}`)
     }
   } catch (e) {
-    console.error('handleActivityCreate Fehler:', e)
+    console.error(`handleActivity (${mode}) Fehler:`, e)
   }
 }
 
@@ -120,9 +123,18 @@ serve(async (req) => {
       return new Response('OK', { status: 200 })
     }
 
-    // Nur neue Aktivitäten verarbeiten — alles andere still ignorieren (200)
-    if (body && body.object_type === 'activity' && body.aspect_type === 'create') {
-      const work = handleActivityCreate(body)
+    // 'create' = neue Aktivitaet voll verarbeiten.
+    // 'update' = Titel/Beschreibung nur neu pushen (faengt Garmin-Ueberschreiben ab).
+    // Alles andere still ignorieren (200).
+    let work: Promise<void> | null = null
+    if (body && body.object_type === 'activity') {
+      if (body.aspect_type === 'create') {
+        work = handleActivity(body, 'create')
+      } else if (body.aspect_type === 'update') {
+        work = handleActivity(body, 'repush')
+      }
+    }
+    if (work) {
       // EdgeRuntime.waitUntil haelt den Worker am Leben bis die Arbeit fertig ist,
       // OHNE die 200-Antwort zu verzoegern.
       // @ts-ignore — EdgeRuntime ist Supabase-spezifisch
