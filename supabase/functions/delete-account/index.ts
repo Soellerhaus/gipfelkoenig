@@ -28,7 +28,7 @@ serve(async (req) => {
     // Admin-Client (Service Role — kann alles)
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      (Deno.env.get('DATA_SECRET') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!
     )
 
     // User aus dem JWT Token identifizieren

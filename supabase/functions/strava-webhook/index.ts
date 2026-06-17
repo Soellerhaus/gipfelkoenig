@@ -18,7 +18,7 @@ async function handleActivity(body: any, mode: 'create' | 'repush' = 'create'): 
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      (Deno.env.get('DATA_SECRET') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!
     )
 
     // Finde User anhand Strava Athlete ID
@@ -67,7 +67,7 @@ async function handleActivity(body: any, mode: 'create' | 'repush' = 'create'): 
     // process-activity Edge Function aufrufen — direkter fetch mit Service-Role-Key
     // (supabase.functions.invoke() reicht den Auth-Header nicht durch → 401)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const serviceRoleKey = (Deno.env.get('DATA_SECRET') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!
     const res = await fetch(`${supabaseUrl}/functions/v1/process-activity`, {
       method: 'POST',
       headers: {

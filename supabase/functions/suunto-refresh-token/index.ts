@@ -18,7 +18,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      (Deno.env.get('DATA_SECRET') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!
     )
 
     // Alle User finden deren Token abgelaufen ist (oder in 5 Minuten abläuft)

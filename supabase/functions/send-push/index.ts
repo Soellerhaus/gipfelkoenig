@@ -28,7 +28,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      (Deno.env.get("DATA_SECRET") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))!
     )
 
     const payload = await req.json()
