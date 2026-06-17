@@ -18,7 +18,7 @@ CLAUDE_API_KEY = os.environ.get('CLAUDE_API_KEY', '')
 CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
 SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
 SUPABASE_URL = 'https://wbrvkweezbeakfphssxp.supabase.co'
-SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndicnZrd2VlemJlYWtmcGhzc3hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwODk4NjEsImV4cCI6MjA4OTY2NTg2MX0.WDzw0d4NewgPhFopQyaQ6f3E0K-yFhOSIeDGXdVa7xE'
+SUPABASE_ANON_KEY = 'sb_publishable_1YVJvAEwUKjLkjX59yGtdA_q5orSyDI'
 
 # Regionen (lat/lng Grenzen)
 REGIONS = {

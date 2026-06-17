@@ -11,7 +11,7 @@ window.GK = window.GK || {};
 // URL und Anon-Key werden später aus Umgebungsvariablen geladen.
 // ---------------------------------------------------------------------------
 const SUPABASE_URL = 'https://wbrvkweezbeakfphssxp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndicnZrd2VlemJlYWtmcGhzc3hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwODk4NjEsImV4cCI6MjA4OTY2NTg2MX0.WDzw0d4NewgPhFopQyaQ6f3E0K-yFhOSIeDGXdVa7xE';
+const SUPABASE_ANON_KEY = 'sb_publishable_1YVJvAEwUKjLkjX59yGtdA_q5orSyDI';
 
 const { createClient } = window.supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

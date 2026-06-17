@@ -20,7 +20,7 @@ import re
 # === KONFIGURATION ===
 SUPABASE_URL = 'https://wbrvkweezbeakfphssxp.supabase.co'
 SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndicnZrd2VlemJlYWtmcGhzc3hwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDA4OTg2MSwiZXhwIjoyMDg5NjY1ODYxfQ.rIP9qn1gsgAYg9BJE7VJFBbYm0-YBXABiHhUkOChSDc'
-SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndicnZrd2VlemJlYWtmcGhzc3hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwODk4NjEsImV4cCI6MjA4OTY2NTg2MX0.WDzw0d4NewgPhFopQyaQ6f3E0K-yFhOSIeDGXdVa7xE'
+SUPABASE_ANON_KEY = 'sb_publishable_1YVJvAEwUKjLkjX59yGtdA_q5orSyDI'
 OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
 
 REGIONS = {
@@ -41,21 +41,36 @@ REGION_NAMES = {
 
 
 def get_peaks_without_description(region_key, limit):
-    """Gipfel ohne Beschreibung aus Supabase laden"""
+    """Gipfel ohne Beschreibung aus Supabase laden (paginiert, max 1000 pro Request)"""
     r = REGIONS[region_key]
-    url = (SUPABASE_URL + '/rest/v1/peaks'
-           '?description=is.null'
-           '&lat=gte.' + str(r['lat_min']) + '&lat=lte.' + str(r['lat_max']) +
-           '&lng=gte.' + str(r['lng_min']) + '&lng=lte.' + str(r['lng_max']) +
-           '&select=id,name,name_de,elevation,lat,lng,osm_region'
-           '&order=elevation.desc.nullslast'
-           '&limit=' + str(limit))
-    req = urllib.request.Request(url, headers={
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
-    })
-    resp = urllib.request.urlopen(req)
-    return json.loads(resp.read().decode('utf-8'))
+    all_peaks = []
+    page_size = 1000
+    offset = 0
+
+    while len(all_peaks) < limit:
+        batch_limit = min(page_size, limit - len(all_peaks))
+        url = (SUPABASE_URL + '/rest/v1/peaks'
+               '?description=is.null'
+               '&lat=gte.' + str(r['lat_min']) + '&lat=lte.' + str(r['lat_max']) +
+               '&lng=gte.' + str(r['lng_min']) + '&lng=lte.' + str(r['lng_max']) +
+               '&select=id,name,name_de,elevation,lat,lng,osm_region'
+               '&order=elevation.desc.nullslast'
+               '&limit=' + str(batch_limit) +
+               '&offset=' + str(offset))
+        req = urllib.request.Request(url, headers={
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+        })
+        resp = urllib.request.urlopen(req)
+        batch = json.loads(resp.read().decode('utf-8'))
+        if not batch:
+            break
+        all_peaks.extend(batch)
+        offset += len(batch)
+        if len(batch) < batch_limit:
+            break
+
+    return all_peaks
 
 
 def fetch_wikidata_ids(osm_ids):
@@ -332,10 +347,16 @@ def main():
                     save_description(peak['id'], description)
                 stats[source if source != 'wikidata' else 'wikipedia'] += 1
                 tag = '[WIKI]' if source in ('wikipedia', 'wikidata') else '[TMPL]'
-                print(prefix + ' ' + tag + ' ' + name + ' (' + str(elev) + 'm): ' + description[:80] + '...')
+                try:
+                    print(prefix + ' ' + tag + ' ' + name + ' (' + str(elev) + 'm): ' + description[:80] + '...')
+                except UnicodeEncodeError:
+                    print(prefix + ' ' + tag + ' ' + name.encode('ascii', 'replace').decode() + ' (' + str(elev) + 'm): OK')
             else:
                 stats['skipped'] += 1
-                print(prefix + ' [SKIP] ' + name + ' (' + str(elev) + 'm): keine Daten')
+                try:
+                    print(prefix + ' [SKIP] ' + name + ' (' + str(elev) + 'm): keine Daten')
+                except UnicodeEncodeError:
+                    print(prefix + ' [SKIP] (unicode name) (' + str(elev) + 'm): keine Daten')
 
             sys.stdout.flush()
 
@@ -350,25 +371,32 @@ def main():
                     if description:
                         save_description(peak['id'], description)
                         stats['wikipedia'] += 1
-                        print(prefix + ' [WIKI] (retry) ' + name)
+                        try: print(prefix + ' [WIKI] (retry) ' + name)
+                        except UnicodeEncodeError: print(prefix + ' [WIKI] (retry) OK')
                     else:
                         description = generate_fallback(peak)
                         if description:
                             save_description(peak['id'], description)
                             stats['fallback'] += 1
-                            print(prefix + ' [TMPL] (retry) ' + name)
+                            try: print(prefix + ' [TMPL] (retry) ' + name)
+                            except UnicodeEncodeError: print(prefix + ' [TMPL] (retry) OK')
                     sys.stdout.flush()
                 except Exception:
                     stats['errors'] += 1
-                    print(prefix + ' [ERR] retry failed: ' + name)
+                    try: print(prefix + ' [ERR] retry failed: ' + name)
+                    except UnicodeEncodeError: print(prefix + ' [ERR] retry failed (unicode)')
                     sys.stdout.flush()
             else:
                 stats['errors'] += 1
-                print(prefix + ' [ERR] ' + name + ': HTTP ' + str(e.code))
+                try: print(prefix + ' [ERR] ' + name + ': HTTP ' + str(e.code))
+                except UnicodeEncodeError: print(prefix + ' [ERR] HTTP ' + str(e.code))
                 sys.stdout.flush()
         except Exception as e:
             stats['errors'] += 1
-            print(prefix + ' [ERR] ' + name + ': ' + str(e))
+            try:
+                print(prefix + ' [ERR] ' + name + ': ' + str(e))
+            except UnicodeEncodeError:
+                print(prefix + ' [ERR] (unicode): ' + repr(e))
             sys.stdout.flush()
 
         # Pause zwischen Requests (Wikipedia Rate Limit)
