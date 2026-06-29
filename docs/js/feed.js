@@ -14,6 +14,10 @@ async function loadFeed() {
   container.innerHTML = '<p style="color:#888;">Lade Feed...</p>';
 
   try {
+    // RIVALEN-ALERTS: eigene Kronen-Ereignisse (verloren/angegriffen) ganz oben.
+    // Verlustangst = staerkster Rueckhol-Effekt. Stammt aus der notifications-Tabelle.
+    const alertsHtml = await buildRivalAlerts();
+
     const { data: summits, error } = await GK.supabase
       .from('summits')
       .select('user_id, peak_id, summited_at, points, season, is_season_first, is_personal_first, elevation_gain, distance')
@@ -21,8 +25,8 @@ async function loadFeed() {
       .order('summited_at', { ascending: false })
       .limit(30);
 
-    if (error) { console.error('Feed error:', error); container.innerHTML = '<p style="color:#888;">Feed konnte nicht geladen werden.</p>'; return; }
-    if (!summits || summits.length === 0) { container.innerHTML = '<p style="color:#888;">Noch keine Aktivitäten.</p>'; return; }
+    if (error) { console.error('Feed error:', error); container.innerHTML = alertsHtml + '<p style="color:#888;">Feed konnte nicht geladen werden.</p>'; return; }
+    if (!summits || summits.length === 0) { container.innerHTML = alertsHtml + '<p style="color:#888;">Noch keine Aktivitäten.</p>'; return; }
 
     // Batch: User-Profile laden
     const userIds = [...new Set(summits.map(s => s.user_id))];
@@ -96,10 +100,49 @@ async function loadFeed() {
       html += '</div></div>';
     }
 
-    container.innerHTML = html;
+    container.innerHTML = alertsHtml + html;
   } catch (err) {
     console.error('Feed Fehler:', err);
     container.innerHTML = '<p style="color:#888;">Feed-Fehler: ' + err.message + '</p>';
+  }
+}
+
+/**
+ * Rivalen-Alerts bauen: die letzten Kronen-Ereignisse des eingeloggten Users
+ * (Krone verloren / Krone wird angegriffen). Gibt HTML zurueck ('' wenn nichts).
+ */
+async function buildRivalAlerts() {
+  try {
+    const { data: { user } } = await GK.supabase.auth.getUser();
+    if (!user) return '';
+
+    const { data: alerts } = await GK.supabase
+      .from('notifications')
+      .select('type, title, body, created_at')
+      .eq('user_id', user.id)
+      .in('type', ['crown_lost', 'crown_attack'])
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (!alerts || alerts.length === 0) return '';
+
+    let html = '<div style="margin-bottom:14px;">';
+    html += '<div style="font-size:0.75rem;color:#ff7a7a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:monospace;">⚔️ Deine Kronen</div>';
+    for (const a of alerts) {
+      const lost = a.type === 'crown_lost';
+      const bg = lost ? 'rgba(220,60,60,0.12)' : 'rgba(255,165,0,0.12)';
+      const border = lost ? '#dc3c3c' : 'orange';
+      const icon = lost ? '👑💔' : '⚔️';
+      html += '<div style="display:flex;gap:8px;align-items:flex-start;background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;padding:8px 10px;margin-bottom:6px;">';
+      html += '<span style="font-size:1.1rem;">' + icon + '</span>';
+      html += '<div style="font-size:0.78rem;color:#fff;">' + (a.body || a.title || '') + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  } catch (e) {
+    console.warn('Rivalen-Alerts Fehler:', e);
+    return '';
   }
 }
 
