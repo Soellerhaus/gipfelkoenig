@@ -3,7 +3,9 @@
   "appName": "Bergkönig",
   "webDir": "frontend",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "url": "https://bergkoenig.app",
+    "allowNavigation": ["bergkoenig.app", "www.bergkoenig.app"]
   },
   "plugins": {
     "SplashScreen": {
