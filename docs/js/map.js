@@ -876,72 +876,46 @@ async function loadTerritories() {
     const lngMin = bounds.getWest() - pad;
     const lngMax = bounds.getEast() + pad;
 
-    // Alle Gipfel im sichtbaren Bereich laden
-    const { data: peaks } = await GK.supabase
-      .from('peaks')
-      .select('id, lat, lng')
-      .gte('lat', latMin)
-      .lte('lat', latMax)
-      .gte('lng', lngMin)
-      .lte('lng', lngMax);
+    // NUR bestiegene Gipfel laden — Summits inklusive Peak-Koordinaten (embedded).
+    // WICHTIG (Bugfix 22.06.2026): Frueher wurden ZUERST alle Peaks im Sichtbereich
+    // geladen. Bei weiter Karte sind das >1000 (z.B. 2325 im Allgaeu) → das
+    // PostgREST-Default-Limit von 1000 schnitt genau die bestiegenen Gipfel weg
+    // → es erschienen KEINE Hexagone. Jetzt holen wir direkt die (wenigen)
+    // Besteigungen mit Koordinaten in EINEM Query = schnell + immer vollstaendig.
+    const { data: summits, error: summitErr } = await GK.supabase
+      .from('summits')
+      .select('peak_id, user_id, season, peaks!inner(lat, lng)')
+      .in('season', [season, lastSeason])
+      .gte('peaks.lat', latMin).lte('peaks.lat', latMax)
+      .gte('peaks.lng', lngMin).lte('peaks.lng', lngMax)
+      .limit(5000);
 
-    if (!peaks || peaks.length === 0) return;
+    if (summitErr) { console.warn('Hex-Territorien Query-Fehler:', summitErr); return; }
+    if (!summits || summits.length === 0) { _lastHexBounds = bounds.pad(0.1); return; }
 
-    const peakIds = peaks.map(p => p.id);
-
-    // Gipfel → Hex-Zelle zuordnen
-    const peakHexMap = {}; // peakId → hexKey
-    const hexCenters = {}; // hexKey → { centerLat, centerLng, col, row }
-    for (const p of peaks) {
-      const hex = getHexCell(p.lat, p.lng);
+    // Summits → Hex-Zellen. Aktuelle Saison zaehlt; letzte Saison nur als
+    // Fallback fuer Zellen ohne aktuelle Besteigung.
+    const hexCenters = {};   // hexKey → { centerLat, centerLng }
+    const hexUserPeaks = {}; // hexKey → { userId → Set(peakId) }
+    const currentRows = [], lastRows = [];
+    for (const s of summits) {
+      if (!s.peaks) continue;
+      const hex = getHexCell(s.peaks.lat, s.peaks.lng);
       const key = getHexKey(hex.col, hex.row);
-      peakHexMap[p.id] = key;
-      if (!hexCenters[key]) {
-        hexCenters[key] = { centerLat: hex.centerLat, centerLng: hex.centerLng, col: hex.col, row: hex.row };
-      }
+      if (!hexCenters[key]) hexCenters[key] = { centerLat: hex.centerLat, centerLng: hex.centerLng };
+      (s.season === season ? currentRows : lastRows).push({ key: key, uid: s.user_id, pid: s.peak_id });
     }
-
-    // Alle Besteigungen dieser Gipfel in aktueller + letzter Saison laden
-    // Supabase .in() hat ein Limit, daher in Batches aufteilen
-    let allSummits = [];
-    const batchSize = 200;
-    for (let i = 0; i < peakIds.length; i += batchSize) {
-      const batch = peakIds.slice(i, i + batchSize);
-      const { data: summits } = await GK.supabase
-        .from('summits')
-        .select('peak_id, user_id, season')
-        .in('peak_id', batch)
-        .in('season', [season, lastSeason]);
-      if (summits) allSummits = allSummits.concat(summits);
+    for (const r of currentRows) {
+      if (!hexUserPeaks[r.key]) hexUserPeaks[r.key] = {};
+      if (!hexUserPeaks[r.key][r.uid]) hexUserPeaks[r.key][r.uid] = new Set();
+      hexUserPeaks[r.key][r.uid].add(r.pid);
     }
-
-    if (allSummits.length === 0) return;
-
-    // Pro Hex-Zelle: einzigartige Gipfel pro User zählen (aktuelle Saison bevorzugt)
-    // hexKey → { userId → Set(peakId) }
-    const hexUserPeaks = {};
-    // Erst aktuelle Saison, dann letzte Saison als Fallback
-    const currentSeasonSummits = allSummits.filter(s => s.season === season);
-    const lastSeasonSummits = allSummits.filter(s => s.season === lastSeason);
-
-    // Aktuelle Saison eintragen
-    for (const s of currentSeasonSummits) {
-      const hexKey = peakHexMap[s.peak_id];
-      if (!hexKey) continue;
-      if (!hexUserPeaks[hexKey]) hexUserPeaks[hexKey] = {};
-      if (!hexUserPeaks[hexKey][s.user_id]) hexUserPeaks[hexKey][s.user_id] = new Set();
-      hexUserPeaks[hexKey][s.user_id].add(s.peak_id);
-    }
-
-    // Letzte Saison nur für Hex-Zellen ohne aktuelle Daten (Fallback)
-    for (const s of lastSeasonSummits) {
-      const hexKey = peakHexMap[s.peak_id];
-      if (!hexKey) continue;
-      // Nur eintragen wenn diese Hex-Zelle noch keine Daten hat
-      if (hexUserPeaks[hexKey] && Object.keys(hexUserPeaks[hexKey]).length > 0) continue;
-      if (!hexUserPeaks[hexKey]) hexUserPeaks[hexKey] = {};
-      if (!hexUserPeaks[hexKey][s.user_id]) hexUserPeaks[hexKey][s.user_id] = new Set();
-      hexUserPeaks[hexKey][s.user_id].add(s.peak_id);
+    for (const r of lastRows) {
+      // Letzte Saison nur fuer Zellen ohne aktuelle Daten
+      if (hexUserPeaks[r.key] && Object.keys(hexUserPeaks[r.key]).length > 0) continue;
+      if (!hexUserPeaks[r.key]) hexUserPeaks[r.key] = {};
+      if (!hexUserPeaks[r.key][r.uid]) hexUserPeaks[r.key][r.uid] = new Set();
+      hexUserPeaks[r.key][r.uid].add(r.pid);
     }
 
     // Für jede Hex-Zelle den König ermitteln und User-IDs sammeln
