@@ -10,7 +10,7 @@ android {
         // versionCode kommt aus der GitHub-Run-Nummer (immer steigend) →
         // nie wieder "versionCode bereits verwendet" beim Play-Upload.
         // Lokal ohne VERSION_CODE faellt es auf 1 zurueck.
-        versionCode (System.getenv("VERSION_CODE") ?: "1").toInteger()
+        versionCode System.getenv("VERSION_CODE") ? System.getenv("VERSION_CODE").toInteger() : 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
