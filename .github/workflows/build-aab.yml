@@ -43,9 +43,12 @@ jobs:
 
       - name: Build AAB
         working-directory: android
-        env:
-          VERSION_CODE: ${{ github.run_number }}
         run: |
+          # versionCode = Unix-Zeitstempel (Sekunden) → immer steigend, eindeutig,
+          # weit ueber jedem manuell vergebenen Code. Bleibt unter Androids Limit
+          # von 2.100.000.000 (bis ~2036).
+          export VERSION_CODE=$(date +%s)
+          echo "Verwende versionCode=$VERSION_CODE"
           chmod +x gradlew
           ./gradlew bundleRelease \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/app/signing.keystore \
